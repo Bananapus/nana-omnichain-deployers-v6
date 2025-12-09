@@ -254,9 +254,7 @@ contract JBOmnichainDeployer5_1 is
     {
         // Enforce permissions.
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId),
-            projectId: projectId,
-            permissionId: JBPermissionIds.DEPLOY_SUCKERS
+            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.DEPLOY_SUCKERS
         });
 
         // Deploy the suckers.
@@ -363,8 +361,7 @@ contract JBOmnichainDeployer5_1 is
         // Convert the 721 ruleset configurations to regular ruleset configurations.
         // Then modify the ruleset configurations to use this deployer as a wrapper for the datasouce.
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
-            projectId: projectId,
-            rulesetConfigurations: _from721Config(launchProjectConfig.rulesetConfigurations, hook)
+            projectId: projectId, rulesetConfigurations: _from721Config(launchProjectConfig.rulesetConfigurations, hook)
         });
 
         // Launch the project, and sanity check the project ID.
@@ -417,15 +414,11 @@ contract JBOmnichainDeployer5_1 is
     {
         // Enforce permissions.
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId),
-            projectId: projectId,
-            permissionId: JBPermissionIds.QUEUE_RULESETS
+            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.QUEUE_RULESETS
         });
 
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId),
-            projectId: projectId,
-            permissionId: JBPermissionIds.SET_TERMINALS
+            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.SET_TERMINALS
         });
 
         return controller.launchRulesetsFor({
@@ -458,15 +451,11 @@ contract JBOmnichainDeployer5_1 is
     {
         // Enforce permissions.
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId),
-            projectId: projectId,
-            permissionId: JBPermissionIds.QUEUE_RULESETS
+            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.QUEUE_RULESETS
         });
 
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId),
-            projectId: projectId,
-            permissionId: JBPermissionIds.SET_TERMINALS
+            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.SET_TERMINALS
         });
 
         // Deploy the hook.
@@ -513,9 +502,7 @@ contract JBOmnichainDeployer5_1 is
     {
         // Enforce permissions.
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId),
-            projectId: projectId,
-            permissionId: JBPermissionIds.QUEUE_RULESETS
+            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.QUEUE_RULESETS
         });
 
         return controller.queueRulesetsOf({
@@ -546,9 +533,7 @@ contract JBOmnichainDeployer5_1 is
     {
         // Enforce permissions.
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId),
-            projectId: projectId,
-            permissionId: JBPermissionIds.QUEUE_RULESETS
+            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.QUEUE_RULESETS
         });
 
         // Deploy the hook.
@@ -561,15 +546,12 @@ contract JBOmnichainDeployer5_1 is
         // Convert the 721 ruleset configurations to regular ruleset configurations.
         // Then modify the ruleset configurations to use this deployer as a wrapper for the datasouce.
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
-            projectId: projectId,
-            rulesetConfigurations: _from721Config(queueRulesetsConfig.rulesetConfigurations, hook)
+            projectId: projectId, rulesetConfigurations: _from721Config(queueRulesetsConfig.rulesetConfigurations, hook)
         });
 
         // Configure the rulesets.
         rulesetId = controller.queueRulesetsOf({
-            projectId: projectId,
-            rulesetConfigurations: rulesetConfigurations,
-            memo: queueRulesetsConfig.memo
+            projectId: projectId, rulesetConfigurations: rulesetConfigurations, memo: queueRulesetsConfig.memo
         });
     }
 
