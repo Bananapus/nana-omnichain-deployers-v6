@@ -260,6 +260,8 @@ contract JBOmnichainDeployer is
         });
 
         // Deploy the suckers.
+        // Note: the salt includes `_msgSender()` for replay protection. Cross-chain deterministic
+        // address matching requires using the same sender address on each chain.
         // slither-disable-next-line unused-return
         suckers = SUCKER_REGISTRY.deploySuckersFor({
             projectId: projectId,
@@ -315,6 +317,7 @@ contract JBOmnichainDeployer is
         // Deploy the suckers (if applicable).
         if (suckerDeploymentConfiguration.salt != bytes32(0)) {
             // Deploy the suckers.
+            // Note: the salt includes `_msgSender()` for replay protection (see above).
             // slither-disable-next-line unused-return
             suckers = SUCKER_REGISTRY.deploySuckersFor({
                 projectId: projectId,
@@ -333,7 +336,8 @@ contract JBOmnichainDeployer is
     /// @param deployTiersHookConfig Configuration which dictates the behavior of the 721 tiers hook which is being
     /// deployed.
     /// @param launchProjectConfig Configuration which dictates the behavior of the project which is being launched.
-    /// @param salt A salt to use for the deterministic deployment.
+    /// @param salt A salt to use for the deterministic deployment. Combined with `_msgSender()` internally, so
+    /// cross-chain deterministic addresses require the same sender on each chain.
     /// @param suckerDeploymentConfiguration The suckers to set up for the project. Suckers facilitate cross-chain
     /// @param controller The controller to use for launching the project.
     /// @return projectId The ID of the newly launched project.
@@ -354,6 +358,8 @@ contract JBOmnichainDeployer is
         projectId = PROJECTS.count() + 1;
 
         // Deploy the hook.
+        // Note: the salt includes `_msgSender()` for replay protection. Cross-chain deterministic
+        // address matching requires using the same sender address on each chain.
         hook = HOOK_DEPLOYER.deployHookFor({
             projectId: projectId,
             deployTiersHookConfig: deployTiersHookConfig,
@@ -442,7 +448,8 @@ contract JBOmnichainDeployer is
     /// @param deployTiersHookConfig Configuration which dictates the behavior of the 721 tiers hook which is being
     /// deployed.
     /// @param launchRulesetsConfig Configuration which dictates the behavior of the rulesets which are being launched.
-    /// @param salt A salt to use for the deterministic deployment.
+    /// @param salt A salt to use for the deterministic deployment. Combined with `_msgSender()` internally, so
+    /// cross-chain deterministic addresses require the same sender on each chain.
     /// @return rulesetId The ID of the newly launched rulesets.
     /// @return hook The 721 tiers hook that was deployed for the project.
     function launch721RulesetsFor(
@@ -470,6 +477,8 @@ contract JBOmnichainDeployer is
         });
 
         // Deploy the hook.
+        // Note: the salt includes `_msgSender()` for replay protection. Cross-chain deterministic
+        // address matching requires using the same sender address on each chain.
         hook = HOOK_DEPLOYER.deployHookFor({
             projectId: projectId,
             deployTiersHookConfig: deployTiersHookConfig,
@@ -530,7 +539,8 @@ contract JBOmnichainDeployer is
     /// @param deployTiersHookConfig Configuration which dictates the behavior of the 721 tiers hook which is being
     /// deployed.
     /// @param queueRulesetsConfig Configuration which dictates the behavior of the rulesets which are being queued.
-    /// @param salt A salt to use for the deterministic deployment.
+    /// @param salt A salt to use for the deterministic deployment. Combined with `_msgSender()` internally, so
+    /// cross-chain deterministic addresses require the same sender on each chain.
     /// @return rulesetId The ID of the newly queued rulesets.
     /// @return hook The 721 tiers hook that was deployed for the project.
     function queue721RulesetsOf(
@@ -552,6 +562,8 @@ contract JBOmnichainDeployer is
         });
 
         // Deploy the hook.
+        // Note: the salt includes `_msgSender()` for replay protection. Cross-chain deterministic
+        // address matching requires using the same sender address on each chain.
         hook = HOOK_DEPLOYER.deployHookFor({
             projectId: projectId,
             deployTiersHookConfig: deployTiersHookConfig,
