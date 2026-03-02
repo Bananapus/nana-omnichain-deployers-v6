@@ -1,58 +1,40 @@
-# Deployer
+# nana-omnichain-deployers-v5
 
-This repo provides tools for deploying Juicebox projects with suckers.
+Deploy Juicebox projects with cross-chain suckers and optional 721 tiers hooks in a single transaction.
+
+## Architecture
+
+| Contract | Description |
+|---|---|
+| `src/JBOmnichainDeployer.sol` | Deploys projects, rulesets, and suckers. Also acts as a data hook wrapper for tax-free sucker cash outs. |
+| `src/interfaces/IJBOmnichainDeployer.sol` | Interface. |
+| `src/structs/JBDeployerHookConfig.sol` | Per-ruleset data hook configuration stored by the deployer. |
+| `src/structs/JBSuckerDeploymentConfig.sol` | Sucker deployer configs and a salt for deterministic cross-chain addresses. |
+
+### How It Works
+
+`JBOmnichainDeployer` temporarily holds the project NFT during deployment, sets itself as the data hook on all rulesets, then transfers ownership to the specified owner. As data hook, it:
+
+1. Forwards `beforePayRecordedWith` calls to the project's real data hook.
+2. Intercepts `beforeCashOutRecordedWith` -- if the holder is a registered sucker, returns a 0% tax rate. Otherwise, forwards to the real data hook.
+3. Forwards `hasMintPermissionFor` -- returns `true` for registered suckers.
 
 ## Install
 
-For `npm` projects (recommended):
-
 ```bash
-npm install @bananapus/721-hook
+npm install @bananapus/omnichain-deployers
 ```
 
-For `forge` projects (not recommended):
+Or with Forge:
 
 ```bash
-forge install Bananapus/nana-721-hook
+forge install Bananapus/nana-omnichain-deployers
 ```
 
-Add `@bananapus/721-hook/=lib/nana-721-hook/` to `remappings.txt`. You'll also need to install `nana-721-hook`'s dependencies and add similar remappings for them.
-
-```bash
-curl -L https://foundry.paradigm.xyz | sh
-```
-
-You can download and install dependencies with:
+## Develop
 
 ```bash
 npm install && forge install
+forge build
+forge test
 ```
-
-If you run into trouble with `forge install`, try using `git submodule update --init --recursive` to ensure that nested submodules have been properly initialized.
-
-Some useful commands:
-
-| Command               | Description                                         |
-| --------------------- | --------------------------------------------------- |
-| `forge build`         | Compile the contracts and write artifacts to `out`. |
-| `forge fmt`           | Lint.                                               |
-| `forge test`          | Run the tests.                                      |
-| `forge build --sizes` | Get contract sizes.                                 |
-| `forge coverage`      | Generate a test coverage report.                    |
-| `foundryup`           | Update foundry. Run this periodically.              |
-| `forge clean`         | Remove the build artifacts and cache directories.   |
-
-To learn more, visit the [Foundry Book](https://book.getfoundry.sh/) docs.
-
-## Scripts
-
-For convenience, several utility commands are available in `package.json`.
-
-| Command                           | Description                            |
-| --------------------------------- | -------------------------------------- |
-| `npm test`                        | Run local tests.                       |
-| `npm run coverage:lcov`           | Generate an LCOV test coverage report. |
-| `npm run deploy:ethereum-mainnet` | Deploy to Ethereum mainnet             |
-| `npm run deploy:ethereum-sepolia` | Deploy to Ethereum Sepolia testnet     |
-| `npm run deploy:optimism-mainnet` | Deploy to Optimism mainnet             |
-| `npm run deploy:optimism-testnet` | Deploy to Optimism testnet             |
