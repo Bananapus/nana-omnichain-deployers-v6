@@ -9,7 +9,6 @@ import {JBOmnichainDeployer} from "src/JBOmnichainDeployer.sol";
 
 struct DeployersDeployment {
     JBOmnichainDeployer deployer;
-    JBOmnichainDeployer deployer5_1;
 }
 
 library SuckerDeploymentLib {
@@ -46,10 +45,6 @@ library SuckerDeploymentLib {
         // Is deployed on all (supported) chains.
         deployment.deployer = JBOmnichainDeployer(
             _getDeploymentAddress(path, "nana-omnichain-deployers-v5", network_name, "JBOmnichainDeployer")
-        );
-
-        deployment.deployer5_1 = JBOmnichainDeployer(
-            _getDeploymentAddress(path, "nana-omnichain-deployers-v5", network_name, "JBOmnichainDeployer5_1")
         );
     }
 
