@@ -1,40 +1,40 @@
 # nana-omnichain-deployers-v5
 
-Deploy Juicebox projects with cross-chain suckers and optional 721 tiers hooks in a single transaction.
+Deploy Juicebox projects with cross-chain suckers and optional 721 tiers hooks in a single transaction. Acts as a data hook wrapper to allow tax-free cash outs from suckers.
 
 ## Architecture
 
 | Contract | Description |
-|---|---|
-| `src/JBOmnichainDeployer.sol` | Deploys projects, rulesets, and suckers. Also acts as a data hook wrapper for tax-free sucker cash outs. |
-| `src/interfaces/IJBOmnichainDeployer.sol` | Interface. |
-| `src/structs/JBDeployerHookConfig.sol` | Per-ruleset data hook configuration stored by the deployer. |
-| `src/structs/JBSuckerDeploymentConfig.sol` | Sucker deployer configs and a salt for deterministic cross-chain addresses. |
+|----------|-------------|
+| `JBOmnichainDeployer` | Deploys projects, rulesets, and suckers. Wraps the project's real data hook to intercept cash outs from suckers (tax-free) and grant suckers mint permission. |
+
+### Supporting Types
+
+| Type | Description |
+|------|-------------|
+| `JBDeployerHookConfig` | Per-ruleset config storing the real data hook and its pay/cash-out usage flags. |
+| `JBSuckerDeploymentConfig` | Array of `JBSuckerDeployerConfig` plus a `bytes32` salt for deterministic cross-chain addresses. |
+| `IJBOmnichainDeployer` | Interface for all deployer entry points. |
 
 ### How It Works
 
-`JBOmnichainDeployer` temporarily holds the project NFT during deployment, sets itself as the data hook on all rulesets, then transfers ownership to the specified owner. As data hook, it:
+`JBOmnichainDeployer` temporarily holds the project NFT during deployment, inserts itself as the data hook on all rulesets via `_setup()`, stores the real data hook in `_dataHookOf`, then transfers ownership to the specified owner. As the data hook it:
 
-1. Forwards `beforePayRecordedWith` calls to the project's real data hook.
-2. Intercepts `beforeCashOutRecordedWith` -- if the holder is a registered sucker, returns a 0% tax rate. Otherwise, forwards to the real data hook.
-3. Forwards `hasMintPermissionFor` -- returns `true` for registered suckers.
+1. **Pay** -- Forwards `beforePayRecordedWith` to the real data hook (if set).
+2. **Cash out** -- If the holder is a registered sucker (`SUCKER_REGISTRY.isSuckerOf`), returns 0% tax rate. Otherwise forwards to the real data hook.
+3. **Mint permission** -- Returns `true` for registered suckers, otherwise forwards to the real data hook.
 
 ## Install
 
 ```bash
-npm install @bananapus/omnichain-deployers
-```
-
-Or with Forge:
-
-```bash
-forge install Bananapus/nana-omnichain-deployers
+npm install
 ```
 
 ## Develop
 
-```bash
-npm install && forge install
-forge build
-forge test
-```
+| Command | Description |
+|---------|-------------|
+| `forge build` | Compile contracts |
+| `forge test` | Run tests |
+| `npm run deploy:mainnets` | Propose mainnet deployment via Sphinx |
+| `npm run deploy:testnets` | Propose testnet deployment via Sphinx |
