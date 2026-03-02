@@ -29,11 +29,11 @@ Convenience contract for deploying Juicebox projects with cross-chain suckers (a
 
 | Dependency | Import | Used For |
 |------------|--------|----------|
-| `nana-core-v5` | `IJBController`, `JBPermissioned`, `IJBProjects` | Launching projects, permission checks, project NFT transfers |
-| `nana-721-hook-v5` | `IJB721TiersHookDeployer`, `JBDeploy721TiersHookConfig` | Deploying 721 tiers hooks for projects |
-| `nana-suckers-v5` | `IJBSuckerRegistry` | Deploying suckers, checking `isSuckerOf` for tax-free cash outs |
-| `nana-ownable-v5` | `JBOwnable` | Transferring 721 hook ownership to the project |
-| `nana-permission-ids-v5` | `JBPermissionIds` | Permission constants (`DEPLOY_SUCKERS`, `QUEUE_RULESETS`, `SET_TERMINALS`, `MAP_SUCKER_TOKEN`) |
+| `nana-core-v6` | `IJBController`, `JBPermissioned`, `IJBProjects` | Launching projects, permission checks, project NFT transfers |
+| `nana-721-hook-v6` | `IJB721TiersHookDeployer`, `JBDeploy721TiersHookConfig` | Deploying 721 tiers hooks for projects |
+| `nana-suckers-v6` | `IJBSuckerRegistry` | Deploying suckers, checking `isSuckerOf` for tax-free cash outs |
+| `nana-ownable-v6` | `JBOwnable` | Transferring 721 hook ownership to the project |
+| `nana-permission-ids-v6` | `JBPermissionIds` | Permission constants (`DEPLOY_SUCKERS`, `QUEUE_RULESETS`, `SET_TERMINALS`, `MAP_SUCKER_TOKEN`) |
 | `@openzeppelin/contracts` | `ERC2771Context`, `IERC721Receiver` | Meta-transaction support, receiving project NFTs |
 
 ## Key Types
@@ -54,7 +54,7 @@ Convenience contract for deploying Juicebox projects with cross-chain suckers (a
 ## Example Integration
 
 ```solidity
-import {IJBOmnichainDeployer} from "@bananapus/omnichain-deployers-v5/src/interfaces/IJBOmnichainDeployer.sol";
+import {IJBOmnichainDeployer} from "@bananapus/omnichain-deployers-v6/src/interfaces/IJBOmnichainDeployer.sol";
 
 // Launch a project with suckers in one transaction
 (uint256 projectId, address[] memory suckers) = omnichainDeployer.launchProjectFor({
