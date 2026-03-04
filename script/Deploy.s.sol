@@ -11,7 +11,7 @@ import "@bananapus/721-hook-v5/script/helpers/Hook721DeploymentLib.sol";
 import "src/JBOmnichainDeployer.sol";
 
 contract Deploy is Script, Sphinx {
-    bytes32 constant NANA_OMNICHAIN_DEPLOYER_SALT = "JBOmnichainDeployer_";
+    bytes32 constant NANA_OMNICHAIN_DEPLOYER_SALT = "JBOmnichainDeployerV6_";
 
     /// @notice tracks the deployment of the core contracts for the chain we are deploying to.
     CoreDeployment core;
