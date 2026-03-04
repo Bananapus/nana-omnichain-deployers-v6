@@ -52,6 +52,11 @@ contract JBOmnichainDeployer is
     /// @notice Thrown when a data hook is set to this contract.
     error JBOmnichainDeployer_InvalidHook();
 
+    /// @notice Thrown when queueing rulesets for a project whose latest ruleset was already queued in the same block.
+    /// @dev Ruleset IDs are predicted as `block.timestamp + i`. This prediction fails if
+    /// `latestRulesetIdOf >= block.timestamp`, which can only happen if rulesets were already queued in the same block.
+    error JBOmnichainDeployer_RulesetIdsUnpredictable();
+
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
     //*********************************************************************//
@@ -527,6 +532,12 @@ contract JBOmnichainDeployer is
             permissionId: JBPermissionIds.QUEUE_RULESETS
         });
 
+        // Revert if the project already had rulesets queued in this block, which would make our
+        // `block.timestamp + i` ruleset ID prediction incorrect.
+        if (controller.RULESETS().latestRulesetIdOf(projectId) >= block.timestamp) {
+            revert JBOmnichainDeployer_RulesetIdsUnpredictable();
+        }
+
         return controller.queueRulesetsOf({
             projectId: projectId,
             rulesetConfigurations: _setup({projectId: projectId, rulesetConfigurations: rulesetConfigurations}),
@@ -560,6 +571,12 @@ contract JBOmnichainDeployer is
             projectId: projectId,
             permissionId: JBPermissionIds.QUEUE_RULESETS
         });
+
+        // Revert if the project already had rulesets queued in this block, which would make our
+        // `block.timestamp + i` ruleset ID prediction incorrect.
+        if (controller.RULESETS().latestRulesetIdOf(projectId) >= block.timestamp) {
+            revert JBOmnichainDeployer_RulesetIdsUnpredictable();
+        }
 
         // Deploy the hook.
         // Note: the salt includes `_msgSender()` for replay protection. Cross-chain deterministic
@@ -598,6 +615,11 @@ contract JBOmnichainDeployer is
     //*********************************************************************//
 
     /// @notice Sets up a project's rulesets.
+    /// @dev Stores data hook configs keyed by predicted ruleset IDs (`block.timestamp + i`). This prediction is correct
+    /// because `JBRulesets.queueFor` assigns IDs as: `latestId >= block.timestamp ? latestId + 1 : block.timestamp`.
+    /// For new projects (launch*) and first rulesets (launchRulesets*), `latestId` starts at 0, so the first ID is
+    /// always `block.timestamp` and subsequent IDs increment from there. For `queueRulesetsOf` on existing projects,
+    /// callers must ensure `latestRulesetIdOf < block.timestamp` (i.e., no rulesets were queued earlier in this block).
     /// @param projectId The ID of the project to set up.
     /// @param rulesetConfigurations The rulesets to set up.
     /// @return rulesetConfigurations The rulesets that were set up.
@@ -612,7 +634,7 @@ contract JBOmnichainDeployer is
             // Make sure there's no infinite loop.
             if (rulesetConfigurations[i].metadata.dataHook == address(this)) revert JBOmnichainDeployer_InvalidHook();
 
-            // Store the data hook.
+            // Store the data hook keyed by predicted ruleset ID.
             _dataHookOf[projectId][block.timestamp + i] = JBDeployerHookConfig({
                 useDataHookForPay: rulesetConfigurations[i].metadata.useDataHookForPay,
                 useDataHookForCashOut: rulesetConfigurations[i].metadata.useDataHookForCashOut,
