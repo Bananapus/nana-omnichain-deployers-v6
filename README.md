@@ -1,58 +1,40 @@
-# Deployer
+# nana-omnichain-deployers-v5
 
-This repo provides tools for deploying Juicebox projects with suckers.
+Deploy Juicebox projects with cross-chain suckers and optional 721 tiers hooks in a single transaction. Acts as a data hook wrapper to allow tax-free cash outs from suckers.
+
+## Architecture
+
+| Contract | Description |
+|----------|-------------|
+| `JBOmnichainDeployer` | Deploys projects, rulesets, and suckers. Wraps the project's real data hook to intercept cash outs from suckers (tax-free) and grant suckers mint permission. |
+
+### Supporting Types
+
+| Type | Description |
+|------|-------------|
+| `JBDeployerHookConfig` | Per-ruleset config storing the real data hook and its pay/cash-out usage flags. |
+| `JBSuckerDeploymentConfig` | Array of `JBSuckerDeployerConfig` plus a `bytes32` salt for deterministic cross-chain addresses. |
+| `IJBOmnichainDeployer` | Interface for all deployer entry points. |
+
+### How It Works
+
+`JBOmnichainDeployer` temporarily holds the project NFT during deployment, inserts itself as the data hook on all rulesets via `_setup()`, stores the real data hook in `_dataHookOf`, then transfers ownership to the specified owner. As the data hook it:
+
+1. **Pay** -- Forwards `beforePayRecordedWith` to the real data hook (if set).
+2. **Cash out** -- If the holder is a registered sucker (`SUCKER_REGISTRY.isSuckerOf`), returns 0% tax rate. Otherwise forwards to the real data hook.
+3. **Mint permission** -- Returns `true` for registered suckers, otherwise forwards to the real data hook.
 
 ## Install
 
-For `npm` projects (recommended):
-
 ```bash
-npm install @bananapus/721-hook
+npm install
 ```
 
-For `forge` projects (not recommended):
+## Develop
 
-```bash
-forge install Bananapus/nana-721-hook
-```
-
-Add `@bananapus/721-hook/=lib/nana-721-hook/` to `remappings.txt`. You'll also need to install `nana-721-hook`'s dependencies and add similar remappings for them.
-
-```bash
-curl -L https://foundry.paradigm.xyz | sh
-```
-
-You can download and install dependencies with:
-
-```bash
-npm install && forge install
-```
-
-If you run into trouble with `forge install`, try using `git submodule update --init --recursive` to ensure that nested submodules have been properly initialized.
-
-Some useful commands:
-
-| Command               | Description                                         |
-| --------------------- | --------------------------------------------------- |
-| `forge build`         | Compile the contracts and write artifacts to `out`. |
-| `forge fmt`           | Lint.                                               |
-| `forge test`          | Run the tests.                                      |
-| `forge build --sizes` | Get contract sizes.                                 |
-| `forge coverage`      | Generate a test coverage report.                    |
-| `foundryup`           | Update foundry. Run this periodically.              |
-| `forge clean`         | Remove the build artifacts and cache directories.   |
-
-To learn more, visit the [Foundry Book](https://book.getfoundry.sh/) docs.
-
-## Scripts
-
-For convenience, several utility commands are available in `package.json`.
-
-| Command                           | Description                            |
-| --------------------------------- | -------------------------------------- |
-| `npm test`                        | Run local tests.                       |
-| `npm run coverage:lcov`           | Generate an LCOV test coverage report. |
-| `npm run deploy:ethereum-mainnet` | Deploy to Ethereum mainnet             |
-| `npm run deploy:ethereum-sepolia` | Deploy to Ethereum Sepolia testnet     |
-| `npm run deploy:optimism-mainnet` | Deploy to Optimism mainnet             |
-| `npm run deploy:optimism-testnet` | Deploy to Optimism testnet             |
+| Command | Description |
+|---------|-------------|
+| `forge build` | Compile contracts |
+| `forge test` | Run tests |
+| `npm run deploy:mainnets` | Propose mainnet deployment via Sphinx |
+| `npm run deploy:testnets` | Propose testnet deployment via Sphinx |
