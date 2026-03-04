@@ -1,6 +1,6 @@
 [profile.default]
 solc = '0.8.23'
-vm_version = 'paris'                   # Required for L2s (Optimism, Arbitrum, etc.)
+evm_version = 'paris'                   # Required for L2s (Optimism, Arbitrum, etc.)
 sizes = true
 optimizer_runs = 100000
 block_number = 14126430
