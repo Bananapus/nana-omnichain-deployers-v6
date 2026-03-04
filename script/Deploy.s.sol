@@ -4,9 +4,9 @@ pragma solidity ^0.8.23;
 import "@sphinx-labs/contracts/SphinxPlugin.sol";
 import {Script, stdJson, VmSafe} from "forge-std/Script.sol";
 
-import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
-import "@bananapus/suckers-v5/script/helpers/SuckerDeploymentLib.sol";
-import "@bananapus/721-hook-v5/script/helpers/Hook721DeploymentLib.sol";
+import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
+import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
+import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
 
 import "src/JBOmnichainDeployer.sol";
 
@@ -23,8 +23,7 @@ contract Deploy is Script, Sphinx {
     SuckerDeployment suckers;
 
     function configureSphinx() public override {
-        // TODO: Update to contain JB Emergency Developers
-        sphinxConfig.projectName = "nana-omnichain-deployers-v5";
+        sphinxConfig.projectName = "nana-omnichain-deployers-v6";
         sphinxConfig.mainnets = ["ethereum", "optimism", "base", "arbitrum"];
         sphinxConfig.testnets = ["ethereum_sepolia", "optimism_sepolia", "base_sepolia", "arbitrum_sepolia"];
     }
@@ -33,15 +32,15 @@ contract Deploy is Script, Sphinx {
         // Get the deployment addresses for the nana CORE for this chain.
         // We want to do this outside of the `sphinx` modifier.
         core = CoreDeploymentLib.getDeployment(
-            vm.envOr("NANA_CORE_DEPLOYMENT_PATH", string("node_modules/@bananapus/core-v5/deployments/"))
+            vm.envOr("NANA_CORE_DEPLOYMENT_PATH", string("node_modules/@bananapus/core-v6/deployments/"))
         );
         // Get the deployment addresses for the 721 hook contracts for this chain.
         hook = Hook721DeploymentLib.getDeployment(
-            vm.envOr("NANA_721_DEPLOYMENT_PATH", string("node_modules/@bananapus/721-hook-v5/deployments/"))
+            vm.envOr("NANA_721_DEPLOYMENT_PATH", string("node_modules/@bananapus/721-hook-v6/deployments/"))
         );
         // Get the deployment addresses for the suckers contracts for this chain.
         suckers = SuckerDeploymentLib.getDeployment(
-            vm.envOr("NANA_SUCKERS_DEPLOYMENT_PATH", string("node_modules/@bananapus/suckers-v5/deployments/"))
+            vm.envOr("NANA_SUCKERS_DEPLOYMENT_PATH", string("node_modules/@bananapus/suckers-v6/deployments/"))
         );
 
         // Deploy the contracts.
@@ -50,28 +49,20 @@ contract Deploy is Script, Sphinx {
 
     function deploy() public sphinx {
         // Only deploy if this bytecode is not already deployed.
-        if (
-            !_isDeployed(
+        if (!_isDeployed(
                 NANA_OMNICHAIN_DEPLOYER_SALT,
                 type(JBOmnichainDeployer).creationCode,
-                abi.encode(suckers.registry, hook.hook_deployer, core.permissions, core.projects, core.trustedForwarder)
-            )
-        ) {
+                abi.encode(
+                    suckers.registry, hook.hook_deployer, core.permissions, core.projects, core.trustedForwarder
+                )
+            )) {
             new JBOmnichainDeployer{salt: NANA_OMNICHAIN_DEPLOYER_SALT}(
                 suckers.registry, hook.hook_deployer, core.permissions, core.projects, core.trustedForwarder
             );
         }
     }
 
-    function _isDeployed(
-        bytes32 salt,
-        bytes memory creationCode,
-        bytes memory arguments
-    )
-        internal
-        view
-        returns (bool)
-    {
+    function _isDeployed(bytes32 salt, bytes memory creationCode, bytes memory arguments) internal view returns (bool) {
         address _deployedTo = vm.computeCreate2Address({
             salt: salt,
             initCodeHash: keccak256(abi.encodePacked(creationCode, arguments)),
