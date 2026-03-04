@@ -51,6 +51,7 @@ contract JBOmnichainDeployer is
 
     /// @notice Thrown when a data hook is set to this contract.
     error JBOmnichainDeployer_InvalidHook();
+    error JBOmnichainDeployer_UnexpectedNFTReceived();
 
     /// @notice Thrown when queueing rulesets for a project whose latest ruleset was already queued in the same block.
     /// @dev Ruleset IDs are predicted as `block.timestamp + i`. This prediction fails if
@@ -605,7 +606,7 @@ contract JBOmnichainDeployer is
     /// @dev Make sure this contract can only receive project NFTs from `JBProjects`.
     function onERC721Received(address, address, uint256, bytes calldata) external view returns (bytes4) {
         // Make sure the 721 received is from the `JBProjects` contract.
-        if (msg.sender != address(PROJECTS)) revert();
+        if (msg.sender != address(PROJECTS)) revert JBOmnichainDeployer_UnexpectedNFTReceived();
 
         return IERC721Receiver.onERC721Received.selector;
     }
