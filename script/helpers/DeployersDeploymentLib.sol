@@ -44,7 +44,7 @@ library SuckerDeploymentLib {
     {
         // Is deployed on all (supported) chains.
         deployment.deployer = JBOmnichainDeployer(
-            _getDeploymentAddress(path, "nana-omnichain-deployers-v5", network_name, "JBOmnichainDeployer")
+            _getDeploymentAddress(path, "nana-omnichain-deployers-v6", network_name, "JBOmnichainDeployer")
         );
     }
 
