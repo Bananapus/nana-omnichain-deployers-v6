@@ -1,11 +1,8 @@
 [profile.default]
 solc = '0.8.23'
-evm_version = 'paris'                   # Required for L2s (Optimism, Arbitrum, etc.)
-sizes = true
+evm_version = 'paris'
 optimizer_runs = 100000
-block_number = 14126430
-block_timestamp = 1643802347
-build_info = true
+libs = ["node_modules", "lib"]
 extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "../"}]
 
@@ -22,14 +19,14 @@ polygon_mumbai = "${RPC_POLYGON_MUMBAI}"
 base_sepolia = "${RPC_BASE_SEPOLIA}"
 
 [profile.ci_sizes]
-optimizer_runs = 500 
+optimizer_runs = 500
 
 [fuzz]
 runs = 4096
 
 [invariant]
-fail_on_revert = false
 runs = 50
+fail_on_revert = false
 
 [fmt]
 number_underscore = "thousands"
