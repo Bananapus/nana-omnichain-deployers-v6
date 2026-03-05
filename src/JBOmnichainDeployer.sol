@@ -3,6 +3,7 @@ pragma solidity 0.8.23;
 
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookProjectDeployer.sol";
@@ -58,6 +59,9 @@ contract JBOmnichainDeployer is
     /// `latestRulesetIdOf >= block.timestamp`, which can only happen if rulesets were already queued in the same block.
     error JBOmnichainDeployer_RulesetIdsUnpredictable();
 
+    /// @notice Thrown when the contract receives an NFT that is not from the `JBProjects` contract.
+    error JBOmnichainDeployer_UnexpectedNFT();
+
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
     //*********************************************************************//
@@ -72,7 +76,7 @@ contract JBOmnichainDeployer is
     IJBSuckerRegistry public immutable SUCKER_REGISTRY;
 
     //*********************************************************************//
-    // --------------------- public stored properties -------------------- //
+    // -------------------- internal stored properties ------------------- //
     //*********************************************************************//
 
     /// @notice Each project's data hook provided on deployment.
@@ -182,7 +186,7 @@ contract JBOmnichainDeployer is
     /// @custom:param projectId The ID of the project to get the data hook for.
     /// @custom:param rulesetId The ID of the ruleset to get the data hook for.
     /// @return useDataHookForPay Whether the data hook is used for pay.
-    /// @return useDataHookForCashout Whether the data hook is used for cashout.
+    /// @return useDataHookForCashOut Whether the data hook is used for cash out.
     /// @return dataHook The data hook.
     function dataHookOf(
         uint256 projectId,
@@ -191,7 +195,7 @@ contract JBOmnichainDeployer is
         external
         view
         override
-        returns (bool useDataHookForPay, bool useDataHookForCashout, IJBRulesetDataHook dataHook)
+        returns (bool useDataHookForPay, bool useDataHookForCashOut, IJBRulesetDataHook dataHook)
     {
         JBDeployerHookConfig memory hook = _dataHookOf[projectId][rulesetId];
         return (hook.useDataHookForPay, hook.useDataHookForCashOut, hook.dataHook);
@@ -239,7 +243,8 @@ contract JBOmnichainDeployer is
     /// @return A flag indicating if the provided interface ID is supported.
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return interfaceId == type(IJBOmnichainDeployer).interfaceId
-            || interfaceId == type(IJBRulesetDataHook).interfaceId || interfaceId == type(IERC721Receiver).interfaceId;
+            || interfaceId == type(IJBRulesetDataHook).interfaceId || interfaceId == type(IERC721Receiver).interfaceId
+            || interfaceId == type(IERC165).interfaceId;
     }
 
     //*********************************************************************//
@@ -345,6 +350,7 @@ contract JBOmnichainDeployer is
     /// @param salt A salt to use for the deterministic deployment. Combined with `_msgSender()` internally, so
     /// cross-chain deterministic addresses require the same sender on each chain.
     /// @param suckerDeploymentConfiguration The suckers to set up for the project. Suckers facilitate cross-chain
+    /// token transfers between peer projects on different networks.
     /// @param controller The controller to use for launching the project.
     /// @return projectId The ID of the newly launched project.
     /// @return hook The 721 tiers hook that was deployed for the project.
@@ -373,7 +379,7 @@ contract JBOmnichainDeployer is
         });
 
         // Convert the 721 ruleset configurations to regular ruleset configurations.
-        // Then modify the ruleset configurations to use this deployer as a wrapper for the datasouce.
+        // Then modify the ruleset configurations to use this deployer as a wrapper for the datasource.
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
             projectId: projectId,
             rulesetConfigurations: _from721Config(launchProjectConfig.rulesetConfigurations, hook)
@@ -495,7 +501,7 @@ contract JBOmnichainDeployer is
         JBOwnable(address(hook)).transferOwnershipToProject(projectId);
 
         // Convert the 721 ruleset configurations to regular ruleset configurations.
-        // Then modify the ruleset configurations to use this deployer as a wrapper for the datasouce.
+        // Then modify the ruleset configurations to use this deployer as a wrapper for the datasource.
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
             projectId: projectId,
             rulesetConfigurations: _from721Config(launchRulesetsConfig.rulesetConfigurations, hook)
@@ -589,7 +595,7 @@ contract JBOmnichainDeployer is
         });
 
         // Convert the 721 ruleset configurations to regular ruleset configurations.
-        // Then modify the ruleset configurations to use this deployer as a wrapper for the datasouce.
+        // Then modify the ruleset configurations to use this deployer as a wrapper for the datasource.
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
             projectId: projectId,
             rulesetConfigurations: _from721Config(queueRulesetsConfig.rulesetConfigurations, hook)
