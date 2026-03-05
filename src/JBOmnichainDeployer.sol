@@ -265,9 +265,7 @@ contract JBOmnichainDeployer is
     {
         // Enforce permissions.
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId),
-            projectId: projectId,
-            permissionId: JBPermissionIds.DEPLOY_SUCKERS
+            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.DEPLOY_SUCKERS
         });
 
         // Deploy the suckers.
@@ -383,8 +381,7 @@ contract JBOmnichainDeployer is
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
             projectId: projectId,
             rulesetConfigurations: _from721Config({
-                launchProjectConfig: launchProjectConfig.rulesetConfigurations,
-                dataHook: hook
+                launchProjectConfig: launchProjectConfig.rulesetConfigurations, dataHook: hook
             })
         });
 
@@ -438,15 +435,11 @@ contract JBOmnichainDeployer is
     {
         // Enforce permissions.
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId),
-            projectId: projectId,
-            permissionId: JBPermissionIds.QUEUE_RULESETS
+            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.QUEUE_RULESETS
         });
 
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId),
-            projectId: projectId,
-            permissionId: JBPermissionIds.SET_TERMINALS
+            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.SET_TERMINALS
         });
 
         return controller.launchRulesetsFor({
@@ -480,15 +473,11 @@ contract JBOmnichainDeployer is
     {
         // Enforce permissions.
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId),
-            projectId: projectId,
-            permissionId: JBPermissionIds.QUEUE_RULESETS
+            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.QUEUE_RULESETS
         });
 
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId),
-            projectId: projectId,
-            permissionId: JBPermissionIds.SET_TERMINALS
+            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.SET_TERMINALS
         });
 
         // Deploy the hook.
@@ -508,8 +497,7 @@ contract JBOmnichainDeployer is
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
             projectId: projectId,
             rulesetConfigurations: _from721Config({
-                launchProjectConfig: launchRulesetsConfig.rulesetConfigurations,
-                dataHook: hook
+                launchProjectConfig: launchRulesetsConfig.rulesetConfigurations, dataHook: hook
             })
         });
 
@@ -540,9 +528,7 @@ contract JBOmnichainDeployer is
     {
         // Enforce permissions.
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId),
-            projectId: projectId,
-            permissionId: JBPermissionIds.QUEUE_RULESETS
+            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.QUEUE_RULESETS
         });
 
         // Revert if the project already had rulesets queued in this block, which would make our
@@ -580,9 +566,7 @@ contract JBOmnichainDeployer is
     {
         // Enforce permissions.
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId),
-            projectId: projectId,
-            permissionId: JBPermissionIds.QUEUE_RULESETS
+            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.QUEUE_RULESETS
         });
 
         // Revert if the project already had rulesets queued in this block, which would make our
@@ -605,16 +589,13 @@ contract JBOmnichainDeployer is
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
             projectId: projectId,
             rulesetConfigurations: _from721Config({
-                launchProjectConfig: queueRulesetsConfig.rulesetConfigurations,
-                dataHook: hook
+                launchProjectConfig: queueRulesetsConfig.rulesetConfigurations, dataHook: hook
             })
         });
 
         // Configure the rulesets.
         rulesetId = controller.queueRulesetsOf({
-            projectId: projectId,
-            rulesetConfigurations: rulesetConfigurations,
-            memo: queueRulesetsConfig.memo
+            projectId: projectId, rulesetConfigurations: rulesetConfigurations, memo: queueRulesetsConfig.memo
         });
     }
 
