@@ -159,7 +159,7 @@ contract JBOmnichainDeployer is
         returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory hookSpecifications)
     {
         // If the cash out is from a sucker, return the full cash out amount without taxes or fees.
-        if (SUCKER_REGISTRY.isSuckerOf(context.projectId, context.holder)) {
+        if (SUCKER_REGISTRY.isSuckerOf({projectId: context.projectId, addr: context.holder})) {
             return (0, context.cashOutCount, context.totalSupply, hookSpecifications);
         }
 
@@ -212,7 +212,7 @@ contract JBOmnichainDeployer is
         returns (bool flag)
     {
         // If the address is a sucker for this project.
-        if (SUCKER_REGISTRY.isSuckerOf(projectId, addr)) {
+        if (SUCKER_REGISTRY.isSuckerOf({projectId: projectId, addr: addr})) {
             return true;
         }
 
@@ -225,7 +225,7 @@ contract JBOmnichainDeployer is
         }
 
         // Forward the call to the datahook.
-        return hook.dataHook.hasMintPermissionFor(projectId, ruleset, addr);
+        return hook.dataHook.hasMintPermissionFor({projectId: projectId, ruleset: ruleset, addr: addr});
     }
 
     //*********************************************************************//
@@ -370,7 +370,10 @@ contract JBOmnichainDeployer is
         // Then modify the ruleset configurations to use this deployer as a wrapper for the datasource.
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
             projectId: projectId,
-            rulesetConfigurations: _from721Config(launchProjectConfig.rulesetConfigurations, hook)
+            rulesetConfigurations: _from721Config({
+                launchProjectConfig: launchProjectConfig.rulesetConfigurations,
+                dataHook: hook
+            })
         });
 
         // Launch the project, and sanity check the project ID.
@@ -489,7 +492,10 @@ contract JBOmnichainDeployer is
         // Then modify the ruleset configurations to use this deployer as a wrapper for the datasource.
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
             projectId: projectId,
-            rulesetConfigurations: _from721Config(launchRulesetsConfig.rulesetConfigurations, hook)
+            rulesetConfigurations: _from721Config({
+                launchProjectConfig: launchRulesetsConfig.rulesetConfigurations,
+                dataHook: hook
+            })
         });
 
         // Configure the rulesets.
@@ -568,7 +574,10 @@ contract JBOmnichainDeployer is
         // Then modify the ruleset configurations to use this deployer as a wrapper for the datasource.
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
             projectId: projectId,
-            rulesetConfigurations: _from721Config(queueRulesetsConfig.rulesetConfigurations, hook)
+            rulesetConfigurations: _from721Config({
+                launchProjectConfig: queueRulesetsConfig.rulesetConfigurations,
+                dataHook: hook
+            })
         });
 
         // Configure the rulesets.
