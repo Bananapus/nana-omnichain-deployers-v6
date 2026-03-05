@@ -5,7 +5,6 @@ sizes = true
 optimizer_runs = 100000
 block_number = 14126430
 block_timestamp = 1643802347
-runs = 4096
 build_info = true
 extra_output = ['storageLayout']
 fs_permissions = [{ access = "read-write", path = "../"}]
@@ -25,7 +24,10 @@ base_sepolia = "${RPC_BASE_SEPOLIA}"
 [profile.ci_sizes]
 optimizer_runs = 500 
 
-[invariant] 
+[fuzz]
+runs = 4096
+
+[invariant]
 fail_on_revert = false
 runs = 50
 
