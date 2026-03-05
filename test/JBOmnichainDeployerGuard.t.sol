@@ -57,7 +57,11 @@ contract MockSuckerRegistry is IJBSuckerRegistry {
     function allowSuckerDeployer(address) external override {}
     function allowSuckerDeployers(address[] calldata) external override {}
 
-    function deploySuckersFor(uint256, bytes32, JBSuckerDeployerConfig[] memory)
+    function deploySuckersFor(
+        uint256,
+        bytes32,
+        JBSuckerDeployerConfig[] memory
+    )
         external
         pure
         override
@@ -95,7 +99,8 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         jbDirectory().setIsAllowedToSetFirstController(address(deployer), true);
     }
 
-    // ──────────────────── Helpers ────────────────────
+    // ──────────────────── Helpers
+    // ────────────────────
 
     function _defaultMetadata() internal pure returns (JBRulesetMetadata memory) {
         return JBRulesetMetadata({
@@ -172,7 +177,13 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         JBTerminalConfig[] memory terminals = _makeTerminalConfigs();
 
         (projectId,) = deployer.launchProjectFor(
-            owner, "ipfs://test", rulesets, terminals, "launch", _emptySuckerConfig(), IJBController(address(jbController()))
+            owner,
+            "ipfs://test",
+            rulesets,
+            terminals,
+            "launch",
+            _emptySuckerConfig(),
+            IJBController(address(jbController()))
         );
     }
 
@@ -181,7 +192,13 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         JBTerminalConfig[] memory terminals = _makeTerminalConfigs();
 
         (projectId,) = deployer.launchProjectFor(
-            owner, "ipfs://test", rulesets, terminals, "launch", _emptySuckerConfig(), IJBController(address(jbController()))
+            owner,
+            "ipfs://test",
+            rulesets,
+            terminals,
+            "launch",
+            _emptySuckerConfig(),
+            IJBController(address(jbController()))
         );
     }
 
@@ -191,20 +208,25 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
 
         // The deployer checks that msg.sender (this test contract) has permission.
         vm.prank(owner);
-        jbPermissions().setPermissionsFor(
-            owner,
-            JBPermissionsData({operator: address(this), projectId: uint64(projectId), permissionIds: permissionIds})
-        );
+        jbPermissions()
+            .setPermissionsFor(
+                owner,
+                JBPermissionsData({operator: address(this), projectId: uint64(projectId), permissionIds: permissionIds})
+            );
 
         // The controller checks that msg.sender (the deployer) has permission.
         vm.prank(owner);
-        jbPermissions().setPermissionsFor(
-            owner,
-            JBPermissionsData({operator: address(deployer), projectId: uint64(projectId), permissionIds: permissionIds})
-        );
+        jbPermissions()
+            .setPermissionsFor(
+                owner,
+                JBPermissionsData({
+                    operator: address(deployer), projectId: uint64(projectId), permissionIds: permissionIds
+                })
+            );
     }
 
-    // ──────────────────── Tests ────────────────────
+    // ──────────────────── Tests
+    // ────────────────────
 
     /// @notice Verify that launchProjectFor stores data hooks at the correct predicted ruleset IDs.
     function test_launchProjectFor_storesDataHooks() public {
