@@ -18,7 +18,7 @@
         "@bananapus/suckers-v6": "^0.0.1",
         "@bananapus/ownable-v6": "^0.0.1",
         "@bananapus/permission-ids-v6": "^0.0.1",
-        "@openzeppelin/contracts": "^5.2.0"
+        "@openzeppelin/contracts": "5.2.0"
     },
     "devDependencies": {
         "@sphinx-labs/plugins": "^0.33.2"
