@@ -6,7 +6,7 @@ title = ""
 no-section-label = true
 additional-js = ["solidity.min.js"]
 additional-css = ["book.css"]
-git-repository-url = "https://github.com/Bananapus/nana-deployers"
+git-repository-url = "https://github.com/Bananapus/nana-omnichain-deployers-v6"
 
 [output.html.fold]
 enable = true

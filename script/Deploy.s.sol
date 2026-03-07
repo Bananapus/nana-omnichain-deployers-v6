@@ -4,14 +4,14 @@ pragma solidity ^0.8.23;
 import "@sphinx-labs/contracts/SphinxPlugin.sol";
 import {Script, stdJson, VmSafe} from "forge-std/Script.sol";
 
-import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
-import "@bananapus/suckers-v5/script/helpers/SuckerDeploymentLib.sol";
-import "@bananapus/721-hook-v5/script/helpers/Hook721DeploymentLib.sol";
+import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
+import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
+import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
 
 import "src/JBOmnichainDeployer.sol";
 
 contract Deploy is Script, Sphinx {
-    bytes32 constant NANA_OMNICHAIN_DEPLOYER_SALT = "JBOmnichainDeployer_";
+    bytes32 constant NANA_OMNICHAIN_DEPLOYER_SALT = "JBOmnichainDeployerV6_";
 
     /// @notice tracks the deployment of the core contracts for the chain we are deploying to.
     CoreDeployment core;
@@ -23,8 +23,7 @@ contract Deploy is Script, Sphinx {
     SuckerDeployment suckers;
 
     function configureSphinx() public override {
-        // TODO: Update to contain JB Emergency Developers
-        sphinxConfig.projectName = "nana-omnichain-deployers-v5";
+        sphinxConfig.projectName = "nana-omnichain-deployers-v6";
         sphinxConfig.mainnets = ["ethereum", "optimism", "base", "arbitrum"];
         sphinxConfig.testnets = ["ethereum_sepolia", "optimism_sepolia", "base_sepolia", "arbitrum_sepolia"];
     }
@@ -33,15 +32,15 @@ contract Deploy is Script, Sphinx {
         // Get the deployment addresses for the nana CORE for this chain.
         // We want to do this outside of the `sphinx` modifier.
         core = CoreDeploymentLib.getDeployment(
-            vm.envOr("NANA_CORE_DEPLOYMENT_PATH", string("node_modules/@bananapus/core-v5/deployments/"))
+            vm.envOr("NANA_CORE_DEPLOYMENT_PATH", string("node_modules/@bananapus/core-v6/deployments/"))
         );
         // Get the deployment addresses for the 721 hook contracts for this chain.
         hook = Hook721DeploymentLib.getDeployment(
-            vm.envOr("NANA_721_DEPLOYMENT_PATH", string("node_modules/@bananapus/721-hook-v5/deployments/"))
+            vm.envOr("NANA_721_DEPLOYMENT_PATH", string("node_modules/@bananapus/721-hook-v6/deployments/"))
         );
         // Get the deployment addresses for the suckers contracts for this chain.
         suckers = SuckerDeploymentLib.getDeployment(
-            vm.envOr("NANA_SUCKERS_DEPLOYMENT_PATH", string("node_modules/@bananapus/suckers-v5/deployments/"))
+            vm.envOr("NANA_SUCKERS_DEPLOYMENT_PATH", string("node_modules/@bananapus/suckers-v6/deployments/"))
         );
 
         // Deploy the contracts.
