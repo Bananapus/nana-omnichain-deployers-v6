@@ -1,4 +1,4 @@
-# nana-omnichain-deployers-v6
+# Juicebox Omnichain Deployers
 
 Deploy Juicebox projects with cross-chain suckers and optional 721 tiers hooks in a single transaction. Acts as a transparent data hook wrapper that gives suckers tax-free cash outs and on-demand mint permission -- without interfering with any custom data hook the project uses.
 

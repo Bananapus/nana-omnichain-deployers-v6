@@ -1,4 +1,4 @@
-# nana-omnichain-deployers-v6
+# Juicebox Omnichain Deployers
 
 ## Purpose
 
