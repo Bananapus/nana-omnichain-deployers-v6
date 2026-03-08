@@ -114,29 +114,17 @@ contract OmnichainDeployerAttacks is Test {
 
         // Mock permissions.setPermissionsFor in constructor.
         vm.mockCall(
-            address(permissions),
-            abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector),
-            abi.encode()
+            address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
 
-        deployer = new JBOmnichainDeployer(
-            suckerRegistry,
-            hookDeployer,
-            permissions,
-            projects,
-            address(0)
-        );
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, address(0));
 
         // Default mocks.
         vm.mockCall(
-            address(projects),
-            abi.encodeWithSelector(IERC721.ownerOf.selector, projectId),
-            abi.encode(projectOwner)
+            address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, projectId), abi.encode(projectOwner)
         );
         vm.mockCall(
-            address(permissions),
-            abi.encodeWithSelector(IJBPermissions.hasPermission.selector),
-            abi.encode(true)
+            address(permissions), abi.encodeWithSelector(IJBPermissions.hasPermission.selector), abi.encode(true)
         );
     }
 
@@ -187,9 +175,7 @@ contract OmnichainDeployerAttacks is Test {
     // =========================================================================
     function test_hasMintPermission_randomDenied() public {
         vm.mockCall(
-            address(suckerRegistry),
-            abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector),
-            abi.encode(false)
+            address(suckerRegistry), abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false)
         );
 
         JBRuleset memory ruleset;
@@ -201,9 +187,7 @@ contract OmnichainDeployerAttacks is Test {
     // =========================================================================
     function test_deploySuckersFor_noPermission_reverts() public {
         vm.mockCall(
-            address(permissions),
-            abi.encodeWithSelector(IJBPermissions.hasPermission.selector),
-            abi.encode(false)
+            address(permissions), abi.encodeWithSelector(IJBPermissions.hasPermission.selector), abi.encode(false)
         );
 
         vm.prank(attacker);
@@ -302,15 +286,9 @@ contract OmnichainDeployerAttacks is Test {
     function _launchProjectWithHook(address hook) internal {
         IJBController controller = IJBController(makeAddr("controller"));
 
+        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
         vm.mockCall(
-            address(projects),
-            abi.encodeWithSelector(IJBProjects.count.selector),
-            abi.encode(uint256(41))
-        );
-        vm.mockCall(
-            address(controller),
-            abi.encodeWithSelector(IJBController.launchProjectFor.selector),
-            abi.encode(projectId)
+            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
         );
         vm.mockCall(
             address(projects),
@@ -322,20 +300,11 @@ contract OmnichainDeployerAttacks is Test {
         configs[0] = _makeRulesetConfig(hook, true, true);
 
         deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            configs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
         );
     }
 
-    function _makePayContext(uint256 pid, uint256 rid)
-        internal
-        returns (JBBeforePayRecordedContext memory)
-    {
+    function _makePayContext(uint256 pid, uint256 rid) internal returns (JBBeforePayRecordedContext memory) {
         return JBBeforePayRecordedContext({
             terminal: makeAddr("terminal"),
             payer: attacker,
@@ -354,7 +323,11 @@ contract OmnichainDeployerAttacks is Test {
         });
     }
 
-    function _makeCashOutContext(uint256 pid, uint256 rid, address holder)
+    function _makeCashOutContext(
+        uint256 pid,
+        uint256 rid,
+        address holder
+    )
         internal
         returns (JBBeforeCashOutRecordedContext memory)
     {
@@ -377,7 +350,11 @@ contract OmnichainDeployerAttacks is Test {
         });
     }
 
-    function _makeRulesetConfig(address hook, bool useForPay, bool useForCashOut)
+    function _makeRulesetConfig(
+        address hook,
+        bool useForPay,
+        bool useForCashOut
+    )
         internal
         pure
         returns (JBRulesetConfig memory)

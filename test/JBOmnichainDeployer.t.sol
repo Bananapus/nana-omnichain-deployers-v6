@@ -49,9 +49,7 @@ contract TestJBOmnichainDeployer is Test {
     function setUp() public {
         // Mock permissions.setPermissionsFor in constructor.
         vm.mockCall(
-            address(permissions),
-            abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector),
-            abi.encode()
+            address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
 
         deployer = new JBOmnichainDeployer(
@@ -64,14 +62,10 @@ contract TestJBOmnichainDeployer is Test {
 
         // Default mocks.
         vm.mockCall(
-            address(projects),
-            abi.encodeWithSelector(IERC721.ownerOf.selector, projectId),
-            abi.encode(projectOwner)
+            address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, projectId), abi.encode(projectOwner)
         );
         vm.mockCall(
-            address(permissions),
-            abi.encodeWithSelector(IJBPermissions.hasPermission.selector),
-            abi.encode(true)
+            address(permissions), abi.encodeWithSelector(IJBPermissions.hasPermission.selector), abi.encode(true)
         );
     }
 
@@ -138,9 +132,7 @@ contract TestJBOmnichainDeployer is Test {
             abi.encode(uint256(41)) // next will be 42
         );
         vm.mockCall(
-            address(controller),
-            abi.encodeWithSelector(IJBController.launchProjectFor.selector),
-            abi.encode(projectId)
+            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
         );
 
         // Create ruleset config with a data hook.
@@ -157,15 +149,7 @@ contract TestJBOmnichainDeployer is Test {
             abi.encode()
         );
 
-        deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            configs,
-            terminals,
-            "",
-            _emptySuckerConfig(),
-            controller
-        );
+        deployer.launchProjectFor(projectOwner, "test", configs, terminals, "", _emptySuckerConfig(), controller);
 
         // Now the data hook should be stored for projectId at rulesetId = block.timestamp.
         uint256 storedRulesetId = block.timestamp;
@@ -209,9 +193,7 @@ contract TestJBOmnichainDeployer is Test {
     function test_beforeCashOutRecordedWith_nonSuckerGetsOriginalTax() public {
         // Mock sucker registry to say holder is NOT a sucker.
         vm.mockCall(
-            address(suckerRegistry),
-            abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector),
-            abi.encode(false)
+            address(suckerRegistry), abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false)
         );
 
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, rulesetId, randomAddr);
@@ -241,9 +223,7 @@ contract TestJBOmnichainDeployer is Test {
 
     function test_hasMintPermissionFor_falseForRandom() public {
         vm.mockCall(
-            address(suckerRegistry),
-            abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector),
-            abi.encode(false)
+            address(suckerRegistry), abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false)
         );
 
         JBRuleset memory ruleset;
@@ -257,9 +237,7 @@ contract TestJBOmnichainDeployer is Test {
     function test_deploySuckersFor_revertsIfUnauthorized() public {
         // Mock permissions to return false.
         vm.mockCall(
-            address(permissions),
-            abi.encodeWithSelector(IJBPermissions.hasPermission.selector),
-            abi.encode(false)
+            address(permissions), abi.encodeWithSelector(IJBPermissions.hasPermission.selector), abi.encode(false)
         );
 
         vm.prank(randomAddr);
@@ -282,13 +260,7 @@ contract TestJBOmnichainDeployer is Test {
     // --- Helpers ------------------------------------------------------- //
     //*********************************************************************//
 
-    function _makePayContext(
-        uint256 pid,
-        uint256 rid
-    )
-        internal
-        returns (JBBeforePayRecordedContext memory)
-    {
+    function _makePayContext(uint256 pid, uint256 rid) internal returns (JBBeforePayRecordedContext memory) {
         return JBBeforePayRecordedContext({
             terminal: makeAddr("terminal"),
             payer: randomAddr,
@@ -368,11 +340,7 @@ contract TestJBOmnichainDeployer is Test {
         return config;
     }
 
-    function _emptySuckerConfig()
-        internal
-        pure
-        returns (JBSuckerDeploymentConfig memory config)
-    {
+    function _emptySuckerConfig() internal pure returns (JBSuckerDeploymentConfig memory config) {
         config.deployerConfigurations = new JBSuckerDeployerConfig[](0);
         config.salt = bytes32(0);
     }

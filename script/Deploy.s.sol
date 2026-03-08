@@ -25,7 +25,8 @@ contract Deploy is Script, Sphinx {
     function configureSphinx() public override {
         sphinxConfig.projectName = "nana-omnichain-deployers-v5";
         sphinxConfig.mainnets = ["ethereum", "optimism", "base", "arbitrum", "celo"];
-        sphinxConfig.testnets = ["ethereum_sepolia", "optimism_sepolia", "base_sepolia", "arbitrum_sepolia", "celo_sepolia"];
+        sphinxConfig.testnets =
+            ["ethereum_sepolia", "optimism_sepolia", "base_sepolia", "arbitrum_sepolia", "celo_sepolia"];
     }
 
     function run() public {
@@ -52,9 +53,7 @@ contract Deploy is Script, Sphinx {
         if (!_isDeployed(
                 NANA_OMNICHAIN_DEPLOYER_SALT,
                 type(JBOmnichainDeployer).creationCode,
-                abi.encode(
-                    suckers.registry, hook.hook_deployer, core.permissions, core.projects, core.trustedForwarder
-                )
+                abi.encode(suckers.registry, hook.hook_deployer, core.permissions, core.projects, core.trustedForwarder)
             )) {
             new JBOmnichainDeployer{salt: NANA_OMNICHAIN_DEPLOYER_SALT}(
                 suckers.registry, hook.hook_deployer, core.permissions, core.projects, core.trustedForwarder
