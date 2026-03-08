@@ -74,6 +74,8 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 | `JBOmnichainDeployer_InvalidHook` | `_setup()` detects `rulesetConfig.metadata.dataHook == address(this)` -- prevents infinite forwarding loops |
 | `JBOmnichainDeployer_UnexpectedNFTReceived` | `onERC721Received` called by a contract other than `PROJECTS` |
 | `JBOmnichainDeployer_RulesetIdsUnpredictable` | `queueRulesetsOf`/`queue721RulesetsOf` called when `latestRulesetIdOf(projectId) >= block.timestamp` -- ruleset ID prediction would fail |
+| `JBOmnichainDeployer_ProjectIdMismatch` | `launchProjectFor`/`launch721ProjectFor` -- the project ID returned by the controller does not match the predicted `PROJECTS.count() + 1` |
+| `JBOmnichainDeployer_ControllerMismatch` | `launchRulesetsFor`/`launch721RulesetsFor`/`queueRulesetsOf`/`queue721RulesetsOf` -- the provided controller does not match the project's controller in `JBDirectory` |
 
 ## Gotchas
 

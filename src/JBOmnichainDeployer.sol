@@ -385,6 +385,7 @@ contract JBOmnichainDeployer is
 
         // Convert the 721 ruleset configurations to regular ruleset configurations.
         // Then modify the ruleset configurations to use this deployer as a wrapper for the datasource.
+        // slither-disable-next-line reentrancy-benign
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
             projectId: projectId,
             rulesetConfigurations: _from721Config({
@@ -507,6 +508,7 @@ contract JBOmnichainDeployer is
 
         // Convert the 721 ruleset configurations to regular ruleset configurations.
         // Then modify the ruleset configurations to use this deployer as a wrapper for the datasource.
+        // slither-disable-next-line reentrancy-benign
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
             projectId: projectId,
             rulesetConfigurations: _from721Config({
@@ -608,6 +610,7 @@ contract JBOmnichainDeployer is
 
         // Convert the 721 ruleset configurations to regular ruleset configurations.
         // Then modify the ruleset configurations to use this deployer as a wrapper for the datasource.
+        // slither-disable-next-line reentrancy-benign
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
             projectId: projectId,
             rulesetConfigurations: _from721Config({
