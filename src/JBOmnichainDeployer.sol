@@ -69,7 +69,6 @@ contract JBOmnichainDeployer is
     /// @notice Thrown when the provided controller does not match the project's controller in the directory.
     error JBOmnichainDeployer_ControllerMismatch();
 
-
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
     //*********************************************************************//
