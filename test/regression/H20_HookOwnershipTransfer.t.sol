@@ -80,15 +80,11 @@ contract H20_HookOwnershipTransfer is Test {
         );
 
         // Mock transferOwnershipToProject on the hook.
-        vm.mockCall(
-            hookAddr, abi.encodeWithSelector(JBOwnable.transferOwnershipToProject.selector), abi.encode()
-        );
+        vm.mockCall(hookAddr, abi.encodeWithSelector(JBOwnable.transferOwnershipToProject.selector), abi.encode());
 
         // Mock controller.queueRulesetsOf to succeed.
         vm.mockCall(
-            address(controller),
-            abi.encodeWithSelector(IJBController.queueRulesetsOf.selector),
-            abi.encode(uint256(1))
+            address(controller), abi.encodeWithSelector(IJBController.queueRulesetsOf.selector), abi.encode(uint256(1))
         );
     }
 
@@ -130,10 +126,7 @@ contract H20_HookOwnershipTransfer is Test {
         JBDeploy721TiersHookConfig memory hookConfig;
 
         // Expect the transferOwnershipToProject call on the hook.
-        vm.expectCall(
-            hookAddr,
-            abi.encodeWithSelector(JBOwnable.transferOwnershipToProject.selector, projectId)
-        );
+        vm.expectCall(hookAddr, abi.encodeWithSelector(JBOwnable.transferOwnershipToProject.selector, projectId));
 
         deployer.queue721RulesetsOf(projectId, hookConfig, queueConfig, controller, bytes32(0));
     }
