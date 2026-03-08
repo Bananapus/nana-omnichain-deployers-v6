@@ -16,7 +16,8 @@ import {JBPayDataHookRulesetConfig} from "@bananapus/721-hook-v6/src/structs/JBP
 import {JBPayDataHookRulesetMetadata} from "@bananapus/721-hook-v6/src/structs/JBPayDataHookRulesetMetadata.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
-import {JBOwnable} from "@bananapus/ownable-v6/src/JBOwnable.sol";
+import {IJBOwnable} from "@bananapus/ownable-v6/src/interfaces/IJBOwnable.sol";
+import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
@@ -39,6 +40,7 @@ contract H20_HookOwnershipTransfer is Test {
     IJB721TiersHookDeployer hookDeployer = IJB721TiersHookDeployer(makeAddr("hookDeployer"));
 
     IJBController controller = IJBController(makeAddr("controller"));
+    IJBDirectory directory = IJBDirectory(makeAddr("directory"));
     IJBRulesets rulesetsContract = IJBRulesets(makeAddr("rulesets"));
     address hookAddr = makeAddr("hook721");
 
@@ -72,6 +74,16 @@ contract H20_HookOwnershipTransfer is Test {
             abi.encode(uint256(0)) // no conflict
         );
 
+        // Mock DIRECTORY on controller and controllerOf on directory (L-64 validation).
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
+        vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
+            abi.encode(IERC165(address(controller)))
+        );
+
         // Mock the hook deployer to return our hook address.
         vm.mockCall(
             address(hookDeployer),
@@ -80,7 +92,7 @@ contract H20_HookOwnershipTransfer is Test {
         );
 
         // Mock transferOwnershipToProject on the hook.
-        vm.mockCall(hookAddr, abi.encodeWithSelector(JBOwnable.transferOwnershipToProject.selector), abi.encode());
+        vm.mockCall(hookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector), abi.encode());
 
         // Mock controller.queueRulesetsOf to succeed.
         vm.mockCall(
@@ -121,12 +133,12 @@ contract H20_HookOwnershipTransfer is Test {
         });
 
         JBQueueRulesetsConfig memory queueConfig =
-            JBQueueRulesetsConfig({rulesetConfigurations: rulesetConfigs, memo: "test"});
+            JBQueueRulesetsConfig({projectId: uint56(projectId), rulesetConfigurations: rulesetConfigs, memo: "test"});
 
         JBDeploy721TiersHookConfig memory hookConfig;
 
         // Expect the transferOwnershipToProject call on the hook.
-        vm.expectCall(hookAddr, abi.encodeWithSelector(JBOwnable.transferOwnershipToProject.selector, projectId));
+        vm.expectCall(hookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector, projectId));
 
         deployer.queue721RulesetsOf(projectId, hookConfig, queueConfig, controller, bytes32(0));
     }
