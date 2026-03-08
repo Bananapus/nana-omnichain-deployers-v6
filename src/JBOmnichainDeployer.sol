@@ -62,6 +62,9 @@ contract JBOmnichainDeployer is
     /// @notice Thrown when the contract receives an NFT that is not from the `JBProjects` contract.
     error JBOmnichainDeployer_UnexpectedNFT();
 
+    /// @notice Thrown when the project ID returned by the controller does not match the expected project ID.
+    error JBOmnichainDeployer_ProjectIdMismatch();
+
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
     //*********************************************************************//
@@ -312,16 +315,16 @@ contract JBOmnichainDeployer is
         rulesetConfigurations = _setup({projectId: projectId, rulesetConfigurations: rulesetConfigurations});
 
         // Launch the project.
-        assert(
+        if (
             projectId
-                == controller.launchProjectFor({
+                != controller.launchProjectFor({
                     owner: address(this),
                     projectUri: projectUri,
                     rulesetConfigurations: rulesetConfigurations,
                     terminalConfigurations: terminalConfigurations,
                     memo: memo
                 })
-        );
+        ) revert JBOmnichainDeployer_ProjectIdMismatch();
 
         // Deploy the suckers (if applicable).
         if (suckerDeploymentConfiguration.salt != bytes32(0)) {
@@ -386,16 +389,16 @@ contract JBOmnichainDeployer is
         });
 
         // Launch the project, and sanity check the project ID.
-        assert(
+        if (
             projectId
-                == controller.launchProjectFor({
+                != controller.launchProjectFor({
                     owner: address(this),
                     projectUri: launchProjectConfig.projectUri,
                     rulesetConfigurations: rulesetConfigurations,
                     terminalConfigurations: launchProjectConfig.terminalConfigurations,
                     memo: launchProjectConfig.memo
                 })
-        );
+        ) revert JBOmnichainDeployer_ProjectIdMismatch();
 
         // Transfer the hook's ownership to the project.
         JBOwnable(address(hook)).transferOwnershipToProject(projectId);
