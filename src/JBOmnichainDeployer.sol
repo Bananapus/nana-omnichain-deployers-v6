@@ -584,6 +584,9 @@ contract JBOmnichainDeployer is
             salt: salt == bytes32(0) ? bytes32(0) : keccak256(abi.encode(_msgSender(), salt))
         });
 
+        // Transfer the hook's ownership to the project.
+        JBOwnable(address(hook)).transferOwnershipToProject(projectId);
+
         // Convert the 721 ruleset configurations to regular ruleset configurations.
         // Then modify the ruleset configurations to use this deployer as a wrapper for the datasource.
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
