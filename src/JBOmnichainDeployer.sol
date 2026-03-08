@@ -14,6 +14,7 @@ import {JBPayDataHookRulesetConfig} from "@bananapus/721-hook-v6/src/structs/JBP
 import {JBQueueRulesetsConfig} from "@bananapus/721-hook-v6/src/structs/JBQueueRulesetsConfig.sol";
 import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
+import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
@@ -64,6 +65,10 @@ contract JBOmnichainDeployer is
 
     /// @notice Thrown when the project ID returned by the controller does not match the expected project ID.
     error JBOmnichainDeployer_ProjectIdMismatch();
+
+    /// @notice Thrown when the provided controller does not match the project's controller in the directory.
+    error JBOmnichainDeployer_ControllerMismatch();
+
 
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
@@ -445,6 +450,9 @@ contract JBOmnichainDeployer is
             account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.SET_TERMINALS
         });
 
+        // Validate that the controller matches the project's controller in the directory.
+        _validateController({projectId: projectId, controller: controller});
+
         return controller.launchRulesetsFor({
             projectId: projectId,
             rulesetConfigurations: _setup({projectId: projectId, rulesetConfigurations: rulesetConfigurations}),
@@ -482,6 +490,9 @@ contract JBOmnichainDeployer is
         _requirePermissionFrom({
             account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.SET_TERMINALS
         });
+
+        // Validate that the controller matches the project's controller in the directory.
+        _validateController({projectId: projectId, controller: controller});
 
         // Deploy the hook.
         // Note: the salt includes `_msgSender()` for replay protection. Cross-chain deterministic
@@ -534,6 +545,9 @@ contract JBOmnichainDeployer is
             account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.QUEUE_RULESETS
         });
 
+        // Validate that the controller matches the project's controller in the directory.
+        _validateController({projectId: projectId, controller: controller});
+
         // Revert if the project already had rulesets queued in this block, which would make our
         // `block.timestamp + i` ruleset ID prediction incorrect.
         if (controller.RULESETS().latestRulesetIdOf(projectId) >= block.timestamp) {
@@ -572,6 +586,9 @@ contract JBOmnichainDeployer is
             account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.QUEUE_RULESETS
         });
 
+        // Validate that the controller matches the project's controller in the directory.
+        _validateController({projectId: projectId, controller: controller});
+
         // Revert if the project already had rulesets queued in this block, which would make our
         // `block.timestamp + i` ruleset ID prediction incorrect.
         if (controller.RULESETS().latestRulesetIdOf(projectId) >= block.timestamp) {
@@ -586,6 +603,9 @@ contract JBOmnichainDeployer is
             deployTiersHookConfig: deployTiersHookConfig,
             salt: salt == bytes32(0) ? bytes32(0) : keccak256(abi.encode(_msgSender(), salt))
         });
+
+        // Transfer the hook's ownership to the project.
+        JBOwnable(address(hook)).transferOwnershipToProject(projectId);
 
         // Convert the 721 ruleset configurations to regular ruleset configurations.
         // Then modify the ruleset configurations to use this deployer as a wrapper for the datasource.
@@ -613,6 +633,15 @@ contract JBOmnichainDeployer is
     //*********************************************************************//
     // ------------------------ internal functions ----------------------- //
     //*********************************************************************//
+
+    /// @notice Validates that the provided controller matches the project's controller in the directory.
+    /// @param projectId The ID of the project to validate the controller for.
+    /// @param controller The controller to validate.
+    function _validateController(uint256 projectId, IJBController controller) internal view {
+        if (address(controller.DIRECTORY().controllerOf(projectId)) != address(controller)) {
+            revert JBOmnichainDeployer_ControllerMismatch();
+        }
+    }
 
     /// @notice Sets up a project's rulesets.
     /// @dev Stores data hook configs keyed by predicted ruleset IDs (`block.timestamp + i`). This prediction is correct
