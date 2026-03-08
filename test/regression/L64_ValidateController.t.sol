@@ -65,9 +65,7 @@ contract L64_ValidateController is Test {
             abi.encode(directory)
         );
         vm.mockCall(
-            address(fakeController),
-            abi.encodeWithSelector(IJBController.DIRECTORY.selector),
-            abi.encode(directory)
+            address(fakeController), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
         );
 
         // Mock the directory to say the legitimate controller is the project's controller.
@@ -91,7 +89,8 @@ contract L64_ValidateController is Test {
         );
     }
 
-    // ──────────────────── queueRulesetsOf ────────────────────
+    // ──────────────────── queueRulesetsOf
+    // ────────────────────
 
     function test_queueRulesetsOf_revertsWithFakeController() public {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
@@ -116,7 +115,8 @@ contract L64_ValidateController is Test {
         deployer.queueRulesetsOf(projectId, configs, "memo", legitimateController);
     }
 
-    // ──────────────────── launchRulesetsFor ────────────────────
+    // ──────────────────── launchRulesetsFor
+    // ────────────────────
 
     function test_launchRulesetsFor_revertsWithFakeController() public {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
@@ -127,7 +127,8 @@ contract L64_ValidateController is Test {
         deployer.launchRulesetsFor(projectId, configs, terminals, "memo", fakeController);
     }
 
-    // ──────────────────── Helpers ────────────────────
+    // ──────────────────── Helpers
+    // ────────────────────
 
     function _makeRulesetConfig() internal pure returns (JBRulesetConfig memory config) {
         config.metadata = JBRulesetMetadata({
