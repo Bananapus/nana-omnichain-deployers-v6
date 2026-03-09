@@ -23,7 +23,6 @@ import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDa
 import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
-import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsData.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
@@ -199,27 +198,28 @@ contract JBOmnichainDeployer is
             weight = context.weight;
         }
 
-        // Check for 721 hook.
+        // Call the 721 hook to get its specs (includes split amounts and tier metadata).
         IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
-        bool uses721 = address(tiered721Hook) != address(0);
+        JBPayHookSpecification[] memory hookSpecs;
+        if (address(tiered721Hook) != address(0)) {
+            (, hookSpecs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
+        }
+
+        bool uses721 = hookSpecs.length > 0;
         bool usesUserHook = userSpecs.length > 0;
 
         // If neither hook produces specs, return early.
         if (!uses721 && !usesUserHook) return (weight, hookSpecifications);
 
-        // Merge specifications.
-        hookSpecifications =
-            new JBPayHookSpecification[]((uses721 ? 1 : 0) + (usesUserHook ? userSpecs.length : 0));
+        // Merge specifications: 721 hook specs first, then user hook specs.
+        hookSpecifications = new JBPayHookSpecification[](hookSpecs.length + userSpecs.length);
 
-        // 721 hook first (amount=0, like REVDeployer — it mints NFTs as a bonus pay hook).
-        if (uses721) {
-            hookSpecifications[0] =
-                JBPayHookSpecification({hook: IJBPayHook(address(tiered721Hook)), amount: 0, metadata: bytes("")});
+        for (uint256 i; i < hookSpecs.length; i++) {
+            hookSpecifications[i] = hookSpecs[i];
         }
 
-        // Then user hook specs.
         for (uint256 i; i < userSpecs.length; i++) {
-            hookSpecifications[(uses721 ? 1 : 0) + i] = userSpecs[i];
+            hookSpecifications[hookSpecs.length + i] = userSpecs[i];
         }
     }
 
@@ -272,13 +272,8 @@ contract JBOmnichainDeployer is
         // Check 721 hook.
         IJB721TiersHook tiered721Hook = tiered721HookOf[projectId];
         if (address(tiered721Hook) != address(0)) {
-            if (
-                IJBRulesetDataHook(address(tiered721Hook)).hasMintPermissionFor({
-                    projectId: projectId,
-                    ruleset: ruleset,
-                    addr: addr
-                })
-            ) return true;
+            if (IJBRulesetDataHook(address(tiered721Hook))
+                    .hasMintPermissionFor({projectId: projectId, ruleset: ruleset, addr: addr})) return true;
         }
 
         return false;
@@ -381,8 +376,7 @@ contract JBOmnichainDeployer is
                     rulesetConfigurations: _setup({
                         projectId: projectId,
                         rulesetConfigurations: _from721Config({
-                            launchProjectConfig: launchProjectConfig.rulesetConfigurations,
-                            dataHook: dataHook
+                            launchProjectConfig: launchProjectConfig.rulesetConfigurations, dataHook: dataHook
                         })
                     }),
                     terminalConfigurations: launchProjectConfig.terminalConfigurations,

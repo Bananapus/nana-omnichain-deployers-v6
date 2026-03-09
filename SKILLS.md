@@ -28,7 +28,7 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 
 | Function | What it does |
 |----------|-------------|
-| `beforePayRecordedWith(context)` | Calls the custom data hook for weight + specs, then merges in the 721 hook as a pay hook specification (amount=0, 721 first). Returns combined specs from both hooks. |
+| `beforePayRecordedWith(context)` | Calls the 721 hook's `beforePayRecordedWith` for its specs (including split amounts), then calls the custom data hook for weight + specs. Merges both (721 hook specs first, then custom hook specs). |
 | `beforeCashOutRecordedWith(context)` | If holder is a sucker: returns 0% tax immediately. If 721 hook exists: delegates to it (takes priority). Otherwise forwards to the custom data hook, or returns defaults. |
 | `hasMintPermissionFor(projectId, ruleset, addr)` | Returns `true` for registered suckers, OR if the custom data hook grants permission, OR if the 721 hook grants permission. Returns `false` only if none grant it. |
 
@@ -98,7 +98,7 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 16. ERC2771 meta-transaction support allows gasless deployments via a trusted forwarder. Salt hashing uses `_msgSender()` (not `msg.sender`), so forwarder-relayed transactions use the original sender's address for deterministic sucker addresses.
 17. **Prefer `launch721ProjectFor` over `launchProjectFor` even with empty tiers.** Using `launch721ProjectFor` with an empty tiers array wires up the 721 hook from the start, so the project owner can add and sell NFTs later without needing to reconfigure the data hook in a new ruleset. `launchProjectFor` skips hook deployment entirely.
 18. The 721 hook is stored **per-project** in `tiered721HookOf[projectId]`, not per-ruleset. It persists across all rulesets. The custom data hook is stored **per-ruleset** in `_dataHookOf[projectId][rulesetId]`.
-19. For payments, `beforePayRecordedWith` **merges** both hooks' specs: the 721 hook's pay specification comes first (with `amount=0`, minting NFTs as a bonus), followed by the custom data hook's specs. The custom data hook controls the weight.
+19. For payments, `beforePayRecordedWith` calls the 721 hook's own `beforePayRecordedWith` to get its specs (including split fund amounts and tier metadata), then merges them with the custom data hook's specs. The 721 hook's specs come first. The custom data hook controls the weight.
 20. For cash outs, the 721 hook **takes priority** over the custom data hook. If a 721 hook exists, `beforeCashOutRecordedWith` delegates entirely to it, ignoring the custom data hook.
 21. The `launch721*` and `queue721*` functions now accept a `dataHook` parameter (type `address`) for the custom data hook to compose alongside the 721 hook. Pass `address(0)` for no custom hook.
 

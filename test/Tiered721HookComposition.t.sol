@@ -78,9 +78,7 @@ contract Tiered721HookComposition is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.hasPermission.selector), abi.encode(true)
         );
-        vm.mockCall(
-            address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41))
-        );
+        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
         vm.mockCall(
             address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
         );
@@ -115,6 +113,15 @@ contract Tiered721HookComposition is Test {
         // Default: not a sucker.
         vm.mockCall(
             address(suckerRegistry), abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false)
+        );
+
+        // Default: 721 hook returns itself as pay hook with amount=0 (base JB721Hook behavior).
+        JBPayHookSpecification[] memory default721Specs = new JBPayHookSpecification[](1);
+        default721Specs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0, metadata: bytes("")});
+        vm.mockCall(
+            hookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(1000), default721Specs)
         );
     }
 
@@ -213,11 +220,8 @@ contract Tiered721HookComposition is Test {
         // Mock buyback hook returning modified weight and its own specs.
         uint256 buybackWeight = 555;
         JBPayHookSpecification[] memory buybackSpecs = new JBPayHookSpecification[](1);
-        buybackSpecs[0] = JBPayHookSpecification({
-            hook: IJBPayHook(buybackHookAddr),
-            amount: 0.5 ether,
-            metadata: bytes("buyback")
-        });
+        buybackSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(buybackHookAddr), amount: 0.5 ether, metadata: bytes("buyback")});
         vm.mockCall(
             buybackHookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -288,9 +292,7 @@ contract Tiered721HookComposition is Test {
         JBPayHookSpecification[] memory userSpecs = new JBPayHookSpecification[](3);
         for (uint256 i; i < 3; i++) {
             userSpecs[i] = JBPayHookSpecification({
-                hook: IJBPayHook(address(uint160(100 + i))),
-                amount: (i + 1) * 0.1 ether,
-                metadata: bytes("")
+                hook: IJBPayHook(address(uint160(100 + i))), amount: (i + 1) * 0.1 ether, metadata: bytes("")
             });
         }
         vm.mockCall(
@@ -320,6 +322,126 @@ contract Tiered721HookComposition is Test {
 
         assertEq(weight, context.weight, "original weight");
         assertEq(specs.length, 0, "no specs");
+    }
+
+    // ---------------------------------------------------------------
+    // beforePayRecordedWith: split fund forwarding
+    // ---------------------------------------------------------------
+
+    function test_beforePay_721HookSplitAmountForwarded() public {
+        // Launch with 721, no custom data hook.
+        deployer.launch721ProjectFor({
+            owner: projectOwner,
+            deployTiersHookConfig: _emptyHookConfig(),
+            launchProjectConfig: _makeLaunchProjectConfig(),
+            suckerDeploymentConfiguration: _emptySuckerConfig(),
+            controller: controller,
+            dataHook: address(0),
+            salt: bytes32(0)
+        });
+
+        // Mock the 721 hook returning a non-zero split amount (tier-based fund routing).
+        uint256 splitAmount = 0.3 ether;
+        bytes memory splitMetadata = abi.encode(uint256(1), uint256(2)); // tier IDs
+        JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
+        hookSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: splitAmount, metadata: splitMetadata});
+        vm.mockCall(
+            hookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(1000), hookSpecs)
+        );
+
+        JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
+
+        (, JBPayHookSpecification[] memory specs) = deployer.beforePayRecordedWith(context);
+
+        assertEq(specs.length, 1, "should have 1 spec (721 hook)");
+        assertEq(address(specs[0].hook), hookAddr, "spec points to 721 hook");
+        assertEq(specs[0].amount, splitAmount, "split amount must be forwarded, not hardcoded to 0");
+        assertEq(specs[0].metadata, splitMetadata, "split metadata must be forwarded");
+    }
+
+    function test_beforePay_721SplitsComposedWithBuyback() public {
+        // Launch with 721 + buyback hook.
+        deployer.launch721ProjectFor({
+            owner: projectOwner,
+            deployTiersHookConfig: _emptyHookConfig(),
+            launchProjectConfig: _makeLaunchProjectConfig(),
+            suckerDeploymentConfiguration: _emptySuckerConfig(),
+            controller: controller,
+            dataHook: buybackHookAddr,
+            salt: bytes32(0)
+        });
+
+        // Mock 721 hook returning a split amount.
+        uint256 splitAmount = 0.25 ether;
+        JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
+        hookSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: splitAmount, metadata: abi.encode(uint256(5))});
+        vm.mockCall(
+            hookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(1000), hookSpecs)
+        );
+
+        // Mock buyback hook returning its own specs.
+        uint256 buybackWeight = 555;
+        JBPayHookSpecification[] memory buybackSpecs = new JBPayHookSpecification[](1);
+        buybackSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(buybackHookAddr), amount: 0.5 ether, metadata: bytes("buyback")});
+        vm.mockCall(
+            buybackHookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(buybackWeight, buybackSpecs)
+        );
+
+        JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
+
+        (uint256 weight, JBPayHookSpecification[] memory specs) = deployer.beforePayRecordedWith(context);
+
+        assertEq(weight, buybackWeight, "weight from buyback hook");
+        assertEq(specs.length, 2, "721 spec + buyback spec");
+
+        // First: 721 hook with its split amount preserved.
+        assertEq(address(specs[0].hook), hookAddr, "first = 721 hook");
+        assertEq(specs[0].amount, splitAmount, "721 split amount preserved");
+
+        // Second: buyback hook spec.
+        assertEq(address(specs[1].hook), buybackHookAddr, "second = buyback hook");
+        assertEq(specs[1].amount, 0.5 ether, "buyback amount preserved");
+    }
+
+    function test_beforePay_721HookReturnsMultipleSpecs() public {
+        // Launch with 721 only.
+        deployer.launch721ProjectFor({
+            owner: projectOwner,
+            deployTiersHookConfig: _emptyHookConfig(),
+            launchProjectConfig: _makeLaunchProjectConfig(),
+            suckerDeploymentConfiguration: _emptySuckerConfig(),
+            controller: controller,
+            dataHook: address(0),
+            salt: bytes32(0)
+        });
+
+        // Mock 721 hook returning multiple specs (e.g., future hook returning multiple split targets).
+        JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](2);
+        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0.1 ether, metadata: bytes("")});
+        hookSpecs[1] =
+            JBPayHookSpecification({hook: IJBPayHook(makeAddr("splitTarget")), amount: 0.2 ether, metadata: bytes("")});
+        vm.mockCall(
+            hookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(1000), hookSpecs)
+        );
+
+        JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
+
+        (, JBPayHookSpecification[] memory specs) = deployer.beforePayRecordedWith(context);
+
+        assertEq(specs.length, 2, "both 721 specs forwarded");
+        assertEq(specs[0].amount, 0.1 ether, "first 721 spec amount");
+        assertEq(specs[1].amount, 0.2 ether, "second 721 spec amount");
     }
 
     // ---------------------------------------------------------------
@@ -647,11 +769,8 @@ contract Tiered721HookComposition is Test {
 
         // Mock buyback hook.
         JBPayHookSpecification[] memory buybackSpecs = new JBPayHookSpecification[](1);
-        buybackSpecs[0] = JBPayHookSpecification({
-            hook: IJBPayHook(buybackHookAddr),
-            amount: 0.5 ether,
-            metadata: bytes("")
-        });
+        buybackSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(buybackHookAddr), amount: 0.5 ether, metadata: bytes("")});
         vm.mockCall(
             buybackHookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -828,11 +947,7 @@ contract Tiered721HookComposition is Test {
     }
 
     function _makeQueueRulesetsConfig() internal pure returns (JBQueueRulesetsConfig memory) {
-        return JBQueueRulesetsConfig({
-            projectId: uint56(42),
-            rulesetConfigurations: _make721RulesetConfigs(),
-            memo: ""
-        });
+        return JBQueueRulesetsConfig({projectId: uint56(42), rulesetConfigurations: _make721RulesetConfigs(), memo: ""});
     }
 
     function _emptyHookConfig() internal pure returns (JBDeploy721TiersHookConfig memory config) {}
