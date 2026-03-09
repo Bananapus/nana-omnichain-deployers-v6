@@ -610,7 +610,7 @@ contract Tiered721HookComposition is Test {
         assertTrue(deployer.hasMintPermissionFor(projectId, ruleset, randomAddr));
     }
 
-    function test_hasMintPermission_721HookGrantsPermission() public {
+    function test_hasMintPermission_721HookNotChecked() public {
         // Launch 721 + custom hook.
         deployer.launch721ProjectFor({
             owner: projectOwner,
@@ -622,21 +622,17 @@ contract Tiered721HookComposition is Test {
             salt: bytes32(0)
         });
 
-        // User hook says no.
+        // User hook says no — 721 hook is not checked for mint permission.
         vm.mockCall(
             customHookAddr, abi.encodeWithSelector(IJBRulesetDataHook.hasMintPermissionFor.selector), abi.encode(false)
-        );
-        // 721 hook says yes.
-        vm.mockCall(
-            hookAddr, abi.encodeWithSelector(IJBRulesetDataHook.hasMintPermissionFor.selector), abi.encode(true)
         );
 
         JBRuleset memory ruleset;
         ruleset.id = uint48(block.timestamp);
-        assertTrue(deployer.hasMintPermissionFor(projectId, ruleset, randomAddr));
+        assertFalse(deployer.hasMintPermissionFor(projectId, ruleset, randomAddr));
     }
 
-    function test_hasMintPermission_bothHooksSayNo_returnsFalse() public {
+    function test_hasMintPermission_dataHookSaysNo_returnsFalse() public {
         deployer.launch721ProjectFor({
             owner: projectOwner,
             deployTiersHookConfig: _emptyHookConfig(),
@@ -650,17 +646,14 @@ contract Tiered721HookComposition is Test {
         vm.mockCall(
             customHookAddr, abi.encodeWithSelector(IJBRulesetDataHook.hasMintPermissionFor.selector), abi.encode(false)
         );
-        vm.mockCall(
-            hookAddr, abi.encodeWithSelector(IJBRulesetDataHook.hasMintPermissionFor.selector), abi.encode(false)
-        );
 
         JBRuleset memory ruleset;
         ruleset.id = uint48(block.timestamp);
         assertFalse(deployer.hasMintPermissionFor(projectId, ruleset, randomAddr));
     }
 
-    function test_hasMintPermission_721Only_noUserHook() public {
-        // Launch 721 with no user data hook.
+    function test_hasMintPermission_721Only_noUserHook_returnsFalse() public {
+        // Launch 721 with no user data hook — 721 hook alone can't grant mint permission.
         deployer.launch721ProjectFor({
             owner: projectOwner,
             deployTiersHookConfig: _emptyHookConfig(),
@@ -671,14 +664,9 @@ contract Tiered721HookComposition is Test {
             salt: bytes32(0)
         });
 
-        // 721 hook says yes.
-        vm.mockCall(
-            hookAddr, abi.encodeWithSelector(IJBRulesetDataHook.hasMintPermissionFor.selector), abi.encode(true)
-        );
-
         JBRuleset memory ruleset;
         ruleset.id = uint48(block.timestamp);
-        assertTrue(deployer.hasMintPermissionFor(projectId, ruleset, randomAddr));
+        assertFalse(deployer.hasMintPermissionFor(projectId, ruleset, randomAddr));
     }
 
     function test_hasMintPermission_noHooksAtAll_returnsFalse() public {

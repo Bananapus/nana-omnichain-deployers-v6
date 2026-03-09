@@ -160,13 +160,23 @@ contract JBOmnichainDeployer is
             return (0, context.cashOutCount, context.totalSupply, hookSpecifications);
         }
 
-        // If a 721 hook exists, it handles cashouts (NFT-based semantics take priority).
+        // If a 721 hook exists, try it first (NFT-based semantics take priority).
+        // The 721 hook reverts when fungible tokens are cashed out (no NFTs), so we catch and fall through.
         IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
         if (address(tiered721Hook) != address(0)) {
-            return IJBRulesetDataHook(address(tiered721Hook)).beforeCashOutRecordedWith(context);
+            try IJBRulesetDataHook(address(tiered721Hook)).beforeCashOutRecordedWith(context) returns (
+                uint256 cashOutTaxRate,
+                uint256 cashOutCount,
+                uint256 totalSupply,
+                JBCashOutHookSpecification[] memory specs
+            ) {
+                return (cashOutTaxRate, cashOutCount, totalSupply, specs);
+            } catch {
+                // 721 hook rejected (e.g. fungible-only cashout) — fall through to custom data hook or defaults.
+            }
         }
 
-        // Otherwise, forward to the user's custom data hook.
+        // Forward to the user's custom data hook if one is set.
         JBDeployerHookConfig memory hook = _dataHookOf[context.projectId][context.rulesetId];
 
         // If no data hook is set, or the data hook is not used for cash outs, return the original values.
@@ -198,11 +208,11 @@ contract JBOmnichainDeployer is
         uint256 totalSplitAmount;
         bool usesTiered721Hook = address(tiered721Hook) != address(0);
         if (usesTiered721Hook) {
-            JBPayHookSpecification[] memory specs;
-            (, specs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
+            JBPayHookSpecification[] memory tiered721HookSpecs;
+            (, tiered721HookSpecs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
             // The 721 hook returns a single spec (itself) whose amount is the total split amount.
-            if (specs.length > 0) {
-                tiered721HookSpec = specs[0];
+            if (tiered721HookSpecs.length > 0) {
+                tiered721HookSpec = tiered721HookSpecs[0];
                 totalSplitAmount = tiered721HookSpec.amount;
             }
         }
@@ -213,11 +223,11 @@ contract JBOmnichainDeployer is
         // Get the custom data hook's weight and specs. Reduce the amount so it only considers funds entering the
         // project.
         JBDeployerHookConfig memory hook = _dataHookOf[context.projectId][context.rulesetId];
-        JBPayHookSpecification[] memory userSpecs;
+        JBPayHookSpecification[] memory dataHookSpecs;
         if (address(hook.dataHook) != address(0) && hook.useDataHookForPay) {
             JBBeforePayRecordedContext memory hookContext = context;
             hookContext.amount.value = projectAmount;
-            (weight, userSpecs) = hook.dataHook.beforePayRecordedWith(hookContext);
+            (weight, dataHookSpecs) = hook.dataHook.beforePayRecordedWith(hookContext);
         } else {
             weight = context.weight;
         }
@@ -230,16 +240,16 @@ contract JBOmnichainDeployer is
             weight = mulDiv(weight, projectAmount, context.amount.value);
         }
 
-        // Merge specifications: 721 hook spec first, then user hook specs.
-        bool usesUserHook = userSpecs.length > 0;
-        if (!usesTiered721Hook && !usesUserHook) return (weight, hookSpecifications);
+        // Merge specifications: 721 hook spec first, then data hook specs.
+        bool hasDataHookSpecs = dataHookSpecs.length > 0;
+        if (!usesTiered721Hook && !hasDataHookSpecs) return (weight, hookSpecifications);
 
-        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + userSpecs.length);
+        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + dataHookSpecs.length);
 
         uint256 specIndex;
         if (usesTiered721Hook) hookSpecifications[specIndex++] = tiered721HookSpec;
-        for (uint256 i; i < userSpecs.length; i++) {
-            hookSpecifications[specIndex + i] = userSpecs[i];
+        for (uint256 i; i < dataHookSpecs.length; i++) {
+            hookSpecifications[specIndex + i] = dataHookSpecs[i];
         }
     }
 
@@ -287,13 +297,6 @@ contract JBOmnichainDeployer is
             if (hook.dataHook.hasMintPermissionFor({projectId: projectId, ruleset: ruleset, addr: addr})) {
                 return true;
             }
-        }
-
-        // Check 721 hook.
-        IJB721TiersHook tiered721Hook = tiered721HookOf[projectId];
-        if (address(tiered721Hook) != address(0)) {
-            if (IJBRulesetDataHook(address(tiered721Hook))
-                    .hasMintPermissionFor({projectId: projectId, ruleset: ruleset, addr: addr})) return true;
         }
 
         return false;
