@@ -27,11 +27,14 @@ import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSp
 import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsData.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
+import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 import {JBOwnable} from "@bananapus/ownable-v6/src/JBOwnable.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
+
+import {mulDiv} from "@prb/math/src/Common.sol";
 
 import {IJBOmnichainDeployer} from "./interfaces/IJBOmnichainDeployer.sol";
 import {JBDeployerHookConfig} from "./structs/JBDeployerHookConfig.sol";
@@ -189,20 +192,52 @@ contract JBOmnichainDeployer is
         override
         returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
     {
-        // Call user data hook for weight + specs.
+        // Call the 721 hook first to get split specs and the total split amount.
+        IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
+        JBPayHookSpecification[] memory hookSpecs;
+        uint256 totalSplitAmount;
+        if (address(tiered721Hook) != address(0)) {
+            // The 721 hook returns an adjusted weight (which we ignore — we do our own adjustment).
+            (, hookSpecs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
+            // The first spec's amount is the total split amount.
+            if (hookSpecs.length > 0) totalSplitAmount = hookSpecs[0].amount;
+        }
+
+        // Call user data hook (e.g. buyback) with a reduced amount context so it only sees available funds.
         JBDeployerHookConfig memory hook = _dataHookOf[context.projectId][context.rulesetId];
         JBPayHookSpecification[] memory userSpecs;
         if (address(hook.dataHook) != address(0) && hook.useDataHookForPay) {
-            (weight, userSpecs) = hook.dataHook.beforePayRecordedWith(context);
+            if (totalSplitAmount != 0) {
+                // Build a modified context with reduced amount for the custom hook.
+                JBBeforePayRecordedContext memory reducedContext = JBBeforePayRecordedContext({
+                    terminal: context.terminal,
+                    payer: context.payer,
+                    amount: JBTokenAmount({
+                        token: context.amount.token,
+                        value: context.amount.value > totalSplitAmount ? context.amount.value - totalSplitAmount : 0,
+                        decimals: context.amount.decimals,
+                        currency: context.amount.currency
+                    }),
+                    projectId: context.projectId,
+                    rulesetId: context.rulesetId,
+                    beneficiary: context.beneficiary,
+                    weight: context.weight,
+                    reservedPercent: context.reservedPercent,
+                    metadata: context.metadata
+                });
+                (weight, userSpecs) = hook.dataHook.beforePayRecordedWith(reducedContext);
+            } else {
+                (weight, userSpecs) = hook.dataHook.beforePayRecordedWith(context);
+            }
         } else {
             weight = context.weight;
         }
 
-        // Call the 721 hook to get its specs (includes split amounts and tier metadata).
-        IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
-        JBPayHookSpecification[] memory hookSpecs;
-        if (address(tiered721Hook) != address(0)) {
-            (, hookSpecs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
+        // Adjust weight for the split ratio.
+        if (totalSplitAmount != 0 && context.amount.value > totalSplitAmount) {
+            weight = mulDiv(weight, context.amount.value - totalSplitAmount, context.amount.value);
+        } else if (totalSplitAmount != 0) {
+            weight = 0;
         }
 
         bool uses721 = hookSpecs.length > 0;

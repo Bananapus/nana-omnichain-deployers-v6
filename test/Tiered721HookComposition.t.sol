@@ -354,12 +354,14 @@ contract Tiered721HookComposition is Test {
 
         JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
 
-        (, JBPayHookSpecification[] memory specs) = deployer.beforePayRecordedWith(context);
+        (uint256 weight, JBPayHookSpecification[] memory specs) = deployer.beforePayRecordedWith(context);
 
         assertEq(specs.length, 1, "should have 1 spec (721 hook)");
         assertEq(address(specs[0].hook), hookAddr, "spec points to 721 hook");
         assertEq(specs[0].amount, splitAmount, "split amount must be forwarded, not hardcoded to 0");
         assertEq(specs[0].metadata, splitMetadata, "split metadata must be forwarded");
+        // Weight adjusted for 0.3 ETH split on 1 ETH: 1000 * 0.7 = 700.
+        assertEq(weight, 700, "weight adjusted for split ratio");
     }
 
     function test_beforePay_721SplitsComposedWithBuyback() public {
@@ -400,7 +402,8 @@ contract Tiered721HookComposition is Test {
 
         (uint256 weight, JBPayHookSpecification[] memory specs) = deployer.beforePayRecordedWith(context);
 
-        assertEq(weight, buybackWeight, "weight from buyback hook");
+        // Weight from buyback (555) adjusted for 0.25 ETH split on 1 ETH: 555 * 0.75 = 416.
+        assertEq(weight, 416, "weight = buybackWeight * (amount - split) / amount");
         assertEq(specs.length, 2, "721 spec + buyback spec");
 
         // First: 721 hook with its split amount preserved.
@@ -785,6 +788,234 @@ contract Tiered721HookComposition is Test {
         // No 721 hook, so only buyback specs.
         assertEq(specs.length, 1, "only buyback spec");
         assertEq(address(specs[0].hook), buybackHookAddr);
+    }
+
+    // ---------------------------------------------------------------
+    // beforePayRecordedWith: weight adjustment for splits
+    // ---------------------------------------------------------------
+
+    function test_beforePay_weightAdjustedForSplits() public {
+        // Launch with 721 only.
+        deployer.launch721ProjectFor({
+            owner: projectOwner,
+            deployTiersHookConfig: _emptyHookConfig(),
+            launchProjectConfig: _makeLaunchProjectConfig(),
+            suckerDeploymentConfiguration: _emptySuckerConfig(),
+            controller: controller,
+            dataHook: address(0),
+            salt: bytes32(0)
+        });
+
+        // Mock 721 hook returning 50% split.
+        JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
+        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0.5 ether, metadata: bytes("")});
+        vm.mockCall(
+            hookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(500), hookSpecs)
+        );
+
+        JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
+
+        (uint256 weight,) = deployer.beforePayRecordedWith(context);
+
+        // Weight adjusted: 1000 * (1 - 0.5) = 500.
+        assertEq(weight, 500, "weight reduced by split ratio");
+    }
+
+    function test_beforePay_buybackSeesReducedAmount() public {
+        // Launch with 721 + custom data hook.
+        deployer.launch721ProjectFor({
+            owner: projectOwner,
+            deployTiersHookConfig: _emptyHookConfig(),
+            launchProjectConfig: _makeLaunchProjectConfig(),
+            suckerDeploymentConfiguration: _emptySuckerConfig(),
+            controller: controller,
+            dataHook: customHookAddr,
+            salt: bytes32(0)
+        });
+
+        // Mock 721 hook returning 0.4 ETH split on 1 ETH payment.
+        JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
+        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0.4 ether, metadata: bytes("")});
+        vm.mockCall(
+            hookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(1000), hookSpecs)
+        );
+
+        // Mock custom hook — it will be called with reduced amount.
+        // We can't assert the exact calldata easily with vm.mockCall, but we verify the result.
+        JBPayHookSpecification[] memory emptySpecs = new JBPayHookSpecification[](0);
+        vm.mockCall(
+            customHookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(2000), emptySpecs)
+        );
+
+        JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
+
+        (uint256 weight,) = deployer.beforePayRecordedWith(context);
+
+        // Weight from custom hook (2000) adjusted for 0.4 ETH split on 1 ETH: 2000 * 0.6 = 1200.
+        assertEq(weight, 1200, "weight = customWeight * (amount - split) / amount");
+    }
+
+    function test_beforePay_fullSplit_weightZero() public {
+        // Launch with 721 only.
+        deployer.launch721ProjectFor({
+            owner: projectOwner,
+            deployTiersHookConfig: _emptyHookConfig(),
+            launchProjectConfig: _makeLaunchProjectConfig(),
+            suckerDeploymentConfiguration: _emptySuckerConfig(),
+            controller: controller,
+            dataHook: address(0),
+            salt: bytes32(0)
+        });
+
+        // Mock 721 hook returning full amount as split.
+        JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
+        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 1 ether, metadata: bytes("")});
+        vm.mockCall(
+            hookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(1000), hookSpecs)
+        );
+
+        JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
+
+        (uint256 weight,) = deployer.beforePayRecordedWith(context);
+
+        assertEq(weight, 0, "full split = zero weight");
+    }
+
+    function test_beforePay_noSplit_noAdjustment() public {
+        // Launch with 721 + buyback.
+        deployer.launch721ProjectFor({
+            owner: projectOwner,
+            deployTiersHookConfig: _emptyHookConfig(),
+            launchProjectConfig: _makeLaunchProjectConfig(),
+            suckerDeploymentConfiguration: _emptySuckerConfig(),
+            controller: controller,
+            dataHook: buybackHookAddr,
+            salt: bytes32(0)
+        });
+
+        // Mock 721 hook returning 0 split amount.
+        JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
+        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0, metadata: bytes("")});
+        vm.mockCall(
+            hookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(1000), hookSpecs)
+        );
+
+        // Buyback returns weight 888.
+        JBPayHookSpecification[] memory buybackSpecs = new JBPayHookSpecification[](1);
+        buybackSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(buybackHookAddr), amount: 0, metadata: bytes("")});
+        vm.mockCall(
+            buybackHookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(888), buybackSpecs)
+        );
+
+        JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
+
+        (uint256 weight,) = deployer.beforePayRecordedWith(context);
+
+        // No split = no adjustment, weight is buyback's weight.
+        assertEq(weight, 888, "no split = no weight adjustment");
+    }
+
+    // ---------------------------------------------------------------
+    // beforePayRecordedWith: 721 splits + buyback (AMM vs mint path)
+    // ---------------------------------------------------------------
+
+    function test_beforePay_splitPlusBuybackAMM_correctWeight() public {
+        // Launch with 721 + buyback hook.
+        deployer.launch721ProjectFor({
+            owner: projectOwner,
+            deployTiersHookConfig: _emptyHookConfig(),
+            launchProjectConfig: _makeLaunchProjectConfig(),
+            suckerDeploymentConfiguration: _emptySuckerConfig(),
+            controller: controller,
+            dataHook: buybackHookAddr,
+            salt: bytes32(0)
+        });
+
+        // Mock 721 hook returning 0.4 ETH split on 1 ETH payment.
+        JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
+        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0.4 ether, metadata: bytes("")});
+        vm.mockCall(
+            hookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(600), hookSpecs)
+        );
+
+        // Mock buyback hook returning AMM swap specs (weight boosted by swap).
+        uint256 buybackWeight = 2000;
+        JBPayHookSpecification[] memory buybackSpecs = new JBPayHookSpecification[](1);
+        buybackSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(buybackHookAddr), amount: 0.6 ether, metadata: bytes("swap")});
+        vm.mockCall(
+            buybackHookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(buybackWeight, buybackSpecs)
+        );
+
+        JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
+
+        (uint256 weight, JBPayHookSpecification[] memory specs) = deployer.beforePayRecordedWith(context);
+
+        // Weight from buyback (2000) adjusted for 0.4 ETH split on 1 ETH: 2000 * 0.6 = 1200.
+        assertEq(weight, 1200, "weight = buybackWeight * (amount - split) / amount");
+        assertEq(specs.length, 2, "721 spec + buyback spec");
+        assertEq(address(specs[0].hook), hookAddr, "first = 721 hook");
+        assertEq(specs[0].amount, 0.4 ether, "721 split amount");
+        assertEq(address(specs[1].hook), buybackHookAddr, "second = buyback");
+        assertEq(specs[1].amount, 0.6 ether, "buyback gets reduced amount");
+    }
+
+    function test_beforePay_splitPlusBuybackMintPath_correctWeight() public {
+        // Launch with 721 + buyback hook.
+        deployer.launch721ProjectFor({
+            owner: projectOwner,
+            deployTiersHookConfig: _emptyHookConfig(),
+            launchProjectConfig: _makeLaunchProjectConfig(),
+            suckerDeploymentConfiguration: _emptySuckerConfig(),
+            controller: controller,
+            dataHook: buybackHookAddr,
+            salt: bytes32(0)
+        });
+
+        // Mock 721 hook returning 0.2 ETH split.
+        JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
+        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0.2 ether, metadata: bytes("")});
+        vm.mockCall(
+            hookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(800), hookSpecs)
+        );
+
+        // Mock buyback hook — mint path (no AMM trigger): returns weight, EMPTY specs.
+        uint256 mintPathWeight = 1000;
+        JBPayHookSpecification[] memory emptyBuybackSpecs = new JBPayHookSpecification[](0);
+        vm.mockCall(
+            buybackHookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(mintPathWeight, emptyBuybackSpecs)
+        );
+
+        JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
+
+        (uint256 weight, JBPayHookSpecification[] memory specs) = deployer.beforePayRecordedWith(context);
+
+        // Weight from buyback mint path (1000) adjusted for 0.2 ETH split on 1 ETH: 1000 * 0.8 = 800.
+        assertEq(weight, 800, "weight = buybackWeight * (amount - split) / amount");
+        // Only 721 spec (buyback mint path = no specs).
+        assertEq(specs.length, 1, "only 721 spec (buyback empty)");
+        assertEq(address(specs[0].hook), hookAddr, "spec = 721 hook");
+        assertEq(specs[0].amount, 0.2 ether, "721 split amount");
     }
 
     // ---------------------------------------------------------------
