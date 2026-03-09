@@ -11,7 +11,7 @@ Launching a cross-chain Juicebox project normally takes several steps: deploy th
 It works by inserting itself as the data hook on every ruleset it touches, storing the project's custom data hook in a mapping keyed by `(projectId, rulesetId)` and any 721 tiers hook separately in `tiered721HookOf`. When the protocol calls data hook functions during payments and cash outs, the deployer:
 
 - **Checks if the holder is a sucker** -- if so, returns 0% cash out tax and grants mint permission. This early return means suckers can always bridge tokens without interference, even if the project's hooks would revert.
-- **Composes the 721 hook and custom data hook** for payments -- both hooks' pay specifications are merged (721 hook first, then custom hook specs). For cash outs, the 721 hook takes priority if present.
+- **Composes the 721 hook and custom data hook** for payments -- the 721 hook's `beforePayRecordedWith` is called to get its specs (including split fund amounts and tier metadata), then merged with the custom data hook's specs. For cash outs, the 721 hook takes priority if present.
 - **Forwards to the custom data hook** if no 721 hook is set, or returns default values if neither is set.
 
 This wrapping is invisible to the project and its users. The project's hooks (buyback hook, 721 hook, etc.) work exactly as configured, and can be composed together.
