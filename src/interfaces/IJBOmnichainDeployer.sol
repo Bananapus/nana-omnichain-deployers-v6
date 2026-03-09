@@ -29,6 +29,11 @@ interface IJBOmnichainDeployer {
         view
         returns (bool useDataHookForPay, bool useDataHookForCashOut, IJBRulesetDataHook dataHook);
 
+    /// @notice Each project's tiered 721 hook, stored separately from the custom data hook.
+    /// @param projectId The ID of the project to get the 721 hook for.
+    /// @return The project's tiered 721 hook.
+    function tiered721HookOf(uint256 projectId) external view returns (IJB721TiersHook);
+
     /// @notice Deploy new suckers for an existing project.
     /// @param projectId The ID of the project to deploy suckers for.
     /// @param suckerDeploymentConfiguration The suckers to set up for the project.
@@ -48,6 +53,8 @@ interface IJBOmnichainDeployer {
     /// @param suckerDeploymentConfiguration The suckers to set up for the project. Suckers facilitate cross-chain
     /// token transfers between peer projects on different networks.
     /// @param controller The controller to use for launching the project.
+    /// @param dataHook The custom data hook to use alongside the 721 hook (e.g., a buyback hook). Pass address(0) for
+    /// no custom data hook.
     /// @return projectId The ID of the newly launched project.
     /// @return hook The 721 tiers hook that was deployed for the project.
     /// @return suckers The addresses of the deployed suckers.
@@ -55,9 +62,10 @@ interface IJBOmnichainDeployer {
         address owner,
         JBDeploy721TiersHookConfig calldata deployTiersHookConfig,
         JBLaunchProjectConfig calldata launchProjectConfig,
-        bytes32 salt,
         JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
-        IJBController controller
+        IJBController controller,
+        address dataHook,
+        bytes32 salt
     )
         external
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers);
@@ -68,6 +76,8 @@ interface IJBOmnichainDeployer {
     /// @param launchRulesetsConfig Configuration which dictates the behavior of the rulesets.
     /// @param controller The controller to use for launching the rulesets.
     /// @param salt A salt to use for the deterministic deployment.
+    /// @param dataHook The custom data hook to use alongside the 721 hook (e.g., a buyback hook). Pass address(0) for
+    /// no custom data hook.
     /// @return rulesetId The ID of the newly launched rulesets.
     /// @return hook The 721 tiers hook that was deployed for the project.
     function launch721RulesetsFor(
@@ -75,6 +85,7 @@ interface IJBOmnichainDeployer {
         JBDeploy721TiersHookConfig memory deployTiersHookConfig,
         JBLaunchRulesetsConfig calldata launchRulesetsConfig,
         IJBController controller,
+        address dataHook,
         bytes32 salt
     )
         external
@@ -126,6 +137,8 @@ interface IJBOmnichainDeployer {
     /// @param queueRulesetsConfig Configuration which dictates the behavior of the rulesets.
     /// @param controller The controller to use for queuing the rulesets.
     /// @param salt A salt to use for the deterministic deployment.
+    /// @param dataHook The custom data hook to use alongside the 721 hook (e.g., a buyback hook). Pass address(0) for
+    /// no custom data hook.
     /// @return rulesetId The ID of the newly queued rulesets.
     /// @return hook The 721 tiers hook that was deployed for the project.
     function queue721RulesetsOf(
@@ -133,6 +146,7 @@ interface IJBOmnichainDeployer {
         JBDeploy721TiersHookConfig memory deployTiersHookConfig,
         JBQueueRulesetsConfig calldata queueRulesetsConfig,
         IJBController controller,
+        address dataHook,
         bytes32 salt
     )
         external

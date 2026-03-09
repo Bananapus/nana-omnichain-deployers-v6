@@ -23,6 +23,7 @@ import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDa
 import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
+import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsData.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
@@ -80,6 +81,14 @@ contract JBOmnichainDeployer is
 
     /// @notice Deploys and tracks suckers for projects.
     IJBSuckerRegistry public immutable SUCKER_REGISTRY;
+
+    //*********************************************************************//
+    // --------------------- public stored properties ------------------- //
+    //*********************************************************************//
+
+    /// @notice Each project's tiered 721 hook, stored separately from the custom data hook.
+    /// @custom:param projectId The ID of the project to get the 721 hook for.
+    mapping(uint256 projectId => IJB721TiersHook) public override tiered721HookOf;
 
     //*********************************************************************//
     // -------------------- internal stored properties ------------------- //
@@ -149,7 +158,13 @@ contract JBOmnichainDeployer is
             return (0, context.cashOutCount, context.totalSupply, hookSpecifications);
         }
 
-        // Fetch the datahook for the ruleset.
+        // If a 721 hook exists, it handles cashouts (NFT-based semantics take priority).
+        IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
+        if (address(tiered721Hook) != address(0)) {
+            return IJBRulesetDataHook(address(tiered721Hook)).beforeCashOutRecordedWith(context);
+        }
+
+        // Otherwise, forward to the user's custom data hook.
         JBDeployerHookConfig memory hook = _dataHookOf[context.projectId][context.rulesetId];
 
         // If no data hook is set, or the data hook is not used for cash outs, return the original values.
@@ -173,19 +188,39 @@ contract JBOmnichainDeployer is
         external
         view
         override
-        returns (uint256, JBPayHookSpecification[] memory hookSpecifications)
+        returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
     {
-        // Fetch the datahook for the ruleset.
+        // Call user data hook for weight + specs.
         JBDeployerHookConfig memory hook = _dataHookOf[context.projectId][context.rulesetId];
-
-        // If no data hook is set, return the original values.
-        if (address(hook.dataHook) == address(0) || !hook.useDataHookForPay) {
-            return (context.weight, hookSpecifications);
+        JBPayHookSpecification[] memory userSpecs;
+        if (address(hook.dataHook) != address(0) && hook.useDataHookForPay) {
+            (weight, userSpecs) = hook.dataHook.beforePayRecordedWith(context);
+        } else {
+            weight = context.weight;
         }
 
-        // Otherwise, forward the call to the datahook.
-        // slither-disable-next-line unused-return
-        return hook.dataHook.beforePayRecordedWith(context);
+        // Check for 721 hook.
+        IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
+        bool uses721 = address(tiered721Hook) != address(0);
+        bool usesUserHook = userSpecs.length > 0;
+
+        // If neither hook produces specs, return early.
+        if (!uses721 && !usesUserHook) return (weight, hookSpecifications);
+
+        // Merge specifications.
+        hookSpecifications =
+            new JBPayHookSpecification[]((uses721 ? 1 : 0) + (usesUserHook ? userSpecs.length : 0));
+
+        // 721 hook first (amount=0, like REVDeployer — it mints NFTs as a bonus pay hook).
+        if (uses721) {
+            hookSpecifications[0] =
+                JBPayHookSpecification({hook: IJBPayHook(address(tiered721Hook)), amount: 0, metadata: bytes("")});
+        }
+
+        // Then user hook specs.
+        for (uint256 i; i < userSpecs.length; i++) {
+            hookSpecifications[(uses721 ? 1 : 0) + i] = userSpecs[i];
+        }
     }
 
     /// @notice Get the data hook for a project and ruleset.
@@ -221,23 +256,32 @@ contract JBOmnichainDeployer is
         external
         view
         override
-        returns (bool flag)
+        returns (bool)
     {
-        // If the address is a sucker for this project.
-        if (SUCKER_REGISTRY.isSuckerOf({projectId: projectId, addr: addr})) {
-            return true;
-        }
+        // Suckers always get mint permission.
+        if (SUCKER_REGISTRY.isSuckerOf({projectId: projectId, addr: addr})) return true;
 
-        // Get the current ruleset of the project.
+        // Check user data hook.
         JBDeployerHookConfig memory hook = _dataHookOf[projectId][ruleset.id];
-
-        // If no data hook is set, return false.
-        if (address(hook.dataHook) == address(0)) {
-            return false;
+        if (address(hook.dataHook) != address(0)) {
+            if (hook.dataHook.hasMintPermissionFor({projectId: projectId, ruleset: ruleset, addr: addr})) {
+                return true;
+            }
         }
 
-        // Forward the call to the datahook.
-        return hook.dataHook.hasMintPermissionFor({projectId: projectId, ruleset: ruleset, addr: addr});
+        // Check 721 hook.
+        IJB721TiersHook tiered721Hook = tiered721HookOf[projectId];
+        if (address(tiered721Hook) != address(0)) {
+            if (
+                IJBRulesetDataHook(address(tiered721Hook)).hasMintPermissionFor({
+                    projectId: projectId,
+                    ruleset: ruleset,
+                    addr: addr
+                })
+            ) return true;
+        }
+
+        return false;
     }
 
     //*********************************************************************//
@@ -302,9 +346,10 @@ contract JBOmnichainDeployer is
         address owner,
         JBDeploy721TiersHookConfig calldata deployTiersHookConfig,
         JBLaunchProjectConfig calldata launchProjectConfig,
-        bytes32 salt,
         JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
-        IJBController controller
+        IJBController controller,
+        address dataHook,
+        bytes32 salt
     )
         external
         override
@@ -322,23 +367,24 @@ contract JBOmnichainDeployer is
             salt: salt == bytes32(0) ? bytes32(0) : keccak256(abi.encode(_msgSender(), salt))
         });
 
-        // Convert the 721 ruleset configurations to regular ruleset configurations.
-        // Then modify the ruleset configurations to use this deployer as a wrapper for the datasource.
-        // slither-disable-next-line reentrancy-benign
-        JBRulesetConfig[] memory rulesetConfigurations = _setup({
-            projectId: projectId,
-            rulesetConfigurations: _from721Config({
-                launchProjectConfig: launchProjectConfig.rulesetConfigurations, dataHook: hook
-            })
-        });
+        // Store the 721 hook separately from the custom data hook.
+        tiered721HookOf[projectId] = hook;
 
         // Launch the project, and sanity check the project ID.
+        // slither-disable-next-line reentrancy-benign
         if (
             projectId
                 != controller.launchProjectFor({
                     owner: address(this),
                     projectUri: launchProjectConfig.projectUri,
-                    rulesetConfigurations: rulesetConfigurations,
+                    // Convert the 721 ruleset configurations and set up this deployer as the data hook wrapper.
+                    rulesetConfigurations: _setup({
+                        projectId: projectId,
+                        rulesetConfigurations: _from721Config({
+                            launchProjectConfig: launchProjectConfig.rulesetConfigurations,
+                            dataHook: dataHook
+                        })
+                    }),
                     terminalConfigurations: launchProjectConfig.terminalConfigurations,
                     memo: launchProjectConfig.memo
                 })
@@ -377,6 +423,7 @@ contract JBOmnichainDeployer is
         JBDeploy721TiersHookConfig memory deployTiersHookConfig,
         JBLaunchRulesetsConfig calldata launchRulesetsConfig,
         IJBController controller,
+        address dataHook,
         bytes32 salt
     )
         external
@@ -404,16 +451,19 @@ contract JBOmnichainDeployer is
             salt: salt == bytes32(0) ? bytes32(0) : keccak256(abi.encode(_msgSender(), salt))
         });
 
+        // Store the 721 hook separately from the custom data hook.
+        tiered721HookOf[projectId] = hook;
+
         // Transfer the hook's ownership to the project.
         JBOwnable(address(hook)).transferOwnershipToProject(projectId);
 
         // Convert the 721 ruleset configurations to regular ruleset configurations.
-        // Then modify the ruleset configurations to use this deployer as a wrapper for the datasource.
+        // Pass the user's custom data hook (not the 721 hook) for storage in _dataHookOf.
         // slither-disable-next-line reentrancy-benign
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
             projectId: projectId,
             rulesetConfigurations: _from721Config({
-                launchProjectConfig: launchRulesetsConfig.rulesetConfigurations, dataHook: hook
+                launchProjectConfig: launchRulesetsConfig.rulesetConfigurations, dataHook: dataHook
             })
         });
 
@@ -546,6 +596,7 @@ contract JBOmnichainDeployer is
         JBDeploy721TiersHookConfig memory deployTiersHookConfig,
         JBQueueRulesetsConfig calldata queueRulesetsConfig,
         IJBController controller,
+        address dataHook,
         bytes32 salt
     )
         external
@@ -575,16 +626,19 @@ contract JBOmnichainDeployer is
             salt: salt == bytes32(0) ? bytes32(0) : keccak256(abi.encode(_msgSender(), salt))
         });
 
+        // Store the 721 hook separately from the custom data hook.
+        tiered721HookOf[projectId] = hook;
+
         // Transfer the hook's ownership to the project.
         JBOwnable(address(hook)).transferOwnershipToProject(projectId);
 
         // Convert the 721 ruleset configurations to regular ruleset configurations.
-        // Then modify the ruleset configurations to use this deployer as a wrapper for the datasource.
+        // Pass the user's custom data hook (not the 721 hook) for storage in _dataHookOf.
         // slither-disable-next-line reentrancy-benign
         JBRulesetConfig[] memory rulesetConfigurations = _setup({
             projectId: projectId,
             rulesetConfigurations: _from721Config({
-                launchProjectConfig: queueRulesetsConfig.rulesetConfigurations, dataHook: hook
+                launchProjectConfig: queueRulesetsConfig.rulesetConfigurations, dataHook: dataHook
             })
         });
 
@@ -642,11 +696,11 @@ contract JBOmnichainDeployer is
 
     /// @notice Converts a 721 ruleset configuration to a regular ruleset configuration.
     /// @param launchProjectConfig The 721 ruleset configuration to convert.
-    /// @param dataHook The data hook to use for the ruleset.
+    /// @param dataHook The custom data hook address to store (user's hook, not the 721 hook).
     /// @return rulesetConfigurations The converted ruleset configuration.
     function _from721Config(
         JBPayDataHookRulesetConfig[] calldata launchProjectConfig,
-        IJB721TiersHook dataHook
+        address dataHook
     )
         internal
         pure
@@ -657,10 +711,10 @@ contract JBOmnichainDeployer is
         for (uint256 i; i < launchProjectConfig.length; i++) {
             JBPayDataHookRulesetMetadata calldata hookMetadata = launchProjectConfig[i].metadata;
             JBRulesetMetadata memory metadata = JBRulesetMetadata({
-                // These fields are enforced as this is a 721 ruleset.
+                // useDataHookForPay is always true — the 721 hook needs it via beforePayRecordedWith.
                 useDataHookForPay: true,
                 allowSetCustomToken: false,
-                dataHook: address(dataHook),
+                dataHook: dataHook,
                 // These fields are present in the 721 metadata.
                 reservedPercent: hookMetadata.reservedPercent,
                 cashOutTaxRate: hookMetadata.cashOutTaxRate,
