@@ -192,73 +192,54 @@ contract JBOmnichainDeployer is
         override
         returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
     {
-        // Call the 721 hook first to get split specs and the total split amount.
+        // Get the 721 hook's spec and total split amount.
         IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
-        JBPayHookSpecification[] memory hookSpecs;
+        JBPayHookSpecification memory tiered721HookSpec;
         uint256 totalSplitAmount;
-        if (address(tiered721Hook) != address(0)) {
-            // The 721 hook returns an adjusted weight (which we ignore — we do our own adjustment).
-            (, hookSpecs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
-            // The first spec's amount is the total split amount.
-            if (hookSpecs.length > 0) totalSplitAmount = hookSpecs[0].amount;
+        bool usesTiered721Hook = address(tiered721Hook) != address(0);
+        if (usesTiered721Hook) {
+            JBPayHookSpecification[] memory specs;
+            (, specs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
+            // The 721 hook returns a single spec (itself) whose amount is the total split amount.
+            if (specs.length > 0) {
+                tiered721HookSpec = specs[0];
+                totalSplitAmount = tiered721HookSpec.amount;
+            }
         }
 
-        // Call user data hook (e.g. buyback) with a reduced amount context so it only sees available funds.
+        // The amount entering the project after tier splits.
+        uint256 projectAmount = totalSplitAmount >= context.amount.value ? 0 : context.amount.value - totalSplitAmount;
+
+        // Get the custom data hook's weight and specs. Reduce the amount so it only considers funds entering the
+        // project.
         JBDeployerHookConfig memory hook = _dataHookOf[context.projectId][context.rulesetId];
         JBPayHookSpecification[] memory userSpecs;
         if (address(hook.dataHook) != address(0) && hook.useDataHookForPay) {
-            if (totalSplitAmount != 0) {
-                // Build a modified context with reduced amount for the custom hook.
-                JBBeforePayRecordedContext memory reducedContext = JBBeforePayRecordedContext({
-                    terminal: context.terminal,
-                    payer: context.payer,
-                    amount: JBTokenAmount({
-                        token: context.amount.token,
-                        value: context.amount.value > totalSplitAmount ? context.amount.value - totalSplitAmount : 0,
-                        decimals: context.amount.decimals,
-                        currency: context.amount.currency
-                    }),
-                    projectId: context.projectId,
-                    rulesetId: context.rulesetId,
-                    beneficiary: context.beneficiary,
-                    weight: context.weight,
-                    reservedPercent: context.reservedPercent,
-                    metadata: context.metadata
-                });
-                (weight, userSpecs) = hook.dataHook.beforePayRecordedWith(reducedContext);
-            } else {
-                (weight, userSpecs) = hook.dataHook.beforePayRecordedWith(context);
-            }
+            JBBeforePayRecordedContext memory hookContext = context;
+            hookContext.amount.value = projectAmount;
+            (weight, userSpecs) = hook.dataHook.beforePayRecordedWith(hookContext);
         } else {
             weight = context.weight;
         }
 
-        // Adjust weight so the terminal mints tokens only for the amount that actually enters the project.
-        if (totalSplitAmount == 0) {
-            // No splits — weight is unchanged.
-        } else if (context.amount.value > totalSplitAmount) {
-            // Partial splits — scale weight by the fraction that enters the project.
-            weight = mulDiv(weight, context.amount.value - totalSplitAmount, context.amount.value);
-        } else {
-            // Splits consume the entire payment — no tokens should be minted.
+        // Scale the data hook's weight for splits so the terminal mints tokens only for the project's share.
+        // Preserves weight=0 from hooks like buyback (buying back, not minting).
+        if (projectAmount == 0) {
             weight = 0;
+        } else if (projectAmount < context.amount.value) {
+            weight = mulDiv(weight, projectAmount, context.amount.value);
         }
 
-        bool uses721 = hookSpecs.length > 0;
+        // Merge specifications: 721 hook spec first, then user hook specs.
         bool usesUserHook = userSpecs.length > 0;
+        if (!usesTiered721Hook && !usesUserHook) return (weight, hookSpecifications);
 
-        // If neither hook produces specs, return early.
-        if (!uses721 && !usesUserHook) return (weight, hookSpecifications);
+        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + userSpecs.length);
 
-        // Merge specifications: 721 hook specs first, then user hook specs.
-        hookSpecifications = new JBPayHookSpecification[](hookSpecs.length + userSpecs.length);
-
-        for (uint256 i; i < hookSpecs.length; i++) {
-            hookSpecifications[i] = hookSpecs[i];
-        }
-
+        uint256 specIndex;
+        if (usesTiered721Hook) hookSpecifications[specIndex++] = tiered721HookSpec;
         for (uint256 i; i < userSpecs.length; i++) {
-            hookSpecifications[hookSpecs.length + i] = userSpecs[i];
+            hookSpecifications[specIndex + i] = userSpecs[i];
         }
     }
 

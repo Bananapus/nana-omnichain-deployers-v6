@@ -415,7 +415,7 @@ contract Tiered721HookComposition is Test {
         assertEq(specs[1].amount, 0.5 ether, "buyback amount preserved");
     }
 
-    function test_beforePay_721HookReturnsMultipleSpecs() public {
+    function test_beforePay_721HookReturnsSingleSpec() public {
         // Launch with 721 only.
         deployer.launch721ProjectFor({
             owner: projectOwner,
@@ -427,11 +427,9 @@ contract Tiered721HookComposition is Test {
             salt: bytes32(0)
         });
 
-        // Mock 721 hook returning multiple specs (e.g., future hook returning multiple split targets).
-        JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](2);
-        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0.1 ether, metadata: bytes("")});
-        hookSpecs[1] =
-            JBPayHookSpecification({hook: IJBPayHook(makeAddr("splitTarget")), amount: 0.2 ether, metadata: bytes("")});
+        // Mock 721 hook returning a single spec (itself) with a split amount.
+        JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
+        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0.3 ether, metadata: bytes("")});
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -442,9 +440,8 @@ contract Tiered721HookComposition is Test {
 
         (, JBPayHookSpecification[] memory specs) = deployer.beforePayRecordedWith(context);
 
-        assertEq(specs.length, 2, "both 721 specs forwarded");
-        assertEq(specs[0].amount, 0.1 ether, "first 721 spec amount");
-        assertEq(specs[1].amount, 0.2 ether, "second 721 spec amount");
+        assertEq(specs.length, 1, "single 721 spec forwarded");
+        assertEq(specs[0].amount, 0.3 ether, "721 spec split amount");
     }
 
     // ---------------------------------------------------------------
