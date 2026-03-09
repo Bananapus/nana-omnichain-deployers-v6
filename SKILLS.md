@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Single-transaction deployment of Juicebox projects with cross-chain suckers and optional 721 tiers hooks. Wraps the project's data hook to give suckers tax-free cash outs and mint permission without interfering with custom hooks.
+Single-transaction deployment of Juicebox projects with cross-chain suckers and optional 721 tiers hooks. Wraps the project's data hook to give suckers tax-free cash outs and mint permission without interfering with custom hooks. Supports composing a 721 hook alongside a custom data hook (e.g., buyback hook) — both run on every payment.
 
 ## Contracts
 
@@ -17,26 +17,27 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 | Function | What it does |
 |----------|-------------|
 | `launchProjectFor(owner, projectUri, rulesetConfigs, terminalConfigs, memo, suckerConfig, controller)` | Creates a new project with rulesets, terminals, and suckers in one tx. Temporarily holds the project NFT. Returns `(projectId, suckers)`. |
-| `launch721ProjectFor(owner, deployTiersHookConfig, launchProjectConfig, salt, suckerConfig, controller)` | Same as above but also deploys a 721 tiers hook and transfers its ownership to the project. Returns `(projectId, hook, suckers)`. |
+| `launch721ProjectFor(owner, deployTiersHookConfig, launchProjectConfig, suckerConfig, controller, dataHook, salt)` | Same as above but also deploys a 721 tiers hook. Pass a custom `dataHook` (e.g., buyback hook) to compose alongside the 721 hook, or `address(0)` for none. Returns `(projectId, hook, suckers)`. |
 | `launchRulesetsFor(projectId, rulesetConfigs, terminalConfigs, memo, controller)` | Launches new rulesets + terminals for an existing project. Requires `QUEUE_RULESETS` + `SET_TERMINALS`. |
-| `launch721RulesetsFor(projectId, deployTiersHookConfig, launchRulesetsConfig, controller, salt)` | Launches rulesets with a new 721 tiers hook. Requires `QUEUE_RULESETS` + `SET_TERMINALS`. |
+| `launch721RulesetsFor(projectId, deployTiersHookConfig, launchRulesetsConfig, controller, dataHook, salt)` | Launches rulesets with a new 721 tiers hook + optional custom data hook. Requires `QUEUE_RULESETS` + `SET_TERMINALS`. |
 | `queueRulesetsOf(projectId, rulesetConfigs, memo, controller)` | Queues future rulesets. Requires `QUEUE_RULESETS`. Reverts if rulesets were already queued in the same block. |
-| `queue721RulesetsOf(projectId, deployTiersHookConfig, queueRulesetsConfig, controller, salt)` | Queues rulesets with a new 721 tiers hook. Same same-block guard. |
+| `queue721RulesetsOf(projectId, deployTiersHookConfig, queueRulesetsConfig, controller, dataHook, salt)` | Queues rulesets with a new 721 tiers hook + optional custom data hook. Same same-block guard. |
 | `deploySuckersFor(projectId, suckerConfig)` | Deploys new suckers for an existing project. Requires `DEPLOY_SUCKERS`. |
 
 ### Data Hook (IJBRulesetDataHook)
 
 | Function | What it does |
 |----------|-------------|
-| `beforePayRecordedWith(context)` | Forwards to the stored real data hook if set and `useDataHookForPay` is true. Otherwise returns the original weight. |
-| `beforeCashOutRecordedWith(context)` | If holder is a sucker: returns 0% tax immediately (never calls real hook). Otherwise forwards to the real hook, or returns original values if none set. |
-| `hasMintPermissionFor(projectId, ruleset, addr)` | Returns `true` for registered suckers. Otherwise forwards to real hook, or returns `false` if none set. |
+| `beforePayRecordedWith(context)` | Calls the 721 hook first for its specs (including split amounts), then calls the custom data hook with a reduced amount context (payment minus split amount) for weight + specs. Adjusts the returned weight proportionally so the terminal only mints tokens for the amount entering the project (`weight = mulDiv(weight, amount - splitAmount, amount)`). Merges both (721 hook specs first, then custom hook specs). |
+| `beforeCashOutRecordedWith(context)` | If holder is a sucker: returns 0% tax immediately. If 721 hook exists: delegates to it (takes priority). Otherwise forwards to the custom data hook, or returns defaults. |
+| `hasMintPermissionFor(projectId, ruleset, addr)` | Returns `true` for registered suckers, OR if the custom data hook grants permission, OR if the 721 hook grants permission. Returns `false` only if none grant it. |
 
 ### Views
 
 | Function | What it does |
 |----------|-------------|
-| `dataHookOf(projectId, rulesetId)` | Returns the stored `(useDataHookForPay, useDataHookForCashOut, dataHook)` for a given project and ruleset. |
+| `dataHookOf(projectId, rulesetId)` | Returns the stored `(useDataHookForPay, useDataHookForCashOut, dataHook)` for a given project and ruleset. This is the custom data hook, not the 721 hook. |
+| `tiered721HookOf(projectId)` | Returns the project's 721 tiers hook, stored separately from the custom data hook. Returns `address(0)` if no 721 hook was deployed. |
 | `supportsInterface(interfaceId)` | Returns `true` for `IJBOmnichainDeployer`, `IJBRulesetDataHook`, `IERC721Receiver`, `IERC165`. |
 | `onERC721Received(...)` | Accepts project NFTs from `PROJECTS` only. Reverts for any other NFT contract. |
 
@@ -55,7 +56,7 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 
 | Struct | Key Fields | Used In |
 |--------|------------|---------|
-| `JBDeployerHookConfig` | `bool useDataHookForPay`, `bool useDataHookForCashOut`, `IJBRulesetDataHook dataHook` | `_dataHookOf` mapping keyed by `(projectId, rulesetId)` |
+| `JBDeployerHookConfig` | `bool useDataHookForPay`, `bool useDataHookForCashOut`, `IJBRulesetDataHook dataHook` | `_dataHookOf` mapping keyed by `(projectId, rulesetId)`. Stores the custom data hook only — the 721 hook is in `tiered721HookOf`. |
 | `JBSuckerDeploymentConfig` | `JBSuckerDeployerConfig[] deployerConfigurations`, `bytes32 salt` | All launch and deploy functions |
 
 ## Permission IDs
@@ -85,8 +86,8 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 4. Sucker deployment salts are hashed with `_msgSender()`: `keccak256(abi.encode(salt, _msgSender()))`. Cross-chain deterministic addresses require using the **same sender** on each chain. For `launch721ProjectFor`, the 721 hook salt uses `keccak256(abi.encode(_msgSender(), salt))` (reversed order).
 5. `salt = bytes32(0)` **skips sucker deployment entirely**. Use a nonzero salt to deploy suckers.
 6. The deployer **always forces `useDataHookForCashOut = true`** on every ruleset it touches, even if the original config had it as `false`. This is required so the deployer can intercept cash outs to check for suckers.
-7. Suckers get an **early return** in `beforeCashOutRecordedWith` -- they bypass the real data hook entirely. This means suckers can cash out even if the real hook would revert.
-8. If no real data hook is stored (or `address(0)`), `hasMintPermissionFor` returns `false` for non-suckers. It does **not** return the default `true`.
+7. Suckers get an **early return** in `beforeCashOutRecordedWith` -- they bypass both the 721 hook and custom data hook entirely. This means suckers can cash out even if either hook would revert.
+8. If no hooks are stored, `hasMintPermissionFor` returns `false` for non-suckers. It does **not** return the default `true`. Both the custom data hook and 721 hook are checked — either one can grant permission.
 9. 721 ruleset config conversion enforces `useDataHookForPay = true` and `allowSetCustomToken = false`. These cannot be overridden.
 10. Hook ownership is transferred to the **project** (not the owner) via `JBOwnable.transferOwnershipToProject(projectId)`. The project owner controls the hook through project ownership.
 11. The deployer holds the project NFT temporarily during launch. If the controller's `launchProjectFor` reverts, the entire transaction reverts -- no stuck NFTs.
@@ -96,6 +97,10 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 15. `onERC721Received` only accepts NFTs from the `PROJECTS` contract. Sending any other ERC-721 to the deployer will revert.
 16. ERC2771 meta-transaction support allows gasless deployments via a trusted forwarder. Salt hashing uses `_msgSender()` (not `msg.sender`), so forwarder-relayed transactions use the original sender's address for deterministic sucker addresses.
 17. **Prefer `launch721ProjectFor` over `launchProjectFor` even with empty tiers.** Using `launch721ProjectFor` with an empty tiers array wires up the 721 hook from the start, so the project owner can add and sell NFTs later without needing to reconfigure the data hook in a new ruleset. `launchProjectFor` skips hook deployment entirely.
+18. The 721 hook is stored **per-project** in `tiered721HookOf[projectId]`, not per-ruleset. It persists across all rulesets. The custom data hook is stored **per-ruleset** in `_dataHookOf[projectId][rulesetId]`.
+19. For payments, `beforePayRecordedWith` calls the 721 hook first to get its specs (including split fund amounts and tier metadata), then calls the custom data hook with a reduced amount context (payment minus split amount) so the buyback hook only considers the available amount. The deployer then adjusts the weight proportionally for splits (`weight = mulDiv(weight, amount - splitAmount, amount)`). The 721 hook's specs come first in the merged result.
+20. For cash outs, the 721 hook **takes priority** over the custom data hook. If a 721 hook exists, `beforeCashOutRecordedWith` delegates entirely to it, ignoring the custom data hook.
+21. The `launch721*` and `queue721*` functions now accept a `dataHook` parameter (type `address`) for the custom data hook to compose alongside the 721 hook. Pass `address(0)` for no custom hook.
 
 ## Example Integration
 
@@ -134,15 +139,17 @@ address[] memory newSuckers = omnichainDeployer.deploySuckersFor({
     suckerDeploymentConfiguration: suckerConfig
 });
 
-// --- Queue new rulesets with a 721 hook ---
+// --- Queue new rulesets with a 721 hook + buyback hook ---
 
 // Requires QUEUE_RULESETS permission. Must be called in a different block
 // than any previous ruleset queue for this project.
+// Pass the buyback hook as the custom data hook to compose alongside the 721 hook.
 (uint256 rulesetId, IJB721TiersHook hook) = omnichainDeployer.queue721RulesetsOf({
     projectId: projectId,
     deployTiersHookConfig: tiersHookConfig,
     queueRulesetsConfig: queueConfig,
     controller: controller,
+    dataHook: address(buybackHook), // custom data hook (or address(0) for none)
     salt: bytes32("my-hook-salt")
 });
 ```

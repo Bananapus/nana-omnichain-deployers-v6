@@ -74,7 +74,7 @@ contract H20_HookOwnershipTransfer is Test {
             abi.encode(uint256(0)) // no conflict
         );
 
-        // Mock DIRECTORY on controller and controllerOf on directory (L-64 validation).
+        // Mock DIRECTORY on controller and controllerOf on directory.
         vm.mockCall(
             address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
         );
@@ -140,6 +140,6 @@ contract H20_HookOwnershipTransfer is Test {
         // Expect the transferOwnershipToProject call on the hook.
         vm.expectCall(hookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector, projectId));
 
-        deployer.queue721RulesetsOf(projectId, hookConfig, queueConfig, controller, bytes32(0));
+        deployer.queue721RulesetsOf(projectId, hookConfig, queueConfig, controller, address(0), bytes32(0));
     }
 }

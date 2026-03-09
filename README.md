@@ -1,6 +1,6 @@
 # Juicebox Omnichain Deployers
 
-Deploy Juicebox projects with cross-chain suckers and optional 721 tiers hooks in a single transaction. Acts as a transparent data hook wrapper that gives suckers tax-free cash outs and on-demand mint permission -- without interfering with any custom data hook the project uses.
+Deploy Juicebox projects with cross-chain suckers and optional 721 tiers hooks in a single transaction. Acts as a transparent data hook wrapper that gives suckers tax-free cash outs and on-demand mint permission -- without interfering with any custom data hook the project uses. Supports composing a 721 tiers hook alongside a custom data hook (e.g., a buyback hook) so both run on every payment.
 
 [Docs](https://docs.juicebox.money) | [Discord](https://discord.gg/juicebox)
 
@@ -8,12 +8,13 @@ Deploy Juicebox projects with cross-chain suckers and optional 721 tiers hooks i
 
 Launching a cross-chain Juicebox project normally takes several steps: deploy the project, configure rulesets, set up terminals, deploy suckers, and wire up a data hook that exempts suckers from cash out taxes. `JBOmnichainDeployer` collapses all of this into one transaction.
 
-It works by inserting itself as the data hook on every ruleset it touches, storing whatever hook the project actually wants in a mapping keyed by `(projectId, rulesetId)`. When the protocol calls data hook functions during payments and cash outs, the deployer:
+It works by inserting itself as the data hook on every ruleset it touches, storing the project's custom data hook in a mapping keyed by `(projectId, rulesetId)` and any 721 tiers hook separately in `tiered721HookOf`. When the protocol calls data hook functions during payments and cash outs, the deployer:
 
-- **Checks if the holder is a sucker** -- if so, returns 0% cash out tax and grants mint permission. This early return means suckers can always bridge tokens without interference, even if the project's real data hook would revert.
-- **Forwards everything else** to the real data hook, or returns default values if none was set.
+- **Checks if the holder is a sucker** -- if so, returns 0% cash out tax and grants mint permission. This early return means suckers can always bridge tokens without interference, even if the project's hooks would revert.
+- **Composes the 721 hook and custom data hook** for payments -- the 721 hook is called first to get its specs (including split fund amounts), then the custom data hook is called with a reduced amount context (payment minus split amount) so it only considers the available funds. The deployer adjusts the returned weight proportionally for splits, ensuring the terminal only mints tokens for the amount that actually enters the project treasury. For cash outs, the 721 hook takes priority if present.
+- **Forwards to the custom data hook** if no 721 hook is set, or returns default values if neither is set.
 
-This wrapping is invisible to the project and its users. The project's custom hook (buyback hook, 721 hook, etc.) works exactly as configured.
+This wrapping is invisible to the project and its users. The project's hooks (buyback hook, 721 hook, etc.) work exactly as configured, and can be composed together.
 
 ### How It Works
 
@@ -47,10 +48,14 @@ sequenceDiagram
     Deployer->>Registry: isSuckerOf(projectId, holder)?
     alt Holder is a sucker
         Deployer-->>Terminal: 0% tax (early return)
-    else Not a sucker
+    else 721 hook exists
+        Deployer->>721Hook: beforeCashOutRecordedWith(context)
+        721Hook-->>Deployer: taxRate, count, supply, specs
+        Deployer-->>Terminal: forward 721 hook response
+    else Custom data hook exists
         Deployer->>Hook: beforeCashOutRecordedWith(context)
         Hook-->>Deployer: taxRate, count, supply, specs
-        Deployer-->>Terminal: forward hook response
+        Deployer-->>Terminal: forward custom hook response
     end
 ```
 
@@ -59,9 +64,12 @@ sequenceDiagram
 The `launch721*` and `queue721*` variants deploy a tiered ERC-721 hook alongside the project. The deployer:
 
 1. Deploys the 721 hook via `HOOK_DEPLOYER`
-2. Converts 721-specific ruleset configs (`JBPayDataHookRulesetConfig`) to standard configs, enforcing `useDataHookForPay = true` and `allowSetCustomToken = false`
-3. Wraps the 721 hook with itself (as above)
-4. Transfers hook ownership to the project via `JBOwnable.transferOwnershipToProject()`
+2. Stores the 721 hook in `tiered721HookOf[projectId]` (separate from the custom data hook)
+3. Converts 721-specific ruleset configs (`JBPayDataHookRulesetConfig`) to standard configs, enforcing `useDataHookForPay = true` and `allowSetCustomToken = false`
+4. Stores the optional custom data hook (e.g., buyback hook) in `_dataHookOf[projectId][rulesetId]`
+5. Transfers hook ownership to the project via `JBOwnable.transferOwnershipToProject()`
+
+This separation means a project can have both a 721 hook (for NFT minting on payments) and a custom data hook (for buyback, custom weight logic, etc.) running simultaneously. During payments, both hooks' specifications are merged. During cash outs, the 721 hook takes priority.
 
 ### Deterministic Cross-Chain Addresses
 
@@ -92,7 +100,7 @@ The `queueRulesetsOf` and `queue721RulesetsOf` functions guard against predictio
 
 | Type | Description |
 |------|-------------|
-| `JBDeployerHookConfig` | Per-ruleset config storing the real data hook address and its `useDataHookForPay`/`useDataHookForCashOut` flags. |
+| `JBDeployerHookConfig` | Per-ruleset config storing the custom data hook address and its `useDataHookForPay`/`useDataHookForCashOut` flags. The 721 hook is stored separately in `tiered721HookOf`. |
 | `JBSuckerDeploymentConfig` | Wraps an array of `JBSuckerDeployerConfig` with a `bytes32` salt for deterministic cross-chain addresses. |
 | `IJBOmnichainDeployer` | Interface for all deployer entry points and the `dataHookOf` view. |
 
@@ -150,6 +158,9 @@ test/
   JBOmnichainDeployer.t.sol             # Unit tests
   JBOmnichainDeployerGuard.t.sol        # Ruleset ID prediction tests
   OmnichainDeployerAttacks.t.sol        # Adversarial security tests
+  Tiered721HookComposition.t.sol       # 721 hook + custom hook composition tests
+  regression/
+    H20_HookOwnershipTransfer.t.sol     # Hook ownership transfer regression
 script/
   Deploy.s.sol                          # Sphinx deployment script
   helpers/
