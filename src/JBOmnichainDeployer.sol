@@ -386,6 +386,7 @@ contract JBOmnichainDeployer is
         });
 
         // Store the 721 hook separately from the custom data hook.
+        // slither-disable-next-line reentrancy-benign
         tiered721HookOf[projectId] = hook;
 
         // Launch the project, and sanity check the project ID.
@@ -469,6 +470,7 @@ contract JBOmnichainDeployer is
         });
 
         // Store the 721 hook separately from the custom data hook.
+        // slither-disable-next-line reentrancy-benign
         tiered721HookOf[projectId] = hook;
 
         // Transfer the hook's ownership to the project.
@@ -644,6 +646,7 @@ contract JBOmnichainDeployer is
         });
 
         // Store the 721 hook separately from the custom data hook.
+        // slither-disable-next-line reentrancy-benign
         tiered721HookOf[projectId] = hook;
 
         // Transfer the hook's ownership to the project.
