@@ -129,7 +129,7 @@ Add to `remappings.txt`:
 # foundry.toml
 [profile.default]
 solc = '0.8.26'
-evm_version = 'paris'
+evm_version = 'cancun'
 optimizer_runs = 100000
 
 [fuzz]
