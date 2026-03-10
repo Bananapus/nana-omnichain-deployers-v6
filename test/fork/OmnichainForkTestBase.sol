@@ -174,7 +174,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
     // ─────────────────────────
 
     function setUp() public virtual override {
-        vm.createSelectFork("ethereum");
+        vm.createSelectFork("ethereum", 21_700_000);
         require(POOL_MANAGER_ADDR.code.length > 0, "PoolManager not deployed");
 
         super.setUp();
