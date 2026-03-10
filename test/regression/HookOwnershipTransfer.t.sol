@@ -28,10 +28,10 @@ import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 
-/// @title H20_HookOwnershipTransfer
+/// @title HookOwnershipTransfer
 /// @notice Regression test: queue721RulesetsOf must transfer hook ownership to the project.
 ///         Before this fix, the hook's ownership was stuck with JBOmnichainDeployer permanently.
-contract H20_HookOwnershipTransfer is Test {
+contract HookOwnershipTransfer is Test {
     JBOmnichainDeployer deployer;
 
     IJBPermissions permissions = IJBPermissions(makeAddr("permissions"));
