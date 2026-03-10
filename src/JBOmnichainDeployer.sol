@@ -209,6 +209,7 @@ contract JBOmnichainDeployer is
         bool usesTiered721Hook = address(tiered721Hook) != address(0);
         if (usesTiered721Hook) {
             JBPayHookSpecification[] memory tiered721HookSpecs;
+            // slither-disable-next-line unused-return
             (, tiered721HookSpecs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
             // The 721 hook returns a single spec (itself) whose amount is the total split amount.
             if (tiered721HookSpecs.length > 0) {
