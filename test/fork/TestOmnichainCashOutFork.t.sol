@@ -14,7 +14,7 @@ import "./OmnichainForkTestBase.sol";
 /// Run with: FOUNDRY_PROFILE=fork forge test --match-contract TestOmnichainCashOutFork -vvv
 contract TestOmnichainCashOutFork is OmnichainForkTestBase {
     /// @notice Sucker address gets 0% tax on cash-out (full pro-rata reclaim).
-    function test_fork_omnichain_cashOut_suckerExempt() public onlyFork {
+    function test_fork_omnichain_cashOut_suckerExempt() public {
         (uint256 projectId,) = _deploy721WithBuyback(5000);
         _setupPool(projectId, 10_000 ether);
 
@@ -62,7 +62,7 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
     }
 
     /// @notice Deploy with 721 hook: 721 hook handles cash-out when present.
-    function test_fork_omnichain_cashOut_721HookPriority() public onlyFork {
+    function test_fork_omnichain_cashOut_721HookPriority() public {
         (uint256 projectId,) = _deploy721WithBuyback(5000);
         _setupPool(projectId, 10_000 ether);
 
@@ -105,7 +105,7 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
     }
 
     /// @notice Plain project (no hooks) — original values returned unchanged.
-    function test_fork_omnichain_cashOut_noHooksPassthrough() public onlyFork {
+    function test_fork_omnichain_cashOut_noHooksPassthrough() public {
         uint256 projectId = _deployPlain(5000);
 
         // Pay to get tokens.

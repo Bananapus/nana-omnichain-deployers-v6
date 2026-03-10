@@ -174,12 +174,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
     // ─────────────────────────
 
     function setUp() public virtual override {
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) {
-            vm.skip(true);
-            return;
-        }
-        vm.createSelectFork(rpcUrl);
+        vm.createSelectFork("ethereum");
         require(POOL_MANAGER_ADDR.code.length > 0, "PoolManager not deployed");
 
         super.setUp();
@@ -206,12 +201,6 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         jbDirectory().setIsAllowedToSetFirstController(address(DEPLOYER), true);
 
         vm.deal(PAYER, 100 ether);
-    }
-
-    modifier onlyFork() {
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) return;
-        _;
     }
 
     // ───────────────────────── Config Helpers
