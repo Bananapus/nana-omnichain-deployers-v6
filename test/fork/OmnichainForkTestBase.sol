@@ -441,11 +441,11 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         int56[] memory tickCumulatives = new int56[](2);
         tickCumulatives[0] = 0;
         tickCumulatives[1] = int56(tick) * int56(int32(uint32(twapWindow)));
-        uint160[] memory secondsPerLiquidityCumulativeX128s = new uint160[](2);
+        uint136[] memory secondsPerLiquidityCumulativeX128s = new uint136[](2);
         secondsPerLiquidityCumulativeX128s[0] = 0;
         uint256 liq = uint256(liquidity > 0 ? liquidity : -liquidity);
         if (liq == 0) liq = 1;
-        secondsPerLiquidityCumulativeX128s[1] = uint160((twapWindow << 128) / liq);
+        secondsPerLiquidityCumulativeX128s[1] = uint136((twapWindow << 128) / liq);
         vm.mockCall(
             address(0),
             abi.encodeWithSelector(IGeomeanOracle.observe.selector),
