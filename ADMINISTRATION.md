@@ -30,9 +30,9 @@ Admin privileges and their scope in nana-omnichain-deployers-v6.
 | `launchProjectFor` | Anyone | Creates a new project with suckers. The ERC-721 is minted to the specified `owner`. |
 | `launch721ProjectFor` | Anyone | Creates a new project with a 721 tiers hook and suckers. The ERC-721 is minted to the specified `owner`. |
 | `beforePayRecordedWith` | JBMultiTerminal (via controller) | View function: forwards pay data to the stored data hook, or passes through if none configured. |
-| `beforeCashOutRecordedWith` | JBMultiTerminal (via controller) | View function: returns 0% cash-out tax for registered suckers. If `useDataHookForCashOut` is false, returns original values (skips all hooks). Otherwise forwards to 721 hook (priority) or custom data hook. |
+| `beforeCashOutRecordedWith` | JBMultiTerminal (via controller) | View function: returns 0% cash-out tax for registered suckers. Iterates `_dataHooksOf` — the first hook with `useDataHookForCashOut: true` handles it. If no hook has the flag set, returns original values. |
 | `hasMintPermissionFor` | JBController | View function: returns true for registered suckers, otherwise forwards to stored data hook. |
-| `dataHookOf` | Anyone | View function: returns the stored data hook config for a project/ruleset pair. |
+| `dataHooksOf` | Anyone | View function: returns the stored `JBDeployerHookConfig[]` array for a project/ruleset pair. |
 
 ## Deployment Administration
 
@@ -75,7 +75,7 @@ These values are set at deployment and cannot be changed:
 | Trusted forwarder | `address` | The ERC-2771 trusted forwarder for meta-transactions. |
 | MAP_SUCKER_TOKEN grant | Permission | Granted to SUCKER_REGISTRY at construction for all projects (projectId=0). Cannot be revoked by this contract. |
 
-**Data hook mappings** (`_dataHookOf[projectId][rulesetId]`) are write-once per ruleset ID. They are set during `_setup` and never updated or deleted.
+**Data hook mappings** (`_dataHooksOf[projectId][rulesetId]`) are write-once per ruleset ID. They are set during `_setup` / `_setup721` and never updated or deleted.
 
 ## Admin Boundaries
 
@@ -83,10 +83,10 @@ What admins **cannot** do:
 
 - **Cannot upgrade the deployer.** JBOmnichainDeployer has no upgrade mechanism, proxy pattern, or self-destruct.
 - **Cannot change immutable references.** PROJECTS, HOOK_DEPLOYER, SUCKER_REGISTRY, PERMISSIONS, and the trusted forwarder are all immutable.
-- **Cannot modify stored data hooks.** Once a ruleset's data hook config is stored in `_dataHookOf`, it cannot be changed. New rulesets can use different hooks, but existing mappings are permanent.
+- **Cannot modify stored data hooks.** Once a ruleset's hooks array is stored in `_dataHooksOf`, it cannot be changed. New rulesets can use different hooks, but existing mappings are permanent.
 - **Cannot bypass permission checks.** All post-deployment admin functions require JBPermissions verification against the project owner.
 - **Cannot revoke sucker privileges.** Once a sucker is registered in JBSuckerRegistry, it automatically gets 0% cash-out tax and mint permission for its project. Revocation must happen at the registry level.
-- **Cannot set the deployer as its own data hook.** The `_setup` function explicitly reverts with `JBOmnichainDeployer_InvalidHook` if `metadata.dataHook == address(this)`.
+- **Cannot set the deployer as its own data hook.** Both `_setup` and `_setup721` explicitly revert with `JBOmnichainDeployer_InvalidHook` if a hook is `address(this)`.
 - **Cannot use a controller that doesn't match the project.** `_validateController` reverts with `JBOmnichainDeployer_ControllerMismatch` if the provided controller is not the project's actual controller in the directory.
 - **Cannot steal project ownership during deployment.** The deployer holds the project ERC-721 only transiently and transfers it to the specified owner in the same transaction.
 - **Cannot drain funds.** The deployer never holds or manages token balances. It only orchestrates configuration.

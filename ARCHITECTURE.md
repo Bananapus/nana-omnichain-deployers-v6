@@ -8,7 +8,7 @@ Omnichain project deployer for Juicebox V6. Wraps the project deployment flow to
 
 ```
 src/
-├── JBOmnichainDeployer.sol       — Deploys projects with sucker integration, acts as data hook
+├── JBOmnichainDeployer.sol       — Deploys projects with sucker integration, acts as data hook wrapper
 ├── interfaces/
 │   └── IJBOmnichainDeployer.sol  — Interface
 └── structs/
@@ -31,17 +31,17 @@ Deployer → JBOmnichainDeployer.deployProjectFor()
 ### Data Hook Behavior
 ```
 Payment → JBOmnichainDeployer.beforePayRecordedWith()
-  → Calls 721 hook first (if exists) for specs/split amounts
-  → Calls custom data hook (if exists) with reduced amount
+  → Calls 721 hook first (via tiered721HookOf) for specs/split amounts
+  → Iterates _dataHooksOf where useDataHookForPay=true (skips 721)
+  → Calls custom hooks with reduced amount (payment - splitAmount)
   → Adjusts weight proportionally for splits
   → Merges both hook specs (721 first, then custom)
 
 Cash Out → JBOmnichainDeployer.beforeCashOutRecordedWith()
   → If caller is a registered sucker: return 0% cash-out tax (early return)
-  → If useDataHookForCashOut is false: return original values (skip all hooks)
-  → If 721 hook exists: delegate to it (takes priority)
-  → If custom data hook exists: forward to it
-  → Otherwise: return original values
+  → Iterates _dataHooksOf: first hook with useDataHookForCashOut=true handles it
+  → If 721 hook has flag=true and reverts (fungible cashout): revert propagates
+  → If no hook has the flag set: return original values
 ```
 
 ### Ruleset Management

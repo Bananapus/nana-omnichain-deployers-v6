@@ -860,7 +860,8 @@ contract JBOmnichainDeployer is
         for (uint256 i; i < rulesetConfigurations.length; i++) {
             // Push the 721 hook as the first element: pay always true, cashout from the 721 metadata.
             // slither-disable-next-line reentrancy-benign
-            _dataHooksOf[projectId][block.timestamp + i].push(
+            _dataHooksOf[projectId][block.timestamp
+                    + i].push(
                 JBDeployerHookConfig({
                     dataHook: IJBRulesetDataHook(address(hook721)),
                     useDataHookForPay: true,
