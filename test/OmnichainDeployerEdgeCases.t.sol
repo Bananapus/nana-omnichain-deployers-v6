@@ -358,6 +358,41 @@ contract OmnichainDeployerEdgeCases is Test {
     }
 
     // =========================================================================
+    // Cashout edge case: custom hook skipped when useDataHookForCashOut is false
+    // =========================================================================
+    function test_beforeCashOut_customHookSkipped_whenFlagFalse() public {
+        // Launch with useDataHookForCashOut = false but a custom hook set.
+        customHook.setReturns(2000, 1, 1);
+        _launchProjectWithHook(address(customHook));
+        rulesetId = block.timestamp;
+
+        JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
+
+        // Since useDataHookForCashOut is false, the custom hook should NOT be called.
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(ctx);
+        assertEq(cashOutTaxRate, 5000, "Should return original tax rate, not custom hook's 2000");
+        assertEq(cashOutCount, 1000, "Should return original cashOutCount, not custom hook's 1");
+        assertEq(totalSupply, 10_000, "Should return original totalSupply, not custom hook's 1");
+    }
+
+    // =========================================================================
+    // Cashout edge case: flag true, no hooks set, returns original values
+    // =========================================================================
+    function test_beforeCashOut_flagTrue_noHooks_returnsOriginal() public {
+        // Launch with useDataHookForCashOut = true but no custom hook and no 721 hook.
+        _launchProjectWithCustomCashOutHook(address(0));
+        rulesetId = block.timestamp;
+
+        JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
+
+        // No 721 hook, no custom hook — should fall through to original values.
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(ctx);
+        assertEq(cashOutTaxRate, 5000, "Should return original tax rate");
+        assertEq(cashOutCount, 1000, "Should return original cashOutCount");
+        assertEq(totalSupply, 10_000, "Should return original totalSupply");
+    }
+
+    // =========================================================================
     // Mint permission: custom hook grants
     // =========================================================================
     function test_hasMintPermission_customHookGrants() public {
