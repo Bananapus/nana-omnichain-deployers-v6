@@ -24,7 +24,10 @@ import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
 import {JBFundAccessLimitGroup} from "@bananapus/core-v6/src/structs/JBFundAccessLimitGroup.sol";
 import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetApprovalHook.sol";
 
+import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
+
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
+import {JBDeployerHookConfig} from "../../src/structs/JBDeployerHookConfig.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 
@@ -140,6 +143,8 @@ contract HookOwnershipTransfer is Test {
         // Expect the transferOwnershipToProject call on the hook.
         vm.expectCall(hookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector, projectId));
 
-        deployer.queue721RulesetsOf(projectId, hookConfig, queueConfig, controller, address(0), bytes32(0));
+        JBDeployerHookConfig memory emptyHookConfig =
+            JBDeployerHookConfig({dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false});
+        deployer.queue721RulesetsOf(projectId, hookConfig, queueConfig, controller, emptyHookConfig, bytes32(0));
     }
 }

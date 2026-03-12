@@ -37,6 +37,7 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import {JBOmnichainDeployer} from "../src/JBOmnichainDeployer.sol";
+import {JBDeployerHookConfig} from "../src/structs/JBDeployerHookConfig.sol";
 import {JBSuckerDeploymentConfig} from "../src/structs/JBSuckerDeploymentConfig.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 
@@ -136,7 +137,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: buybackHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(buybackHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -151,14 +152,17 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: buybackHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(buybackHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
         uint256 storedRulesetId = block.timestamp;
-        (bool useForPay,, IJBRulesetDataHook storedHook) = deployer.dataHookOf(pid, storedRulesetId);
-        assertEq(address(storedHook), buybackHookAddr, "user data hook stored in _dataHookOf");
-        assertTrue(useForPay, "useDataHookForPay should be true for 721 config");
+        JBDeployerHookConfig[] memory hooks = deployer.dataHooksOf(pid, storedRulesetId);
+        assertEq(hooks.length, 2, "should have 721 + custom hook");
+        assertEq(address(hooks[0].dataHook), hookAddr, "first hook should be 721");
+        assertTrue(hooks[0].useDataHookForPay, "721 useDataHookForPay should be true");
+        assertEq(address(hooks[1].dataHook), buybackHookAddr, "second hook should be custom");
+        assertTrue(hooks[1].useDataHookForPay, "custom useDataHookForPay should be true");
     }
 
     function test_launch721ProjectFor_noDataHook_stores721Only() public {
@@ -168,15 +172,16 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: address(0),
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
         assertEq(address(deployer.tiered721HookOf(pid)), hookAddr, "721 hook stored");
 
         uint256 storedRulesetId = block.timestamp;
-        (,, IJBRulesetDataHook storedHook) = deployer.dataHookOf(pid, storedRulesetId);
-        assertEq(address(storedHook), address(0), "no user data hook stored");
+        JBDeployerHookConfig[] memory hooks = deployer.dataHooksOf(pid, storedRulesetId);
+        assertEq(hooks.length, 1, "should have only 721 hook");
+        assertEq(address(hooks[0].dataHook), hookAddr, "only hook should be 721");
     }
 
     // ---------------------------------------------------------------
@@ -191,7 +196,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: address(0),
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -213,7 +218,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: buybackHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(buybackHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -256,7 +261,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: customHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(customHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -284,7 +289,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: customHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(customHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -336,7 +341,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: address(0),
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -372,7 +377,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: buybackHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(buybackHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -423,7 +428,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: address(0),
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -456,7 +461,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: buybackHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(buybackHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -484,7 +489,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfigWithCashOutHook(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: buybackHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(buybackHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -569,7 +574,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: buybackHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(buybackHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -592,7 +597,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: customHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(customHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -618,7 +623,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: customHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(customHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -639,7 +644,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: customHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(customHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -660,7 +665,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: address(0),
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -693,7 +698,7 @@ contract Tiered721HookComposition is Test {
             deployTiersHookConfig: _emptyHookConfig(),
             launchRulesetsConfig: _makeLaunchRulesetsConfig(),
             controller: controller,
-            dataHook: buybackHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(buybackHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -718,7 +723,7 @@ contract Tiered721HookComposition is Test {
             deployTiersHookConfig: _emptyHookConfig(),
             queueRulesetsConfig: _makeQueueRulesetsConfig(),
             controller: controller,
-            dataHook: buybackHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(buybackHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -742,9 +747,10 @@ contract Tiered721HookComposition is Test {
         assertEq(address(deployer.tiered721HookOf(projectId)), address(0), "no 721 hook for non-721 project");
 
         // User data hook IS stored.
-        (bool useForPay,, IJBRulesetDataHook storedHook) = deployer.dataHookOf(projectId, block.timestamp);
-        assertEq(address(storedHook), buybackHookAddr, "user hook stored");
-        assertTrue(useForPay);
+        JBDeployerHookConfig[] memory storedHooks = deployer.dataHooksOf(projectId, block.timestamp);
+        assertEq(storedHooks.length, 1, "should have 1 hook");
+        assertEq(address(storedHooks[0].dataHook), buybackHookAddr, "user hook stored");
+        assertTrue(storedHooks[0].useDataHookForPay);
     }
 
     function test_beforePay_non721_buybackOnly_forwardsCorrectly() public {
@@ -787,7 +793,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: address(0),
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -816,7 +822,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: customHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(customHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -854,7 +860,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: address(0),
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -882,7 +888,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: buybackHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(buybackHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -924,7 +930,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: buybackHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(buybackHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 
@@ -969,7 +975,7 @@ contract Tiered721HookComposition is Test {
             launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
-            dataHook: buybackHookAddr,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(buybackHookAddr), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32(0)
         });
 

@@ -20,6 +20,7 @@ import {IJBSplitHook} from "@bananapus/core-v6/src/interfaces/IJBSplitHook.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
 
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
+import {JBDeployerHookConfig} from "../../src/structs/JBDeployerHookConfig.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
@@ -327,7 +328,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
             launchProjectConfig: launchConfig,
             suckerDeploymentConfiguration: suckerConfig,
             controller: IJBController(address(jbController())),
-            dataHook: address(BUYBACK_HOOK),
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(address(BUYBACK_HOOK)), useDataHookForPay: true, useDataHookForCashOut: false}),
             salt: bytes32("OMNI_721")
         });
 
