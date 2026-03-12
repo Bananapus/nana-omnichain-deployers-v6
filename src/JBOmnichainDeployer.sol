@@ -801,6 +801,7 @@ contract JBOmnichainDeployer is
             if (rulesetConfigurations[i].metadata.dataHook == address(this)) revert JBOmnichainDeployer_InvalidHook();
 
             // Store the data hook keyed by predicted ruleset ID.
+            // slither-disable-next-line reentrancy-benign
             _dataHookOf[projectId][block.timestamp + i] = JBDeployerHookConfig({
                 useDataHookForPay: rulesetConfigurations[i].metadata.useDataHookForPay,
                 useDataHookForCashOut: rulesetConfigurations[i].metadata.useDataHookForCashOut,
