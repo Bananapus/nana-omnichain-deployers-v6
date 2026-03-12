@@ -124,6 +124,13 @@ contract Tiered721HookComposition is Test {
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
             abi.encode(uint256(1000), default721Specs)
         );
+
+        // Default: 721 hook reverts for fungible cashouts (simulates JB721Hook_UnexpectedTokenCashedOut).
+        vm.mockCallRevert(
+            hookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
+            abi.encodeWithSignature("JB721Hook_UnexpectedTokenCashedOut()")
+        );
     }
 
     // ---------------------------------------------------------------
@@ -503,8 +510,9 @@ contract Tiered721HookComposition is Test {
         assertEq(totalSupply, context.totalSupply);
     }
 
-    function test_beforeCashOut_721Skipped_customHookHandlesCashOut() public {
-        // Launch 721 + buyback project. The buyback hook has useDataHookForCashOut: true.
+    function test_beforeCashOut_721Reverts_customHookHandlesCashOut() public {
+        // Launch 721 + buyback project. Both hooks have useDataHookForCashOut: true.
+        // The 721 hook reverts for fungible cashouts (try-catch catches it), so the buyback hook handles it.
         deployer.launch721ProjectFor({
             owner: projectOwner,
             deployTiersHookConfig: _emptyHookConfig(),
@@ -527,7 +535,7 @@ contract Tiered721HookComposition is Test {
 
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
 
-        // The 721 hook is skipped (useDataHookForCashOut=false), buyback hook handles cashout.
+        // 721 hook reverts (fungible cashout), caught by try-catch, falls through to buyback hook.
         (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(context);
 
         assertEq(taxRate, 3000, "buyback hook's tax rate");
@@ -535,8 +543,9 @@ contract Tiered721HookComposition is Test {
         assertEq(totalSupply, 5000, "buyback hook's totalSupply");
     }
 
-    function test_beforeCashOut_721Skipped_noCustomCashOutHook_returnsOriginal() public {
-        // Launch 721 + buyback project. Neither hook has useDataHookForCashOut: true.
+    function test_beforeCashOut_721Reverts_noCustomCashOutHook_returnsOriginal() public {
+        // Launch 721 + buyback project. 721 has useDataHookForCashOut: true, buyback has false.
+        // The 721 hook reverts for fungible cashouts, falls through, buyback skipped → original values.
         deployer.launch721ProjectFor({
             owner: projectOwner,
             deployTiersHookConfig: _emptyHookConfig(),
@@ -551,7 +560,7 @@ contract Tiered721HookComposition is Test {
 
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
 
-        // 721 hook has useDataHookForCashOut=false (always), buyback also false → original values.
+        // 721 hook reverts (fungible cashout), caught by try-catch, buyback has cashout=false → original values.
         (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(context);
 
         assertEq(taxRate, context.cashOutTaxRate, "original tax rate");
