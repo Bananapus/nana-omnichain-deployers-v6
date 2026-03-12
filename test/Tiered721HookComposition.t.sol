@@ -510,13 +510,34 @@ contract Tiered721HookComposition is Test {
         assertEq(totalSupply, context.totalSupply);
     }
 
-    function test_beforeCashOut_721Reverts_customHookHandlesCashOut() public {
-        // Launch 721 + buyback project. Both hooks have useDataHookForCashOut: true.
-        // The 721 hook reverts for fungible cashouts (try-catch catches it), so the buyback hook handles it.
+    function test_beforeCashOut_721CashOutTrue_revertsForFungibleCashOut() public {
+        // Launch 721 project with useDataHookForCashOut: true in the 721 metadata.
+        // The 721 hook is first in the array, so its revert propagates for fungible cashouts.
         deployer.launch721ProjectFor({
             owner: projectOwner,
             deployTiersHookConfig: _emptyHookConfig(),
             launchProjectConfig: _makeLaunchProjectConfigWithCashOutHook(),
+            suckerDeploymentConfiguration: _emptySuckerConfig(),
+            controller: controller,
+            dataHookConfig: JBDeployerHookConfig({
+                dataHook: IJBRulesetDataHook(buybackHookAddr), useDataHookForPay: true, useDataHookForCashOut: true
+            }),
+            salt: bytes32(0)
+        });
+
+        JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
+
+        // 721 hook has useDataHookForCashOut=true and is first → its revert propagates.
+        vm.expectRevert();
+        deployer.beforeCashOutRecordedWith(context);
+    }
+
+    function test_beforeCashOut_721CashOutFalse_customHookHandlesCashOut() public {
+        // Launch 721 project with useDataHookForCashOut: false in 721 metadata, custom hook handles cashout.
+        deployer.launch721ProjectFor({
+            owner: projectOwner,
+            deployTiersHookConfig: _emptyHookConfig(),
+            launchProjectConfig: _makeLaunchProjectConfig(),
             suckerDeploymentConfiguration: _emptySuckerConfig(),
             controller: controller,
             dataHookConfig: JBDeployerHookConfig({
@@ -535,37 +556,12 @@ contract Tiered721HookComposition is Test {
 
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
 
-        // 721 hook reverts (fungible cashout), caught by try-catch, falls through to buyback hook.
+        // 721 hook has useDataHookForCashOut=false (skipped), buyback hook handles cashout.
         (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(context);
 
         assertEq(taxRate, 3000, "buyback hook's tax rate");
         assertEq(cashOutCount, 500, "buyback hook's cashOutCount");
         assertEq(totalSupply, 5000, "buyback hook's totalSupply");
-    }
-
-    function test_beforeCashOut_721Reverts_noCustomCashOutHook_returnsOriginal() public {
-        // Launch 721 + buyback project. 721 has useDataHookForCashOut: true, buyback has false.
-        // The 721 hook reverts for fungible cashouts, falls through, buyback skipped → original values.
-        deployer.launch721ProjectFor({
-            owner: projectOwner,
-            deployTiersHookConfig: _emptyHookConfig(),
-            launchProjectConfig: _makeLaunchProjectConfigWithCashOutHook(),
-            suckerDeploymentConfiguration: _emptySuckerConfig(),
-            controller: controller,
-            dataHookConfig: JBDeployerHookConfig({
-                dataHook: IJBRulesetDataHook(buybackHookAddr), useDataHookForPay: true, useDataHookForCashOut: false
-            }),
-            salt: bytes32(0)
-        });
-
-        JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
-
-        // 721 hook reverts (fungible cashout), caught by try-catch, buyback has cashout=false → original values.
-        (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(context);
-
-        assertEq(taxRate, context.cashOutTaxRate, "original tax rate");
-        assertEq(cashOutCount, context.cashOutCount);
-        assertEq(totalSupply, context.totalSupply);
     }
 
     function test_beforeCashOut_no721_forwardsToUserHook() public {

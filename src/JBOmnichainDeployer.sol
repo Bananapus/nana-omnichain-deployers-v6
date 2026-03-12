@@ -164,27 +164,10 @@ contract JBOmnichainDeployer is
         // Read the stored hooks for this ruleset.
         JBDeployerHookConfig[] memory hooks = _dataHooksOf[context.projectId][context.rulesetId];
 
-        // The 721 hook for this project (if any). Used to identify which hook needs try-catch.
-        address hook721 = address(tiered721HookOf[context.projectId]);
-
         // Forward to the first hook whose useDataHookForCashOut is true.
         for (uint256 i; i < hooks.length; i++) {
             if (!hooks[i].useDataHookForCashOut) continue;
 
-            // The 721 hook reverts for fungible cashouts (JB721Hook_UnexpectedTokenCashedOut).
-            // Wrap in try-catch so fungible cashouts fall through to the next hook or defaults.
-            if (address(hooks[i].dataHook) == hook721) {
-                // slither-disable-next-line unused-return,calls-loop
-                try hooks[i].dataHook.beforeCashOutRecordedWith(context) returns (
-                    uint256 taxRate, uint256 cashOutCount, uint256 totalSupply, JBCashOutHookSpecification[] memory specs
-                ) {
-                    return (taxRate, cashOutCount, totalSupply, specs);
-                } catch {
-                    continue;
-                }
-            }
-
-            // Non-721 hooks: call directly, let reverts propagate.
             // slither-disable-next-line unused-return,calls-loop
             return hooks[i].dataHook.beforeCashOutRecordedWith(context);
         }
@@ -876,8 +859,6 @@ contract JBOmnichainDeployer is
 
         for (uint256 i; i < rulesetConfigurations.length; i++) {
             // Push the 721 hook as the first element: pay always true, cashout from the 721 metadata.
-            // Note: the 721 hook reverts for fungible cashouts (JB721Hook_UnexpectedTokenCashedOut),
-            // so beforeCashOutRecordedWith wraps 721 calls in try-catch to let fungible cashouts fall through.
             // slither-disable-next-line reentrancy-benign
             _dataHooksOf[projectId][block.timestamp + i].push(
                 JBDeployerHookConfig({
