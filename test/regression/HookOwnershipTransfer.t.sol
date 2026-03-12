@@ -143,8 +143,9 @@ contract HookOwnershipTransfer is Test {
         // Expect the transferOwnershipToProject call on the hook.
         vm.expectCall(hookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector, projectId));
 
-        JBDeployerHookConfig memory emptyHookConfig =
-            JBDeployerHookConfig({dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false});
+        JBDeployerHookConfig memory emptyHookConfig = JBDeployerHookConfig({
+            dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false
+        });
         deployer.queue721RulesetsOf(projectId, hookConfig, queueConfig, controller, emptyHookConfig, bytes32(0));
     }
 }

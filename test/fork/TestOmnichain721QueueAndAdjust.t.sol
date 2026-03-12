@@ -69,7 +69,9 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             deployTiersHookConfig: hookConfig,
             queueRulesetsConfig: queueConfig,
             controller: IJBController(address(jbController())),
-            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false}),
+            dataHookConfig: JBDeployerHookConfig({
+                dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false
+            }),
             salt: bytes32("Q721")
         });
 
@@ -164,7 +166,11 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             deployTiersHookConfig: newHookConfig,
             queueRulesetsConfig: queueConfig,
             controller: IJBController(address(jbController())),
-            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(address(BUYBACK_HOOK)), useDataHookForPay: true, useDataHookForCashOut: false}),
+            dataHookConfig: JBDeployerHookConfig({
+                dataHook: IJBRulesetDataHook(address(BUYBACK_HOOK)),
+                useDataHookForPay: true,
+                useDataHookForCashOut: false
+            }),
             salt: bytes32("REPLACE")
         });
 
@@ -250,7 +256,9 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             deployTiersHookConfig: hookConfig,
             queueRulesetsConfig: queueConfig,
             controller: IJBController(address(jbController())),
-            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false}),
+            dataHookConfig: JBDeployerHookConfig({
+                dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false
+            }),
             salt: bytes32("PERMS")
         });
 

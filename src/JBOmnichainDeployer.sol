@@ -168,6 +168,7 @@ contract JBOmnichainDeployer is
         for (uint256 i; i < hooks.length; i++) {
             if (!hooks[i].useDataHookForCashOut) continue;
 
+            // slither-disable-next-line unused-return,calls-loop
             return hooks[i].dataHook.beforeCashOutRecordedWith(context);
         }
 
@@ -223,6 +224,7 @@ contract JBOmnichainDeployer is
 
             JBBeforePayRecordedContext memory hookContext = context;
             hookContext.amount.value = projectAmount;
+            // slither-disable-next-line calls-loop
             (weight, dataHookSpecs) = hooks[i].dataHook.beforePayRecordedWith(hookContext);
             customHookCalled = true;
             break; // First matching custom hook wins.
@@ -294,6 +296,7 @@ contract JBOmnichainDeployer is
         for (uint256 i; i < hooks.length; i++) {
             if (address(hooks[i].dataHook) == address(0)) continue;
             if (address(hooks[i].dataHook) == tiered721Hook) continue;
+            // slither-disable-next-line calls-loop
             if (hooks[i].dataHook.hasMintPermissionFor({projectId: projectId, ruleset: ruleset, addr: addr})) {
                 return true;
             }
@@ -817,7 +820,8 @@ contract JBOmnichainDeployer is
             // If a data hook is set, store it as a single-element array.
             if (rulesetConfigurations[i].metadata.dataHook != address(0)) {
                 // slither-disable-next-line reentrancy-benign
-                _dataHooksOf[projectId][block.timestamp + i].push(
+                _dataHooksOf[projectId][block.timestamp
+                        + i].push(
                     JBDeployerHookConfig({
                         dataHook: IJBRulesetDataHook(rulesetConfigurations[i].metadata.dataHook),
                         useDataHookForPay: rulesetConfigurations[i].metadata.useDataHookForPay,
@@ -858,7 +862,8 @@ contract JBOmnichainDeployer is
             // The 721 hook doesn't handle ERC-20 cashouts — its beforeCashOutRecordedWith reverts
             // with JB721Hook_UnexpectedTokenCashedOut for non-NFT cashouts.
             // slither-disable-next-line reentrancy-benign
-            _dataHooksOf[projectId][block.timestamp + i].push(
+            _dataHooksOf[projectId][block.timestamp
+                    + i].push(
                 JBDeployerHookConfig({
                     dataHook: IJBRulesetDataHook(address(hook721)),
                     useDataHookForPay: true,

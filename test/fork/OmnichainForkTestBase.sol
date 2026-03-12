@@ -328,7 +328,11 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
             launchProjectConfig: launchConfig,
             suckerDeploymentConfiguration: suckerConfig,
             controller: IJBController(address(jbController())),
-            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(address(BUYBACK_HOOK)), useDataHookForPay: true, useDataHookForCashOut: false}),
+            dataHookConfig: JBDeployerHookConfig({
+                dataHook: IJBRulesetDataHook(address(BUYBACK_HOOK)),
+                useDataHookForPay: true,
+                useDataHookForCashOut: false
+            }),
             salt: bytes32("OMNI_721")
         });
 
