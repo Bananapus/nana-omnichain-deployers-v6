@@ -481,8 +481,38 @@ contract Tiered721HookComposition is Test {
         assertEq(totalSupply, context.totalSupply);
     }
 
-    function test_beforeCashOut_721HookTakesPriority() public {
-        // Launch 721 + buyback project.
+    function test_beforeCashOut_721Skipped_customHookHandlesCashOut() public {
+        // Launch 721 + buyback project. The buyback hook has useDataHookForCashOut: true.
+        deployer.launch721ProjectFor({
+            owner: projectOwner,
+            deployTiersHookConfig: _emptyHookConfig(),
+            launchProjectConfig: _makeLaunchProjectConfigWithCashOutHook(),
+            suckerDeploymentConfiguration: _emptySuckerConfig(),
+            controller: controller,
+            dataHookConfig: JBDeployerHookConfig({dataHook: IJBRulesetDataHook(buybackHookAddr), useDataHookForPay: true, useDataHookForCashOut: true}),
+            salt: bytes32(0)
+        });
+
+        // Mock buyback hook's cashout response.
+        JBCashOutHookSpecification[] memory cashOutSpecs = new JBCashOutHookSpecification[](0);
+        vm.mockCall(
+            buybackHookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
+            abi.encode(uint256(3000), uint256(500), uint256(5000), cashOutSpecs)
+        );
+
+        JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
+
+        // The 721 hook is skipped (useDataHookForCashOut=false), buyback hook handles cashout.
+        (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(context);
+
+        assertEq(taxRate, 3000, "buyback hook's tax rate");
+        assertEq(cashOutCount, 500, "buyback hook's cashOutCount");
+        assertEq(totalSupply, 5000, "buyback hook's totalSupply");
+    }
+
+    function test_beforeCashOut_721Skipped_noCustomCashOutHook_returnsOriginal() public {
+        // Launch 721 + buyback project. Neither hook has useDataHookForCashOut: true.
         deployer.launch721ProjectFor({
             owner: projectOwner,
             deployTiersHookConfig: _emptyHookConfig(),
@@ -493,29 +523,14 @@ contract Tiered721HookComposition is Test {
             salt: bytes32(0)
         });
 
-        // Mock 721 hook's cashout response.
-        JBCashOutHookSpecification[] memory cashOutSpecs = new JBCashOutHookSpecification[](0);
-        vm.mockCall(
-            hookAddr,
-            abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(3000), uint256(500), uint256(5000), cashOutSpecs)
-        );
-
-        // The buyback hook should NOT be called (721 takes priority).
-        // If it were called, we'd get different values.
-        vm.mockCall(
-            buybackHookAddr,
-            abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(9999), uint256(9999), uint256(9999), cashOutSpecs)
-        );
-
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
 
+        // 721 hook has useDataHookForCashOut=false (always), buyback also false → original values.
         (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(context);
 
-        assertEq(taxRate, 3000, "721 hook's tax rate");
-        assertEq(cashOutCount, 500, "721 hook's cashOutCount");
-        assertEq(totalSupply, 5000, "721 hook's totalSupply");
+        assertEq(taxRate, context.cashOutTaxRate, "original tax rate");
+        assertEq(cashOutCount, context.cashOutCount);
+        assertEq(totalSupply, context.totalSupply);
     }
 
     function test_beforeCashOut_no721_forwardsToUserHook() public {

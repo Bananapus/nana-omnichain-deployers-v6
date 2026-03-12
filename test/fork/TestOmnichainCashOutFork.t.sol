@@ -61,8 +61,9 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
         assertEq(reclaimedAmount, expectedReclaim, "sucker should get full pro-rata reclaim");
     }
 
-    /// @notice Deploy with 721 hook: 721 hook handles cash-out when present.
-    function test_fork_omnichain_cashOut_721HookPriority() public {
+    /// @notice Deploy with 721 hook: 721 hook is skipped for cashout (can't handle ERC-20),
+    ///         original tax rate applies.
+    function test_fork_omnichain_cashOut_721HookSkipped() public {
         (uint256 projectId,) = _deploy721WithBuyback(5000);
         _setupPool(projectId, 10_000 ether);
 
@@ -81,9 +82,8 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
         uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
         assertGt(payerTokens, 0, "payer should have tokens");
 
-        // Cash out — the 721 hook takes priority in beforeCashOutRecordedWith.
-        // Since payer has no NFTs, the 721 hook returns the original values.
-        // With 50% tax rate, reclaim should be less than pro-rata.
+        // Cash out — 721 hook has useDataHookForCashOut=false (can't handle ERC-20 cashouts).
+        // Original tax rate (50%) applies from ruleset metadata.
         uint256 surplus = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
 
         vm.prank(PAYER);

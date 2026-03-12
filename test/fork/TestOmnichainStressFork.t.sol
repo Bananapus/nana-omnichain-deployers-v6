@@ -94,7 +94,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice 721 hook processes cashout when holder has NFTs.
-    function test_fork_cashOut_721HookHandlesCashOut() public {
+    function test_fork_cashOut_721ProjectWithNFT() public {
         (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000);
         _setupPool(projectId, 10_000 ether);
 
@@ -117,8 +117,8 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
         assertGt(payerTokens, 0, "PAYER should have tokens");
 
-        // Cash out fungible tokens — 721 hook takes priority but falls through
-        // for fungible-only cashouts (PAYER may have NFT, but cashing out project tokens).
+        // Cash out fungible tokens — 721 hook is skipped for cashout (can't handle ERC-20).
+        // Original tax rate (50%) applies from ruleset metadata.
         uint256 surplus = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
 
         vm.prank(PAYER);
@@ -137,8 +137,8 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         assertLt(reclaimed, surplus, "Should get less than full surplus due to tax");
     }
 
-    /// @notice 721 hook catches revert for fungible cashout, falls through. Bonding curve + tax apply.
-    function test_fork_cashOut_721Reverts_noCustomHook_defaults() public {
+    /// @notice 721 hook skipped for fungible cashout. Bonding curve + tax apply from ruleset metadata.
+    function test_fork_cashOut_fungibleOnly_defaults() public {
         (uint256 projectId,) = _deploy721WithBuyback(5000);
         _setupPool(projectId, 10_000 ether);
 
@@ -157,7 +157,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
         uint256 surplus = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
 
-        // Cash out — the 721 hook handles cashout (applies bonding curve + 50% tax rate).
+        // Cash out — 721 hook skipped (can't handle ERC-20). Original 50% tax rate applies.
         // When cashing out all supply, bonding curve returns full surplus.
         // The terminal then takes a 2.5% fee on the reclaimed amount.
         vm.prank(PAYER);

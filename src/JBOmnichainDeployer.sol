@@ -854,13 +854,15 @@ contract JBOmnichainDeployer is
         if (address(customHook.dataHook) == address(this)) revert JBOmnichainDeployer_InvalidHook();
 
         for (uint256 i; i < rulesetConfigurations.length; i++) {
-            // Push the 721 hook as the first element: pay always true, cashout from 721 metadata.
+            // Push the 721 hook as the first element: pay always true, cashout always false.
+            // The 721 hook doesn't handle ERC-20 cashouts — its beforeCashOutRecordedWith reverts
+            // with JB721Hook_UnexpectedTokenCashedOut for non-NFT cashouts.
             // slither-disable-next-line reentrancy-benign
             _dataHooksOf[projectId][block.timestamp + i].push(
                 JBDeployerHookConfig({
                     dataHook: IJBRulesetDataHook(address(hook721)),
                     useDataHookForPay: true,
-                    useDataHookForCashOut: rulesetConfigurations[i].metadata.useDataHookForCashOut
+                    useDataHookForCashOut: false
                 })
             );
 

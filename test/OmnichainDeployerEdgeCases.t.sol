@@ -344,118 +344,22 @@ contract OmnichainDeployerEdgeCases is Test {
     }
 
     // =========================================================================
-    // Cashout edge case: 721 hook called when useDataHookForCashOut is true
+    // Cashout edge case: custom hook called when useDataHookForCashOut is true
     // =========================================================================
-    function test_beforeCashOut_721HookCalled_whenFlagTrue() public {
-        // Launch a 721 project with useDataHookForCashOut = true via launch721ProjectFor.
-        address mock721 = makeAddr("mock721ForCashOut");
+    function test_beforeCashOut_customHookCalled_whenFlagTrue() public {
+        // Custom hook with useDataHookForCashOut = true handles cashouts.
+        customHook.setReturns(9999, 1, 1);
 
-        IJBController controller = IJBController(makeAddr("controller"));
-        IJBDirectory directory = IJBDirectory(makeAddr("directory"));
-        IJBRulesets rulesetsContract = IJBRulesets(makeAddr("rulesets"));
-
-        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
-        );
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
-        );
-        vm.mockCall(
-            address(directory),
-            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
-            abi.encode(IERC165(address(controller)))
-        );
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.RULESETS.selector), abi.encode(rulesetsContract)
-        );
-        vm.mockCall(
-            address(rulesetsContract),
-            abi.encodeWithSelector(IJBRulesets.latestRulesetIdOf.selector, projectId),
-            abi.encode(uint256(0))
-        );
-        vm.mockCall(
-            address(hookDeployer),
-            abi.encodeWithSelector(IJB721TiersHookDeployer.deployHookFor.selector),
-            abi.encode(IJB721TiersHook(mock721))
-        );
-        vm.mockCall(mock721, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector), abi.encode());
-        vm.mockCall(
-            address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
-            abi.encode()
-        );
-
-        // Build a 721 ruleset config with useDataHookForCashOut = true.
-        JBPayDataHookRulesetConfig[] memory rulesetConfigs = new JBPayDataHookRulesetConfig[](1);
-        rulesetConfigs[0] = JBPayDataHookRulesetConfig({
-            mustStartAtOrAfter: uint48(0),
-            duration: uint32(0),
-            weight: uint112(1e18),
-            weightCutPercent: uint32(0),
-            approvalHook: IJBRulesetApprovalHook(address(0)),
-            metadata: JBPayDataHookRulesetMetadata({
-                reservedPercent: 0,
-                cashOutTaxRate: 0,
-                baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                pausePay: false,
-                pauseCreditTransfers: false,
-                allowOwnerMinting: false,
-                allowTerminalMigration: false,
-                allowSetController: false,
-                allowSetTerminals: false,
-                allowAddAccountingContext: false,
-                allowAddPriceFeed: false,
-                ownerMustSendPayouts: false,
-                holdFees: false,
-                useTotalSurplusForCashOuts: false,
-                useDataHookForCashOut: true,
-                metadata: 0
-            }),
-            splitGroups: new JBSplitGroup[](0),
-            fundAccessLimitGroups: new JBFundAccessLimitGroup[](0)
-        });
-
-        JBLaunchProjectConfig memory launchConfig = JBLaunchProjectConfig({
-            projectUri: "test",
-            rulesetConfigurations: rulesetConfigs,
-            terminalConfigurations: new JBTerminalConfig[](0),
-            memo: ""
-        });
-
-        JBDeploy721TiersHookConfig memory hookConfig;
-        JBSuckerDeploymentConfig memory suckerConfig = _emptySuckerConfig();
-
-        deployer.launch721ProjectFor({
-            owner: projectOwner,
-            deployTiersHookConfig: hookConfig,
-            launchProjectConfig: launchConfig,
-            suckerDeploymentConfiguration: suckerConfig,
-            controller: controller,
-            dataHookConfig: JBDeployerHookConfig({
-                dataHook: IJBRulesetDataHook(address(0)),
-                useDataHookForPay: false,
-                useDataHookForCashOut: false
-            }),
-            salt: bytes32(0)
-        });
-
+        _launchProjectWithCustomCashOutHook(address(customHook));
         rulesetId = block.timestamp;
-
-        // Mock the 721 hook's cashout response.
-        vm.mockCall(
-            mock721,
-            abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(9999), uint256(1), uint256(1), new JBCashOutHookSpecification[](0))
-        );
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
 
-        // Since useDataHookForCashOut is true, the 721 hook SHOULD be called.
+        // Since useDataHookForCashOut is true, the custom hook SHOULD be called.
         (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(ctx);
-        assertEq(cashOutTaxRate, 9999, "Should return 721 hook's tax rate");
-        assertEq(cashOutCount, 1, "Should return 721 hook's cashOutCount");
-        assertEq(totalSupply, 1, "Should return 721 hook's totalSupply");
+        assertEq(cashOutTaxRate, 9999, "Should return custom hook's tax rate");
+        assertEq(cashOutCount, 1, "Should return custom hook's cashOutCount");
+        assertEq(totalSupply, 1, "Should return custom hook's totalSupply");
     }
 
     // =========================================================================
