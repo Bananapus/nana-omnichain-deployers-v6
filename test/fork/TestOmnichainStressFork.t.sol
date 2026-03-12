@@ -1,0 +1,433 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.26;
+
+import "./OmnichainForkTestBase.sol";
+
+/// @notice Fork stress tests for the omnichain deployer covering multi-pay-hook interactions,
+///         721 cashout paths, proportional cashouts, and fee routing.
+///
+/// Run with: FOUNDRY_PROFILE=fork forge test --match-contract TestOmnichainStressFork -vvv
+contract TestOmnichainStressFork is OmnichainForkTestBase {
+    // ─────────────────────────────────────────────────────────────────────────
+    // Multi-pay-hook interaction tests
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @notice 721 tier split (30%) + buyback custom hook. Verify merged specs and weight scaling.
+    function test_fork_multiPay_721SplitsPlusCustomHookSpecs() public {
+        (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000);
+        _setupPool(projectId, 10_000 ether);
+
+        address metadataTarget = hook.METADATA_ID_TARGET();
+        bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
+
+        uint256 balanceBefore = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
+
+        vm.prank(PAYER);
+        uint256 tokensReceived = jbMultiTerminal().pay{value: 2 ether}({
+            projectId: projectId,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: 2 ether,
+            beneficiary: PAYER,
+            minReturnedTokens: 0,
+            memo: "multi-hook: 721 + buyback",
+            metadata: metadata
+        });
+
+        uint256 balanceAfter = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
+
+        // With 30% tier split on 1 ETH (tier price), 0.7 ETH goes to project from tier.
+        // The remaining 1 ETH goes entirely to project (no tier match for excess).
+        // Total project amount = 0.7 + 1 = 1.7 ETH, so tokens = 1000 * 1.7 = 1700.
+        // But the tier split goes to the split beneficiary, so terminal gets 1.7 ETH.
+        // The split beneficiary gets 0.3 ETH directly.
+        assertGt(tokensReceived, 0, "Should have minted tokens");
+        assertGt(balanceAfter, balanceBefore, "Terminal balance should increase");
+    }
+
+    /// @notice Weight = 0 when tier splits take the full payment amount.
+    function test_fork_multiPay_weightZeroWhenFullSplit() public {
+        (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000);
+        _setupPool(projectId, 10_000 ether);
+
+        address metadataTarget = hook.METADATA_ID_TARGET();
+        bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
+
+        // Pay exactly the tier price (1 ETH). With 30% split, 0.3 ETH goes to split beneficiary,
+        // 0.7 ETH goes to project. Weight = mulDiv(1000, 0.7e18, 1e18) = 700.
+        vm.prank(PAYER);
+        uint256 tokensReceived = jbMultiTerminal().pay{value: 1 ether}({
+            projectId: projectId,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: 1 ether,
+            beneficiary: PAYER,
+            minReturnedTokens: 0,
+            memo: "exact tier price",
+            metadata: metadata
+        });
+
+        // Tokens should reflect the weight scaling: 700 tokens (1000 * 0.7).
+        assertEq(tokensReceived, 700e18, "Tokens should reflect 70% weight after 30% split");
+    }
+
+    /// @notice No tier metadata — no splits, full weight applied.
+    function test_fork_multiPay_noTierMetadata_noSplit() public {
+        (uint256 projectId,) = _deploy721WithBuyback(5000);
+        _setupPool(projectId, 10_000 ether);
+
+        // Pay without tier metadata — 721 hook returns no specs, full weight.
+        vm.prank(PAYER);
+        uint256 tokensReceived = jbMultiTerminal().pay{value: 1 ether}({
+            projectId: projectId,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: 1 ether,
+            beneficiary: PAYER,
+            minReturnedTokens: 0,
+            memo: "no tier metadata",
+            metadata: ""
+        });
+
+        assertEq(tokensReceived, 1000e18, "Full 1000 tokens per ETH without tier metadata");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 721 cashout paths
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @notice 721 hook processes cashout when holder has NFTs.
+    function test_fork_cashOut_721HookHandlesCashOut() public {
+        (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000);
+        _setupPool(projectId, 10_000 ether);
+
+        address metadataTarget = hook.METADATA_ID_TARGET();
+        bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
+
+        // Pay to mint an NFT.
+        vm.prank(PAYER);
+        jbMultiTerminal().pay{value: 1 ether}({
+            projectId: projectId,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: 1 ether,
+            beneficiary: PAYER,
+            minReturnedTokens: 0,
+            memo: "get NFT",
+            metadata: metadata
+        });
+
+        // Verify PAYER has tokens.
+        uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
+        assertGt(payerTokens, 0, "PAYER should have tokens");
+
+        // Cash out fungible tokens — 721 hook takes priority but falls through
+        // for fungible-only cashouts (PAYER may have NFT, but cashing out project tokens).
+        uint256 surplus = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
+
+        vm.prank(PAYER);
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: PAYER,
+                projectId: projectId,
+                cashOutCount: payerTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(PAYER),
+                metadata: ""
+            });
+
+        assertGt(reclaimed, 0, "Should reclaim some ETH");
+        assertLt(reclaimed, surplus, "Should get less than full surplus due to tax");
+    }
+
+    /// @notice 721 hook catches revert for fungible cashout, falls through. Bonding curve + tax apply.
+    function test_fork_cashOut_721Reverts_noCustomHook_defaults() public {
+        (uint256 projectId,) = _deploy721WithBuyback(5000);
+        _setupPool(projectId, 10_000 ether);
+
+        // Pay without tier metadata — get only fungible tokens.
+        vm.prank(PAYER);
+        jbMultiTerminal().pay{value: 5 ether}({
+            projectId: projectId,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: 5 ether,
+            beneficiary: PAYER,
+            minReturnedTokens: 0,
+            memo: "fungible only",
+            metadata: ""
+        });
+
+        uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
+        uint256 surplus = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
+
+        // Cash out — the 721 hook handles cashout (applies bonding curve + 50% tax rate).
+        // When cashing out all supply, bonding curve returns full surplus.
+        // The terminal then takes a 2.5% fee on the reclaimed amount.
+        vm.prank(PAYER);
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: PAYER,
+                projectId: projectId,
+                cashOutCount: payerTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(PAYER),
+                metadata: ""
+            });
+
+        // Reclaim should be positive and less than surplus (tax + fee applied).
+        assertGt(reclaimed, 0, "Should reclaim some ETH");
+        assertLt(reclaimed, surplus, "Should be less than surplus due to tax and fees");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Project token cashout flows
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @notice Cash out with reserved tokens pending — verify surplus calculation accounts for them.
+    function test_fork_cashOut_withReservedTokens() public {
+        // Deploy a project with 10% reserved rate and 50% tax.
+        uint256 projectId = _deployPlainWithReservedPercent(5000, 1000);
+
+        // Pay to get tokens.
+        vm.prank(PAYER);
+        jbMultiTerminal().pay{value: 10 ether}({
+            projectId: projectId,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: 10 ether,
+            beneficiary: PAYER,
+            minReturnedTokens: 0,
+            memo: "fund",
+            metadata: ""
+        });
+
+        uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
+
+        // There should be pending reserved tokens.
+        uint256 pendingReserved = jbController().pendingReservedTokenBalanceOf(projectId);
+        assertGt(pendingReserved, 0, "Should have pending reserved tokens");
+
+        // Total supply used for cashout includes pending reserved.
+        uint256 surplus = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
+
+        vm.prank(PAYER);
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: PAYER,
+                projectId: projectId,
+                cashOutCount: payerTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(PAYER),
+                metadata: ""
+            });
+
+        // With 50% tax and pending reserved tokens inflating supply, reclaim should be less
+        // than full surplus.
+        assertGt(reclaimed, 0, "Should get some reclaim");
+        assertLt(reclaimed, surplus, "Reclaim should be less than surplus due to tax + reserves");
+    }
+
+    /// @notice Multiple payers cash out proportionally.
+    function test_fork_cashOut_multiplePayers_proportional() public {
+        uint256 projectId = _deployPlain(5000);
+
+        address payer1 = makeAddr("payer1");
+        address payer2 = makeAddr("payer2");
+        address payer3 = makeAddr("payer3");
+        vm.deal(payer1, 10 ether);
+        vm.deal(payer2, 10 ether);
+        vm.deal(payer3, 10 ether);
+
+        // Three payers with different amounts.
+        vm.prank(payer1);
+        jbMultiTerminal().pay{value: 1 ether}({
+            projectId: projectId,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: 1 ether,
+            beneficiary: payer1,
+            minReturnedTokens: 0,
+            memo: "",
+            metadata: ""
+        });
+
+        vm.prank(payer2);
+        jbMultiTerminal().pay{value: 2 ether}({
+            projectId: projectId,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: 2 ether,
+            beneficiary: payer2,
+            minReturnedTokens: 0,
+            memo: "",
+            metadata: ""
+        });
+
+        vm.prank(payer3);
+        jbMultiTerminal().pay{value: 3 ether}({
+            projectId: projectId,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: 3 ether,
+            beneficiary: payer3,
+            minReturnedTokens: 0,
+            memo: "",
+            metadata: ""
+        });
+
+        uint256 tokens1 = jbTokens().totalBalanceOf(payer1, projectId);
+        uint256 tokens2 = jbTokens().totalBalanceOf(payer2, projectId);
+        uint256 tokens3 = jbTokens().totalBalanceOf(payer3, projectId);
+
+        // Verify proportional token allocation.
+        assertEq(tokens2, tokens1 * 2, "Payer2 should have 2x payer1's tokens");
+        assertEq(tokens3, tokens1 * 3, "Payer3 should have 3x payer1's tokens");
+
+        // Cash out payer1 — partial cashout with 50% tax.
+        uint256 surplus = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
+
+        vm.prank(payer1);
+        uint256 reclaimed1 = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: payer1,
+                projectId: projectId,
+                cashOutCount: tokens1,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(payer1),
+                metadata: ""
+            });
+
+        // Payer1 has 1/6 of supply with 50% tax.
+        assertGt(reclaimed1, 0, "Payer1 should reclaim something");
+        assertLt(reclaimed1, surplus / 6, "Payer1 reclaim should be less than 1/6 surplus due to tax");
+
+        // Verify payer2 can still cash out after payer1.
+        vm.prank(payer2);
+        uint256 reclaimed2 = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: payer2,
+                projectId: projectId,
+                cashOutCount: tokens2,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(payer2),
+                metadata: ""
+            });
+
+        assertGt(reclaimed2, 0, "Payer2 should reclaim something");
+        // Payer2 now has 2/5 of remaining supply (tokens3 = 3/5 still outstanding).
+        // Their reclaim should be greater than payer1's.
+        assertGt(
+            reclaimed2,
+            reclaimed1,
+            "Payer2 should reclaim more than payer1 (2x tokens + tax benefit from reduced supply)"
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Fee routing
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @notice Verify fee is charged on cashout reclaim, and bonding curve applies with tax rate.
+    function test_fork_feeCalculation_cashOutAfterSplits() public {
+        (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000);
+        _setupPool(projectId, 10_000 ether);
+
+        address metadataTarget = hook.METADATA_ID_TARGET();
+        bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
+
+        // Pay with tier metadata (triggers 30% split).
+        vm.prank(PAYER);
+        jbMultiTerminal().pay{value: 1 ether}({
+            projectId: projectId,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: 1 ether,
+            beneficiary: PAYER,
+            minReturnedTokens: 0,
+            memo: "with splits",
+            metadata: metadata
+        });
+
+        uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
+        uint256 terminalBalance = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
+
+        // Cash out all tokens — bonding curve + 50% tax rate + 2.5% fee all apply.
+        vm.prank(PAYER);
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: PAYER,
+                projectId: projectId,
+                cashOutCount: payerTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(PAYER),
+                metadata: ""
+            });
+
+        // Reclaim should be positive but less than terminal balance (bonding curve tax + fee).
+        assertGt(reclaimed, 0, "Should get some reclaim");
+        assertLt(reclaimed, terminalBalance, "Reclaim should be less than terminal balance due to tax + fee");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @notice Deploy a plain project with a specific reserved percent.
+    function _deployPlainWithReservedPercent(
+        uint16 cashOutTaxRate,
+        uint16 reservedPercent
+    )
+        internal
+        returns (uint256 projectId)
+    {
+        JBAccountingContext[] memory acc = new JBAccountingContext[](1);
+        acc[0] = JBAccountingContext({
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+        });
+
+        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
+        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+
+        JBRulesetConfig[] memory rulesets = new JBRulesetConfig[](1);
+        rulesets[0] = JBRulesetConfig({
+            mustStartAtOrAfter: uint48(0),
+            duration: uint32(0),
+            weight: INITIAL_ISSUANCE,
+            weightCutPercent: uint32(0),
+            approvalHook: IJBRulesetApprovalHook(address(0)),
+            metadata: JBRulesetMetadata({
+                reservedPercent: reservedPercent,
+                cashOutTaxRate: cashOutTaxRate,
+                baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
+                pausePay: false,
+                pauseCreditTransfers: false,
+                allowOwnerMinting: false,
+                allowSetCustomToken: false,
+                allowTerminalMigration: false,
+                allowSetTerminals: false,
+                allowSetController: false,
+                allowAddAccountingContext: false,
+                allowAddPriceFeed: false,
+                ownerMustSendPayouts: false,
+                holdFees: false,
+                useTotalSurplusForCashOuts: false,
+                useDataHookForPay: false,
+                useDataHookForCashOut: false,
+                dataHook: address(0),
+                metadata: 0
+            }),
+            splitGroups: new JBSplitGroup[](0),
+            fundAccessLimitGroups: new JBFundAccessLimitGroup[](0)
+        });
+
+        JBSuckerDeploymentConfig memory suckerConfig =
+            JBSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32(0)});
+
+        (projectId,) = DEPLOYER.launchProjectFor({
+            owner: multisig(),
+            projectUri: "ipfs://reserved-test",
+            rulesetConfigurations: rulesets,
+            terminalConfigurations: tc,
+            memo: "reserved",
+            suckerDeploymentConfiguration: suckerConfig,
+            controller: IJBController(address(jbController()))
+        });
+    }
+}

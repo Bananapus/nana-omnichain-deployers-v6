@@ -30,7 +30,7 @@ Admin privileges and their scope in nana-omnichain-deployers-v6.
 | `launchProjectFor` | Anyone | Creates a new project with suckers. The ERC-721 is minted to the specified `owner`. |
 | `launch721ProjectFor` | Anyone | Creates a new project with a 721 tiers hook and suckers. The ERC-721 is minted to the specified `owner`. |
 | `beforePayRecordedWith` | JBMultiTerminal (via controller) | View function: forwards pay data to the stored data hook, or passes through if none configured. |
-| `beforeCashOutRecordedWith` | JBMultiTerminal (via controller) | View function: returns 0% cash-out tax for registered suckers, otherwise forwards to stored data hook. |
+| `beforeCashOutRecordedWith` | JBMultiTerminal (via controller) | View function: returns 0% cash-out tax for registered suckers. If `useDataHookForCashOut` is false, returns original values (skips all hooks). Otherwise forwards to 721 hook (priority) or custom data hook. |
 | `hasMintPermissionFor` | JBController | View function: returns true for registered suckers, otherwise forwards to stored data hook. |
 | `dataHookOf` | Anyone | View function: returns the stored data hook config for a project/ruleset pair. |
 

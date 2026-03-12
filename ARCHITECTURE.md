@@ -31,12 +31,17 @@ Deployer → JBOmnichainDeployer.deployProjectFor()
 ### Data Hook Behavior
 ```
 Payment → JBOmnichainDeployer.beforePayRecordedWith()
-  → Pass through (no modification to pay behavior)
-  → Return empty pay hook specifications
+  → Calls 721 hook first (if exists) for specs/split amounts
+  → Calls custom data hook (if exists) with reduced amount
+  → Adjusts weight proportionally for splits
+  → Merges both hook specs (721 first, then custom)
 
 Cash Out → JBOmnichainDeployer.beforeCashOutRecordedWith()
-  → If caller is a registered sucker: return 0% cash-out tax
-  → Otherwise: return configured cash-out tax rate
+  → If caller is a registered sucker: return 0% cash-out tax (early return)
+  → If useDataHookForCashOut is false: return original values (skip all hooks)
+  → If 721 hook exists: delegate to it (takes priority)
+  → If custom data hook exists: forward to it
+  → Otherwise: return original values
 ```
 
 ### Ruleset Management

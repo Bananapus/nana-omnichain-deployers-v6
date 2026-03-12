@@ -29,7 +29,7 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 | Function | What it does |
 |----------|-------------|
 | `beforePayRecordedWith(context)` | Calls the 721 hook first for its specs (including split amounts), then calls the custom data hook with a reduced amount context (payment minus split amount) for weight + specs. Adjusts the returned weight proportionally so the terminal only mints tokens for the amount entering the project (`weight = mulDiv(weight, amount - splitAmount, amount)`). Merges both (721 hook specs first, then custom hook specs). |
-| `beforeCashOutRecordedWith(context)` | If holder is a sucker: returns 0% tax immediately. If 721 hook exists: delegates to it (takes priority). Otherwise forwards to the custom data hook, or returns defaults. |
+| `beforeCashOutRecordedWith(context)` | If holder is a sucker: returns 0% tax immediately. If `useDataHookForCashOut` is `false`: returns original values (skips both 721 and custom hooks). If 721 hook exists: delegates to it (takes priority). Otherwise forwards to the custom data hook, or returns defaults. |
 | `hasMintPermissionFor(projectId, ruleset, addr)` | Returns `true` for registered suckers, OR if the custom data hook grants permission, OR if the 721 hook grants permission. Returns `false` only if none grant it. |
 
 ### Views
@@ -85,7 +85,7 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 3. Ruleset IDs in `_dataHookOf` are keyed by `block.timestamp + i`. If the controller assigns different IDs than predicted, the stored hook config will be orphaned and the deployer will behave as if no hook was set (returning default values).
 4. Sucker deployment salts are hashed with `_msgSender()`: `keccak256(abi.encode(salt, _msgSender()))`. Cross-chain deterministic addresses require using the **same sender** on each chain. For `launch721ProjectFor`, the 721 hook salt uses `keccak256(abi.encode(_msgSender(), salt))` (reversed order).
 5. `salt = bytes32(0)` **skips sucker deployment entirely**. Use a nonzero salt to deploy suckers.
-6. The deployer **always forces `useDataHookForCashOut = true`** on every ruleset it touches, even if the original config had it as `false`. This is required so the deployer can intercept cash outs to check for suckers.
+6. The deployer **always forces `useDataHookForCashOut = true`** at the protocol level so it can intercept cash outs for sucker tax exemption. However, the **user's original** `useDataHookForCashOut` flag is stored in `_dataHookOf` and controls whether the 721 hook and custom data hook process cash outs. Set `useDataHookForCashOut: false` to get simple bonding curve cashouts (no 721 or custom hook involvement) while still allowing sucker tax exemption.
 7. Suckers get an **early return** in `beforeCashOutRecordedWith` -- they bypass both the 721 hook and custom data hook entirely. This means suckers can cash out even if either hook would revert.
 8. If no hooks are stored, `hasMintPermissionFor` returns `false` for non-suckers. It does **not** return the default `true`. Both the custom data hook and 721 hook are checked — either one can grant permission.
 9. 721 ruleset config conversion enforces `useDataHookForPay = true` and `allowSetCustomToken = false`. These cannot be overridden.
@@ -99,7 +99,7 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 17. **Prefer `launch721ProjectFor` over `launchProjectFor` even with empty tiers.** Using `launch721ProjectFor` with an empty tiers array wires up the 721 hook from the start, so the project owner can add and sell NFTs later without needing to reconfigure the data hook in a new ruleset. `launchProjectFor` skips hook deployment entirely.
 18. The 721 hook is stored **per-project** in `tiered721HookOf[projectId]`, not per-ruleset. It persists across all rulesets. The custom data hook is stored **per-ruleset** in `_dataHookOf[projectId][rulesetId]`.
 19. For payments, `beforePayRecordedWith` calls the 721 hook first to get its specs (including split fund amounts and tier metadata), then calls the custom data hook with a reduced amount context (payment minus split amount) so the buyback hook only considers the available amount. The deployer then adjusts the weight proportionally for splits (`weight = mulDiv(weight, amount - splitAmount, amount)`). The 721 hook's specs come first in the merged result.
-20. For cash outs, the 721 hook **takes priority** over the custom data hook. If a 721 hook exists, `beforeCashOutRecordedWith` delegates entirely to it, ignoring the custom data hook.
+20. For cash outs, the user's `useDataHookForCashOut` flag gates all hook processing. If `false`, both the 721 hook and custom data hook are skipped entirely (simple bonding curve). If `true` and a 721 hook exists, it **takes priority** — the custom data hook is only reached if the 721 hook reverts (e.g., fungible-only cashout).
 21. The `launch721*` and `queue721*` functions now accept a `dataHook` parameter (type `address`) for the custom data hook to compose alongside the 721 hook. Pass `address(0)` for no custom hook.
 
 ## Example Integration

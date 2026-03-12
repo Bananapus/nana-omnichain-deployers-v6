@@ -160,6 +160,14 @@ contract JBOmnichainDeployer is
             return (0, context.cashOutCount, context.totalSupply, hookSpecifications);
         }
 
+        // Read the stored hook config for this ruleset.
+        JBDeployerHookConfig memory hook = _dataHookOf[context.projectId][context.rulesetId];
+
+        // If `useDataHookForCashOut` is false, skip all hook processing (721 + custom).
+        if (!hook.useDataHookForCashOut) {
+            return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, hookSpecifications);
+        }
+
         // If a 721 hook exists, try it first (NFT-based semantics take priority).
         // The 721 hook reverts when fungible tokens are cashed out (no NFTs), so we catch and fall through.
         IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
@@ -177,16 +185,13 @@ contract JBOmnichainDeployer is
         }
 
         // Forward to the user's custom data hook if one is set.
-        JBDeployerHookConfig memory hook = _dataHookOf[context.projectId][context.rulesetId];
-
-        // If no data hook is set, or the data hook is not used for cash outs, return the original values.
-        if (address(hook.dataHook) == address(0) || !hook.useDataHookForCashOut) {
-            return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, hookSpecifications);
+        if (address(hook.dataHook) != address(0)) {
+            // slither-disable-next-line unused-return
+            return hook.dataHook.beforeCashOutRecordedWith(context);
         }
 
-        // If the ruleset has a data hook, forward the call to the datahook.
-        // slither-disable-next-line unused-return
-        return hook.dataHook.beforeCashOutRecordedWith(context);
+        // No hooks handled it — return original values.
+        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, hookSpecifications);
     }
 
     /// @notice Forward the call to the original data hook.

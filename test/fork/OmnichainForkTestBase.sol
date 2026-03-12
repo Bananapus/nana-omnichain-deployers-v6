@@ -295,7 +295,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
                 ownerMustSendPayouts: false,
                 holdFees: false,
                 useTotalSurplusForCashOuts: false,
-                useDataHookForCashOut: false,
+                useDataHookForCashOut: true,
                 metadata: 0
             }),
             splitGroups: new JBSplitGroup[](0),
