@@ -14,10 +14,6 @@ runs = 1024
 depth = 100
 fail_on_revert = false
 
-# TODO: remove once @bananapus/core-v6 >=0.0.15 is installed (bare src/ imports in JBTest.sol)
-[lint]
-lint_on_build = false
-
 [fmt]
 number_underscore = "thousands"
 multiline_func_header = "all"
