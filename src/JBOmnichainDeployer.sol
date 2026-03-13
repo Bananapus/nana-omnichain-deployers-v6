@@ -746,7 +746,6 @@ contract JBOmnichainDeployer is
             JBRulesetMetadata memory metadata = JBRulesetMetadata({
                 // useDataHookForPay is always true — the 721 hook needs it via beforePayRecordedWith.
                 useDataHookForPay: true,
-                allowSetCustomToken: false,
                 // Placeholder — actual hooks stored in _tiered721HookOf / _extraDataHookOf.
                 dataHook: address(0),
                 // These fields are present in the 721 metadata.
@@ -756,6 +755,7 @@ contract JBOmnichainDeployer is
                 pausePay: hookMetadata.pausePay,
                 pauseCreditTransfers: hookMetadata.pauseCreditTransfers,
                 allowOwnerMinting: hookMetadata.allowOwnerMinting,
+                allowSetCustomToken: hookMetadata.allowSetCustomToken,
                 allowTerminalMigration: hookMetadata.allowTerminalMigration,
                 allowSetController: hookMetadata.allowSetController,
                 allowSetTerminals: hookMetadata.allowSetTerminals,

@@ -120,6 +120,7 @@ contract HookOwnershipTransfer is Test {
                 pausePay: false,
                 pauseCreditTransfers: false,
                 allowOwnerMinting: false,
+                allowSetCustomToken: false,
                 allowTerminalMigration: false,
                 allowSetController: false,
                 allowSetTerminals: false,
