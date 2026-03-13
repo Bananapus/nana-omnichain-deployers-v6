@@ -27,6 +27,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {JBOmnichainDeployer} from "../src/JBOmnichainDeployer.sol";
 import {IJBOmnichainDeployer} from "../src/interfaces/IJBOmnichainDeployer.sol";
 import {JBDeployerHookConfig} from "../src/structs/JBDeployerHookConfig.sol";
+import {JBOmnichain721Config} from "../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../src/structs/JBSuckerDeploymentConfig.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 
@@ -150,7 +151,8 @@ contract TestJBOmnichainDeployer is Test {
             abi.encode()
         );
 
-        deployer.launchProjectFor(projectOwner, "test", configs, terminals, "", _emptySuckerConfig(), controller);
+        JBOmnichain721Config memory empty721Config;
+        deployer.launchProjectFor(projectOwner, "test", empty721Config, configs, terminals, "", _emptySuckerConfig(), controller);
 
         // Now the data hook should be stored for projectId at rulesetId = block.timestamp.
         uint256 storedRulesetId = block.timestamp;

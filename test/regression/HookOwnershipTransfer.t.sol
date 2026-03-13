@@ -10,26 +10,23 @@ import {IJBRulesets} from "@bananapus/core-v6/src/interfaces/IJBRulesets.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookProjectDeployer.sol";
-import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBDeploy721TiersHookConfig.sol";
-import {JBQueueRulesetsConfig} from "@bananapus/721-hook-v6/src/structs/JBQueueRulesetsConfig.sol";
-import {JBPayDataHookRulesetConfig} from "@bananapus/721-hook-v6/src/structs/JBPayDataHookRulesetConfig.sol";
-import {JBPayDataHookRulesetMetadata} from "@bananapus/721-hook-v6/src/structs/JBPayDataHookRulesetMetadata.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {IJBOwnable} from "@bananapus/ownable-v6/src/interfaces/IJBOwnable.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
+import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
 import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
 import {JBFundAccessLimitGroup} from "@bananapus/core-v6/src/structs/JBFundAccessLimitGroup.sol";
 import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetApprovalHook.sol";
-
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
-import {JBDeployerHookConfig} from "../../src/structs/JBDeployerHookConfig.sol";
-import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
-import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
+import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
+import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBDeploy721TiersHookConfig.sol";
+import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 
 /// @title HookOwnershipTransfer
 /// @notice Regression test: queue721RulesetsOf must transfer hook ownership to the project.
@@ -103,23 +100,24 @@ contract HookOwnershipTransfer is Test {
         );
     }
 
-    /// @notice Verify that queue721RulesetsOf calls transferOwnershipToProject on the hook.
+    /// @notice Verify that queueRulesetsOf (721 path) calls transferOwnershipToProject on the hook.
     function test_queue721RulesetsOf_transfersHookOwnership() public {
-        // Create minimal 721 ruleset config.
-        JBPayDataHookRulesetConfig[] memory rulesetConfigs = new JBPayDataHookRulesetConfig[](1);
-        rulesetConfigs[0] = JBPayDataHookRulesetConfig({
+        // Create minimal ruleset config.
+        JBRulesetConfig[] memory rulesetConfigs = new JBRulesetConfig[](1);
+        rulesetConfigs[0] = JBRulesetConfig({
             mustStartAtOrAfter: uint48(0),
             duration: uint32(0),
             weight: uint112(1e18),
             weightCutPercent: uint32(0),
             approvalHook: IJBRulesetApprovalHook(address(0)),
-            metadata: JBPayDataHookRulesetMetadata({
+            metadata: JBRulesetMetadata({
                 reservedPercent: 0,
                 cashOutTaxRate: 0,
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 pausePay: false,
                 pauseCreditTransfers: false,
                 allowOwnerMinting: false,
+                allowSetCustomToken: false,
                 allowTerminalMigration: false,
                 allowSetController: false,
                 allowSetTerminals: false,
@@ -128,24 +126,34 @@ contract HookOwnershipTransfer is Test {
                 ownerMustSendPayouts: false,
                 holdFees: false,
                 useTotalSurplusForCashOuts: false,
+                useDataHookForPay: false,
                 useDataHookForCashOut: false,
+                dataHook: address(0),
                 metadata: 0
             }),
             splitGroups: new JBSplitGroup[](0),
             fundAccessLimitGroups: new JBFundAccessLimitGroup[](0)
         });
 
-        JBQueueRulesetsConfig memory queueConfig =
-            JBQueueRulesetsConfig({projectId: uint56(projectId), rulesetConfigurations: rulesetConfigs, memo: "test"});
-
         JBDeploy721TiersHookConfig memory hookConfig;
+        JB721TierConfig[] memory tiers = new JB721TierConfig[](1);
+        tiers[0].price = 0.01 ether;
+        tiers[0].initialSupply = 100;
+        hookConfig.tiersConfig.tiers = tiers;
 
         // Expect the transferOwnershipToProject call on the hook.
         vm.expectCall(hookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector, projectId));
 
-        JBDeployerHookConfig memory emptyHookConfig = JBDeployerHookConfig({
-            dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false
+        deployer.queueRulesetsOf({
+            projectId: projectId,
+            deploy721Config: JBOmnichain721Config({
+                deployTiersHookConfig: hookConfig,
+                useDataHookForCashOut: false,
+                salt: bytes32(0)
+            }),
+            rulesetConfigurations: rulesetConfigs,
+            memo: "test",
+            controller: controller
         });
-        deployer.queue721RulesetsOf(projectId, hookConfig, queueConfig, controller, emptyHookConfig, bytes32(0));
     }
 }

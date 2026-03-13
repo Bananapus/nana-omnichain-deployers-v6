@@ -39,9 +39,7 @@ import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBD
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
 import {JB721TiersHookFlags} from "@bananapus/721-hook-v6/src/structs/JB721TiersHookFlags.sol";
-import {JBLaunchProjectConfig} from "@bananapus/721-hook-v6/src/structs/JBLaunchProjectConfig.sol";
-import {JBPayDataHookRulesetConfig} from "@bananapus/721-hook-v6/src/structs/JBPayDataHookRulesetConfig.sol";
-import {JBPayDataHookRulesetMetadata} from "@bananapus/721-hook-v6/src/structs/JBPayDataHookRulesetMetadata.sol";
+import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
@@ -264,41 +262,31 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
     function _buildLaunchConfig(uint16 cashOutTaxRate)
         internal
         view
-        returns (JBLaunchProjectConfig memory, JBSuckerDeploymentConfig memory)
-    {
-        return _buildLaunchConfig(cashOutTaxRate, true);
-    }
-
-    function _buildLaunchConfig(
-        uint16 cashOutTaxRate,
-        bool useDataHookForCashOut
-    )
-        internal
-        view
-        returns (JBLaunchProjectConfig memory, JBSuckerDeploymentConfig memory)
+        returns (JBRulesetConfig[] memory rulesets, JBTerminalConfig[] memory tc, JBSuckerDeploymentConfig memory suckerConfig)
     {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
+        tc = new JBTerminalConfig[](1);
         tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
 
-        JBPayDataHookRulesetConfig[] memory rulesets = new JBPayDataHookRulesetConfig[](1);
-        rulesets[0] = JBPayDataHookRulesetConfig({
+        rulesets = new JBRulesetConfig[](1);
+        rulesets[0] = JBRulesetConfig({
             mustStartAtOrAfter: uint48(0),
             duration: uint32(0),
             weight: INITIAL_ISSUANCE,
             weightCutPercent: uint32(0),
             approvalHook: IJBRulesetApprovalHook(address(0)),
-            metadata: JBPayDataHookRulesetMetadata({
+            metadata: JBRulesetMetadata({
                 reservedPercent: 0,
                 cashOutTaxRate: cashOutTaxRate,
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 pausePay: false,
                 pauseCreditTransfers: false,
                 allowOwnerMinting: false,
+                allowSetCustomToken: false,
                 allowTerminalMigration: false,
                 allowSetTerminals: false,
                 allowSetController: false,
@@ -307,24 +295,17 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
                 ownerMustSendPayouts: false,
                 holdFees: false,
                 useTotalSurplusForCashOuts: false,
-                useDataHookForCashOut: useDataHookForCashOut,
+                useDataHookForPay: false,
+                useDataHookForCashOut: false,
+                dataHook: address(0),
                 metadata: 0
             }),
             splitGroups: new JBSplitGroup[](0),
             fundAccessLimitGroups: new JBFundAccessLimitGroup[](0)
         });
 
-        JBLaunchProjectConfig memory launchConfig = JBLaunchProjectConfig({
-            projectUri: "ipfs://omnichain-fork",
-            rulesetConfigurations: rulesets,
-            terminalConfigurations: tc,
-            memo: "fork test"
-        });
-
-        JBSuckerDeploymentConfig memory suckerConfig =
+        suckerConfig =
             JBSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32(0)});
-
-        return (launchConfig, suckerConfig);
     }
 
     /// @notice Deploy a project with 721 hook + buyback hook as custom data hook.
@@ -335,27 +316,31 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
     /// @notice Deploy a project with 721 hook + buyback hook, with configurable cashout hook flag.
     function _deploy721WithBuyback(
         uint16 cashOutTaxRate,
-        bool useDataHookForCashOut
+        bool use721ForCashOut
     )
         internal
         returns (uint256 projectId, IJB721TiersHook hook)
     {
-        JBDeploy721TiersHookConfig memory hookConfig = _build721Config();
-        (JBLaunchProjectConfig memory launchConfig, JBSuckerDeploymentConfig memory suckerConfig) =
-            _buildLaunchConfig(cashOutTaxRate, useDataHookForCashOut);
+        (JBRulesetConfig[] memory rulesets, JBTerminalConfig[] memory tc, JBSuckerDeploymentConfig memory suckerConfig) =
+            _buildLaunchConfig(cashOutTaxRate);
 
-        (projectId, hook,) = DEPLOYER.launch721ProjectFor({
+        // Set the buyback hook as a custom data hook in the ruleset metadata.
+        rulesets[0].metadata.dataHook = address(BUYBACK_HOOK);
+        rulesets[0].metadata.useDataHookForPay = true;
+
+        (projectId, hook,) = DEPLOYER.launchProjectFor({
             owner: multisig(),
-            deployTiersHookConfig: hookConfig,
-            launchProjectConfig: launchConfig,
-            suckerDeploymentConfiguration: suckerConfig,
-            controller: IJBController(address(jbController())),
-            dataHookConfig: JBDeployerHookConfig({
-                dataHook: IJBRulesetDataHook(address(BUYBACK_HOOK)),
-                useDataHookForPay: true,
-                useDataHookForCashOut: false
+            projectUri: "ipfs://omnichain-fork",
+            deploy721Config: JBOmnichain721Config({
+                deployTiersHookConfig: _build721Config(),
+                useDataHookForCashOut: use721ForCashOut,
+                salt: bytes32("OMNI_721")
             }),
-            salt: bytes32("OMNI_721")
+            rulesetConfigurations: rulesets,
+            terminalConfigurations: tc,
+            memo: "fork test",
+            suckerDeploymentConfiguration: suckerConfig,
+            controller: IJBController(address(jbController()))
         });
 
         // Deploy an ERC20 token for the project so pool setup can use it.
@@ -408,9 +393,11 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         JBSuckerDeploymentConfig memory suckerConfig =
             JBSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32(0)});
 
-        (projectId,) = DEPLOYER.launchProjectFor({
+        JBOmnichain721Config memory empty721Config;
+        (projectId,,) = DEPLOYER.launchProjectFor({
             owner: multisig(),
             projectUri: "ipfs://plain",
+            deploy721Config: empty721Config,
             rulesetConfigurations: rulesets,
             terminalConfigurations: tc,
             memo: "plain",
