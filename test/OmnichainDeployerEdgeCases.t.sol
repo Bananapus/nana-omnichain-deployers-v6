@@ -162,7 +162,14 @@ contract OmnichainDeployerEdgeCases is Test {
         JBOmnichain721Config memory empty721Config;
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_InvalidHook.selector);
         deployer.launchProjectFor(
-            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
+            projectOwner,
+            "test",
+            empty721Config,
+            configs,
+            new JBTerminalConfig[](0),
+            "",
+            _emptySuckerConfig(),
+            controller
         );
     }
 
@@ -186,7 +193,14 @@ contract OmnichainDeployerEdgeCases is Test {
         JBOmnichain721Config memory empty721Config;
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_ProjectIdMismatch.selector);
         deployer.launchProjectFor(
-            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
+            projectOwner,
+            "test",
+            empty721Config,
+            configs,
+            new JBTerminalConfig[](0),
+            "",
+            _emptySuckerConfig(),
+            controller
         );
     }
 
@@ -486,7 +500,14 @@ contract OmnichainDeployerEdgeCases is Test {
 
         JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
-            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
+            projectOwner,
+            "test",
+            empty721Config,
+            configs,
+            new JBTerminalConfig[](0),
+            "",
+            _emptySuckerConfig(),
+            controller
         );
     }
 
@@ -508,7 +529,14 @@ contract OmnichainDeployerEdgeCases is Test {
 
         JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
-            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
+            projectOwner,
+            "test",
+            empty721Config,
+            configs,
+            new JBTerminalConfig[](0),
+            "",
+            _emptySuckerConfig(),
+            controller
         );
     }
 

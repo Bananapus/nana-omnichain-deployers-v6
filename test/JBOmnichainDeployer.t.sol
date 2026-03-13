@@ -171,7 +171,9 @@ contract TestJBOmnichainDeployer is Test {
         );
 
         JBOmnichain721Config memory empty721Config;
-        deployer.launchProjectFor(projectOwner, "test", empty721Config, configs, terminals, "", _emptySuckerConfig(), controller);
+        deployer.launchProjectFor(
+            projectOwner, "test", empty721Config, configs, terminals, "", _emptySuckerConfig(), controller
+        );
 
         // Now the data hook should be stored for projectId at rulesetId = block.timestamp.
         uint256 storedRulesetId = block.timestamp;

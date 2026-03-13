@@ -262,7 +262,11 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
     function _buildLaunchConfig(uint16 cashOutTaxRate)
         internal
         view
-        returns (JBRulesetConfig[] memory rulesets, JBTerminalConfig[] memory tc, JBSuckerDeploymentConfig memory suckerConfig)
+        returns (
+            JBRulesetConfig[] memory rulesets,
+            JBTerminalConfig[] memory tc,
+            JBSuckerDeploymentConfig memory suckerConfig
+        )
     {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
@@ -321,8 +325,11 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         internal
         returns (uint256 projectId, IJB721TiersHook hook)
     {
-        (JBRulesetConfig[] memory rulesets, JBTerminalConfig[] memory tc, JBSuckerDeploymentConfig memory suckerConfig) =
-            _buildLaunchConfig(cashOutTaxRate);
+        (
+            JBRulesetConfig[] memory rulesets,
+            JBTerminalConfig[] memory tc,
+            JBSuckerDeploymentConfig memory suckerConfig
+        ) = _buildLaunchConfig(cashOutTaxRate);
 
         // Set the buyback hook as a custom data hook in the ruleset metadata.
         rulesets[0].metadata.dataHook = address(BUYBACK_HOOK);

@@ -321,7 +321,14 @@ contract OmnichainDeployerAttacks is Test {
 
         JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
-            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
+            projectOwner,
+            "test",
+            empty721Config,
+            configs,
+            new JBTerminalConfig[](0),
+            "",
+            _emptySuckerConfig(),
+            controller
         );
     }
 

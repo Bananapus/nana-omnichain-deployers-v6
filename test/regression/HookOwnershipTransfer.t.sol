@@ -147,9 +147,7 @@ contract HookOwnershipTransfer is Test {
         deployer.queueRulesetsOf({
             projectId: projectId,
             deploy721Config: JBOmnichain721Config({
-                deployTiersHookConfig: hookConfig,
-                useDataHookForCashOut: false,
-                salt: bytes32(0)
+                deployTiersHookConfig: hookConfig, useDataHookForCashOut: false, salt: bytes32(0)
             }),
             rulesetConfigurations: rulesetConfigs,
             memo: "test",

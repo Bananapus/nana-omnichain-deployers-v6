@@ -101,9 +101,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
             abi.encodeWithSelector(IJB721TiersHookDeployer.deployHookFor.selector),
             abi.encode(IJB721TiersHook(mockHookAddr))
         );
-        vm.mockCall(
-            mockHookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector), abi.encode()
-        );
+        vm.mockCall(mockHookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector), abi.encode());
 
         deployer = new JBOmnichainDeployer(
             IJBSuckerRegistry(address(suckerRegistry)),
@@ -318,7 +316,9 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         JBRulesetConfig[] memory deployerRulesets = _makeRulesetConfigs(1);
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector);
         JBOmnichain721Config memory empty721;
-        deployer.queueRulesetsOf(projectId, empty721, deployerRulesets, "deployer-queue", IJBController(address(jbController())));
+        deployer.queueRulesetsOf(
+            projectId, empty721, deployerRulesets, "deployer-queue", IJBController(address(jbController()))
+        );
     }
 
     /// @notice Queue succeeds after warping past the latestRulesetIdOf from a multi-ruleset launch.

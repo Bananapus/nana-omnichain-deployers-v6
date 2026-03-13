@@ -31,9 +31,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
         (, IJB721TiersHook hook) = DEPLOYER.queueRulesetsOf({
             projectId: projectId,
             deploy721Config: JBOmnichain721Config({
-                deployTiersHookConfig: _build721Config(),
-                useDataHookForCashOut: false,
-                salt: bytes32("Q721")
+                deployTiersHookConfig: _build721Config(), useDataHookForCashOut: false, salt: bytes32("Q721")
             }),
             rulesetConfigurations: rulesets,
             memo: "add 721 hook",
@@ -101,9 +99,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
         (, IJB721TiersHook newHook) = DEPLOYER.queueRulesetsOf({
             projectId: projectId,
             deploy721Config: JBOmnichain721Config({
-                deployTiersHookConfig: _build721Config(),
-                useDataHookForCashOut: false,
-                salt: bytes32("REPLACE")
+                deployTiersHookConfig: _build721Config(), useDataHookForCashOut: false, salt: bytes32("REPLACE")
             }),
             rulesetConfigurations: rulesets,
             memo: "replace hook",
@@ -160,9 +156,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
         (, IJB721TiersHook hook) = DEPLOYER.queueRulesetsOf({
             projectId: projectId,
             deploy721Config: JBOmnichain721Config({
-                deployTiersHookConfig: _build721Config(),
-                useDataHookForCashOut: false,
-                salt: bytes32("PERMS")
+                deployTiersHookConfig: _build721Config(), useDataHookForCashOut: false, salt: bytes32("PERMS")
             }),
             rulesetConfigurations: rulesets,
             memo: "test perms",
