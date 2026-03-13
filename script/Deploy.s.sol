@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "@sphinx-labs/contracts/SphinxPlugin.sol";
+import "@sphinx-labs/contracts/contracts/foundry/SphinxPlugin.sol";
 import {Script, stdJson, VmSafe} from "forge-std/Script.sol";
 
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";

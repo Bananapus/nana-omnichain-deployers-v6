@@ -20,6 +20,7 @@ import {IJBSplitHook} from "@bananapus/core-v6/src/interfaces/IJBSplitHook.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
 
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
+import {JBDeployerHookConfig} from "../../src/structs/JBDeployerHookConfig.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
@@ -174,12 +175,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
     // ─────────────────────────
 
     function setUp() public virtual override {
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) {
-            vm.skip(true);
-            return;
-        }
-        vm.createSelectFork(rpcUrl);
+        vm.createSelectFork("ethereum", 21_700_000);
         require(POOL_MANAGER_ADDR.code.length > 0, "PoolManager not deployed");
 
         super.setUp();
@@ -206,12 +202,6 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         jbDirectory().setIsAllowedToSetFirstController(address(DEPLOYER), true);
 
         vm.deal(PAYER, 100 ether);
-    }
-
-    modifier onlyFork() {
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) return;
-        _;
     }
 
     // ───────────────────────── Config Helpers
@@ -276,6 +266,17 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         view
         returns (JBLaunchProjectConfig memory, JBSuckerDeploymentConfig memory)
     {
+        return _buildLaunchConfig(cashOutTaxRate, true);
+    }
+
+    function _buildLaunchConfig(
+        uint16 cashOutTaxRate,
+        bool useDataHookForCashOut
+    )
+        internal
+        view
+        returns (JBLaunchProjectConfig memory, JBSuckerDeploymentConfig memory)
+    {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
@@ -306,7 +307,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
                 ownerMustSendPayouts: false,
                 holdFees: false,
                 useTotalSurplusForCashOuts: false,
-                useDataHookForCashOut: false,
+                useDataHookForCashOut: useDataHookForCashOut,
                 metadata: 0
             }),
             splitGroups: new JBSplitGroup[](0),
@@ -328,9 +329,20 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
 
     /// @notice Deploy a project with 721 hook + buyback hook as custom data hook.
     function _deploy721WithBuyback(uint16 cashOutTaxRate) internal returns (uint256 projectId, IJB721TiersHook hook) {
+        return _deploy721WithBuyback(cashOutTaxRate, true);
+    }
+
+    /// @notice Deploy a project with 721 hook + buyback hook, with configurable cashout hook flag.
+    function _deploy721WithBuyback(
+        uint16 cashOutTaxRate,
+        bool useDataHookForCashOut
+    )
+        internal
+        returns (uint256 projectId, IJB721TiersHook hook)
+    {
         JBDeploy721TiersHookConfig memory hookConfig = _build721Config();
         (JBLaunchProjectConfig memory launchConfig, JBSuckerDeploymentConfig memory suckerConfig) =
-            _buildLaunchConfig(cashOutTaxRate);
+            _buildLaunchConfig(cashOutTaxRate, useDataHookForCashOut);
 
         (projectId, hook,) = DEPLOYER.launch721ProjectFor({
             owner: multisig(),
@@ -338,7 +350,11 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
             launchProjectConfig: launchConfig,
             suckerDeploymentConfiguration: suckerConfig,
             controller: IJBController(address(jbController())),
-            dataHook: address(BUYBACK_HOOK),
+            dataHookConfig: JBDeployerHookConfig({
+                dataHook: IJBRulesetDataHook(address(BUYBACK_HOOK)),
+                useDataHookForPay: true,
+                useDataHookForCashOut: false
+            }),
             salt: bytes32("OMNI_721")
         });
 
@@ -452,11 +468,11 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         int56[] memory tickCumulatives = new int56[](2);
         tickCumulatives[0] = 0;
         tickCumulatives[1] = int56(tick) * int56(int32(uint32(twapWindow)));
-        uint160[] memory secondsPerLiquidityCumulativeX128s = new uint160[](2);
+        uint136[] memory secondsPerLiquidityCumulativeX128s = new uint136[](2);
         secondsPerLiquidityCumulativeX128s[0] = 0;
         uint256 liq = uint256(liquidity > 0 ? liquidity : -liquidity);
         if (liq == 0) liq = 1;
-        secondsPerLiquidityCumulativeX128s[1] = uint160((twapWindow << 128) / liq);
+        secondsPerLiquidityCumulativeX128s[1] = uint136((twapWindow << 128) / liq);
         vm.mockCall(
             address(0),
             abi.encodeWithSelector(IGeomeanOracle.observe.selector),

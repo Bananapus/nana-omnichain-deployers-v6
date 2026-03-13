@@ -24,6 +24,7 @@ import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingCo
 import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetApprovalHook.sol";
 
 import {JBOmnichainDeployer} from "../src/JBOmnichainDeployer.sol";
+import {JBDeployerHookConfig} from "../src/structs/JBDeployerHookConfig.sol";
 import {JBSuckerDeploymentConfig} from "../src/structs/JBSuckerDeploymentConfig.sol";
 
 import {TestBaseWorkflow} from "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
@@ -238,13 +239,13 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         uint256 rulesetId0 = block.timestamp;
         uint256 rulesetId1 = block.timestamp + 1;
 
-        (bool useForPay0,, IJBRulesetDataHook stored0) = deployer.dataHookOf(projectId, rulesetId0);
-        (bool useForPay1,, IJBRulesetDataHook stored1) = deployer.dataHookOf(projectId, rulesetId1);
+        JBDeployerHookConfig memory hook0 = deployer.extraDataHookOf(projectId, rulesetId0);
+        JBDeployerHookConfig memory hook1 = deployer.extraDataHookOf(projectId, rulesetId1);
 
-        assertEq(address(stored0), mockHook, "hook 0 mismatch");
-        assertTrue(useForPay0, "useDataHookForPay 0 should be true");
-        assertEq(address(stored1), mockHook, "hook 1 mismatch");
-        assertTrue(useForPay1, "useDataHookForPay 1 should be true");
+        assertEq(address(hook0.dataHook), mockHook, "hook 0 mismatch");
+        assertTrue(hook0.useDataHookForPay, "useDataHookForPay 0 should be true");
+        assertEq(address(hook1.dataHook), mockHook, "hook 1 mismatch");
+        assertTrue(hook1.useDataHookForPay, "useDataHookForPay 1 should be true");
     }
 
     /// @notice Queue rulesets succeeds when called in a different block than launch.

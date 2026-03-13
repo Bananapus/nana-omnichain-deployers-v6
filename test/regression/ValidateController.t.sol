@@ -22,10 +22,10 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 
-/// @title L64_ValidateController
+/// @title ValidateController
 /// @notice Regression test: functions that accept a controller parameter must validate it
 ///         against the project's controller in the JBDirectory.
-contract L64_ValidateController is Test {
+contract ValidateController is Test {
     JBOmnichainDeployer deployer;
 
     IJBPermissions permissions = IJBPermissions(makeAddr("permissions"));

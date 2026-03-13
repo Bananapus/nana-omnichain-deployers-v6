@@ -12,7 +12,7 @@ import "./OmnichainForkTestBase.sol";
 contract TestOmnichainWeightFork is OmnichainForkTestBase {
     /// @notice MINT PATH with 30% tier split: buyback hook chooses minting at 1:1 pool.
     /// Expected: 700 tokens (1000 * 0.7 from weight scaling).
-    function test_fork_omnichain_mintPath_withSplits() public onlyFork {
+    function test_fork_omnichain_mintPath_withSplits() public {
         (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000);
         _setupPool(projectId, 10_000 ether);
 
@@ -34,7 +34,7 @@ contract TestOmnichainWeightFork is OmnichainForkTestBase {
     }
 
     /// @notice Without tier metadata, no 721 splits apply — payer gets full issuance.
-    function test_fork_omnichain_swapPath_withSplits() public onlyFork {
+    function test_fork_omnichain_swapPath_withSplits() public {
         (uint256 projectId,) = _deploy721WithBuyback(5000);
         _setupPool(projectId, 10_000 ether);
 
@@ -55,7 +55,7 @@ contract TestOmnichainWeightFork is OmnichainForkTestBase {
     }
 
     /// @notice No tier metadata (no splits): full 1000 tokens for 1 ETH.
-    function test_fork_omnichain_noSplits_fullTokens() public onlyFork {
+    function test_fork_omnichain_noSplits_fullTokens() public {
         (uint256 projectId,) = _deploy721WithBuyback(5000);
         _setupPool(projectId, 10_000 ether);
 

@@ -24,14 +24,17 @@ import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
 import {JBFundAccessLimitGroup} from "@bananapus/core-v6/src/structs/JBFundAccessLimitGroup.sol";
 import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetApprovalHook.sol";
 
+import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
+
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
+import {JBDeployerHookConfig} from "../../src/structs/JBDeployerHookConfig.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 
-/// @title H20_HookOwnershipTransfer
+/// @title HookOwnershipTransfer
 /// @notice Regression test: queue721RulesetsOf must transfer hook ownership to the project.
 ///         Before this fix, the hook's ownership was stuck with JBOmnichainDeployer permanently.
-contract H20_HookOwnershipTransfer is Test {
+contract HookOwnershipTransfer is Test {
     JBOmnichainDeployer deployer;
 
     IJBPermissions permissions = IJBPermissions(makeAddr("permissions"));
@@ -140,6 +143,9 @@ contract H20_HookOwnershipTransfer is Test {
         // Expect the transferOwnershipToProject call on the hook.
         vm.expectCall(hookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector, projectId));
 
-        deployer.queue721RulesetsOf(projectId, hookConfig, queueConfig, controller, address(0), bytes32(0));
+        JBDeployerHookConfig memory emptyHookConfig = JBDeployerHookConfig({
+            dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false
+        });
+        deployer.queue721RulesetsOf(projectId, hookConfig, queueConfig, controller, emptyHookConfig, bytes32(0));
     }
 }

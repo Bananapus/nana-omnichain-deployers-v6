@@ -7,7 +7,6 @@ import {JBLaunchProjectConfig} from "@bananapus/721-hook-v6/src/structs/JBLaunch
 import {JBLaunchRulesetsConfig} from "@bananapus/721-hook-v6/src/structs/JBLaunchRulesetsConfig.sol";
 import {JBQueueRulesetsConfig} from "@bananapus/721-hook-v6/src/structs/JBQueueRulesetsConfig.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
-import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 import {JBDeployerHookConfig} from "../structs/JBDeployerHookConfig.sol";
@@ -15,24 +14,30 @@ import {JBSuckerDeploymentConfig} from "../structs/JBSuckerDeploymentConfig.sol"
 
 /// @notice Deploys Juicebox projects with omnichain sucker support.
 interface IJBOmnichainDeployer {
-    /// @notice Get the data hook for a project and ruleset.
-    /// @param projectId The ID of the project to get the data hook for.
-    /// @param rulesetId The ID of the ruleset to get the data hook for.
-    /// @return useDataHookForPay Whether the data hook is used for pay.
-    /// @return useDataHookForCashOut Whether the data hook is used for cash out.
-    /// @return dataHook The data hook.
-    function dataHookOf(
+    /// @notice Get the extra data hook for a project and ruleset.
+    /// @param projectId The ID of the project to get the extra data hook for.
+    /// @param rulesetId The ID of the ruleset to get the extra data hook for.
+    /// @return hook The extra data hook configured for the project/ruleset.
+    function extraDataHookOf(
         uint256 projectId,
         uint256 rulesetId
     )
         external
         view
-        returns (bool useDataHookForPay, bool useDataHookForCashOut, IJBRulesetDataHook dataHook);
+        returns (JBDeployerHookConfig memory hook);
 
-    /// @notice Each project's tiered 721 hook, stored separately from the custom data hook.
+    /// @notice Get the tiered 721 hook config for a project and ruleset.
     /// @param projectId The ID of the project to get the 721 hook for.
-    /// @return The project's tiered 721 hook.
-    function tiered721HookOf(uint256 projectId) external view returns (IJB721TiersHook);
+    /// @param rulesetId The ID of the ruleset to get the 721 hook for.
+    /// @return hook The 721 tiers hook.
+    /// @return useDataHookForCashOut Whether the 721 hook is used for cash outs.
+    function tiered721HookOf(
+        uint256 projectId,
+        uint256 rulesetId
+    )
+        external
+        view
+        returns (IJB721TiersHook hook, bool useDataHookForCashOut);
 
     /// @notice Deploy new suckers for an existing project.
     /// @param projectId The ID of the project to deploy suckers for.
@@ -53,8 +58,8 @@ interface IJBOmnichainDeployer {
     /// @param suckerDeploymentConfiguration The suckers to set up for the project. Suckers facilitate cross-chain
     /// token transfers between peer projects on different networks.
     /// @param controller The controller to use for launching the project.
-    /// @param dataHook The custom data hook to use alongside the 721 hook (e.g., a buyback hook). Pass address(0) for
-    /// no custom data hook.
+    /// @param dataHookConfig The custom data hook to use alongside the 721 hook (e.g., a buyback hook). Pass a config
+    /// with dataHook = address(0) for no custom data hook.
     /// @return projectId The ID of the newly launched project.
     /// @return hook The 721 tiers hook that was deployed for the project.
     /// @return suckers The addresses of the deployed suckers.
@@ -64,7 +69,7 @@ interface IJBOmnichainDeployer {
         JBLaunchProjectConfig calldata launchProjectConfig,
         JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
         IJBController controller,
-        address dataHook,
+        JBDeployerHookConfig calldata dataHookConfig,
         bytes32 salt
     )
         external
@@ -76,8 +81,8 @@ interface IJBOmnichainDeployer {
     /// @param launchRulesetsConfig Configuration which dictates the behavior of the rulesets.
     /// @param controller The controller to use for launching the rulesets.
     /// @param salt A salt to use for the deterministic deployment.
-    /// @param dataHook The custom data hook to use alongside the 721 hook (e.g., a buyback hook). Pass address(0) for
-    /// no custom data hook.
+    /// @param dataHookConfig The custom data hook to use alongside the 721 hook (e.g., a buyback hook). Pass a config
+    /// with dataHook = address(0) for no custom data hook.
     /// @return rulesetId The ID of the newly launched rulesets.
     /// @return hook The 721 tiers hook that was deployed for the project.
     function launch721RulesetsFor(
@@ -85,7 +90,7 @@ interface IJBOmnichainDeployer {
         JBDeploy721TiersHookConfig memory deployTiersHookConfig,
         JBLaunchRulesetsConfig calldata launchRulesetsConfig,
         IJBController controller,
-        address dataHook,
+        JBDeployerHookConfig calldata dataHookConfig,
         bytes32 salt
     )
         external
@@ -137,8 +142,8 @@ interface IJBOmnichainDeployer {
     /// @param queueRulesetsConfig Configuration which dictates the behavior of the rulesets.
     /// @param controller The controller to use for queuing the rulesets.
     /// @param salt A salt to use for the deterministic deployment.
-    /// @param dataHook The custom data hook to use alongside the 721 hook (e.g., a buyback hook). Pass address(0) for
-    /// no custom data hook.
+    /// @param dataHookConfig The custom data hook to use alongside the 721 hook (e.g., a buyback hook). Pass a config
+    /// with dataHook = address(0) for no custom data hook.
     /// @return rulesetId The ID of the newly queued rulesets.
     /// @return hook The 721 tiers hook that was deployed for the project.
     function queue721RulesetsOf(
@@ -146,7 +151,7 @@ interface IJBOmnichainDeployer {
         JBDeploy721TiersHookConfig memory deployTiersHookConfig,
         JBQueueRulesetsConfig calldata queueRulesetsConfig,
         IJBController controller,
-        address dataHook,
+        JBDeployerHookConfig calldata dataHookConfig,
         bytes32 salt
     )
         external

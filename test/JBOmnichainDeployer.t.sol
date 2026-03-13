@@ -26,6 +26,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import {JBOmnichainDeployer} from "../src/JBOmnichainDeployer.sol";
 import {IJBOmnichainDeployer} from "../src/interfaces/IJBOmnichainDeployer.sol";
+import {JBDeployerHookConfig} from "../src/structs/JBDeployerHookConfig.sol";
 import {JBSuckerDeploymentConfig} from "../src/structs/JBSuckerDeploymentConfig.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 
@@ -246,14 +247,12 @@ contract TestJBOmnichainDeployer is Test {
     }
 
     //*********************************************************************//
-    // --- dataHookOf ---------------------------------------------------- //
+    // --- extraDataHookOf ----------------------------------------------- //
     //*********************************************************************//
 
-    function test_dataHookOf_returnsEmpty() public view {
-        (bool useForPay, bool useForCashout, IJBRulesetDataHook hook) = deployer.dataHookOf(projectId, 999);
-        assertFalse(useForPay);
-        assertFalse(useForCashout);
-        assertEq(address(hook), address(0));
+    function test_extraDataHookOf_returnsEmpty() public view {
+        JBDeployerHookConfig memory hook = deployer.extraDataHookOf(projectId, 999);
+        assertEq(address(hook.dataHook), address(0));
     }
 
     //*********************************************************************//
