@@ -26,6 +26,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import {JBOmnichainDeployer} from "../src/JBOmnichainDeployer.sol";
 import {IJBOmnichainDeployer} from "../src/interfaces/IJBOmnichainDeployer.sol";
+import {JBOmnichain721Config} from "../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../src/structs/JBSuckerDeploymentConfig.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 
@@ -299,8 +300,9 @@ contract OmnichainDeployerAttacks is Test {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(hook, true, true);
 
+        JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
-            projectOwner, "test", configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
+            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
         );
     }
 

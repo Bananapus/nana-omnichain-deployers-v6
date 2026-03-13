@@ -528,9 +528,11 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         JBSuckerDeploymentConfig memory suckerConfig =
             JBSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32(0)});
 
-        (projectId,) = DEPLOYER.launchProjectFor({
+        JBOmnichain721Config memory empty721Config;
+        (projectId,,) = DEPLOYER.launchProjectFor({
             owner: multisig(),
             projectUri: "ipfs://reserved-test",
+            deploy721Config: empty721Config,
             rulesetConfigurations: rulesets,
             terminalConfigurations: tc,
             memo: "reserved",

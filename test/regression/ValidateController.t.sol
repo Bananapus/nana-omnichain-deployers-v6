@@ -20,6 +20,7 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
+import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 
 /// @title ValidateController
@@ -95,14 +96,16 @@ contract ValidateController is Test {
     function test_queueRulesetsOf_revertsWithFakeController() public {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig();
+        JBOmnichain721Config memory empty721Config;
 
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector);
-        deployer.queueRulesetsOf(projectId, configs, "memo", fakeController);
+        deployer.queueRulesetsOf(projectId, empty721Config, configs, "memo", fakeController);
     }
 
     function test_queueRulesetsOf_succeedsWithLegitimateController() public {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig();
+        JBOmnichain721Config memory empty721Config;
 
         // Mock the controller.queueRulesetsOf to succeed.
         vm.mockCall(
@@ -112,7 +115,7 @@ contract ValidateController is Test {
         );
 
         // Should not revert.
-        deployer.queueRulesetsOf(projectId, configs, "memo", legitimateController);
+        deployer.queueRulesetsOf(projectId, empty721Config, configs, "memo", legitimateController);
     }
 
     // ──────────────────── launchRulesetsFor
@@ -122,9 +125,10 @@ contract ValidateController is Test {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig();
         JBTerminalConfig[] memory terminals = new JBTerminalConfig[](0);
+        JBOmnichain721Config memory empty721Config;
 
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector);
-        deployer.launchRulesetsFor(projectId, configs, terminals, "memo", fakeController);
+        deployer.launchRulesetsFor(projectId, empty721Config, configs, terminals, "memo", fakeController);
     }
 
     // ──────────────────── Helpers

@@ -26,9 +26,6 @@ import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721Tiers
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookProjectDeployer.sol";
 import {IJBOwnable} from "@bananapus/ownable-v6/src/interfaces/IJBOwnable.sol";
 import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBDeploy721TiersHookConfig.sol";
-import {JBLaunchProjectConfig} from "@bananapus/721-hook-v6/src/structs/JBLaunchProjectConfig.sol";
-import {JBPayDataHookRulesetConfig} from "@bananapus/721-hook-v6/src/structs/JBPayDataHookRulesetConfig.sol";
-import {JBPayDataHookRulesetMetadata} from "@bananapus/721-hook-v6/src/structs/JBPayDataHookRulesetMetadata.sol";
 import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
 import {JBFundAccessLimitGroup} from "@bananapus/core-v6/src/structs/JBFundAccessLimitGroup.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -36,6 +33,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import {JBOmnichainDeployer} from "../src/JBOmnichainDeployer.sol";
 import {JBDeployerHookConfig} from "../src/structs/JBDeployerHookConfig.sol";
+import {JBOmnichain721Config} from "../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../src/structs/JBSuckerDeploymentConfig.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 
@@ -143,9 +141,10 @@ contract OmnichainDeployerEdgeCases is Test {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(deployer), true, false);
 
+        JBOmnichain721Config memory empty721Config;
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_InvalidHook.selector);
         deployer.launchProjectFor(
-            projectOwner, "test", configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
+            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
         );
     }
 
@@ -166,9 +165,10 @@ contract OmnichainDeployerEdgeCases is Test {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(0), false, false);
 
+        JBOmnichain721Config memory empty721Config;
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_ProjectIdMismatch.selector);
         deployer.launchProjectFor(
-            projectOwner, "test", configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
+            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
         );
     }
 
@@ -466,8 +466,9 @@ contract OmnichainDeployerEdgeCases is Test {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(hook, true, false);
 
+        JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
-            projectOwner, "test", configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
+            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
         );
     }
 
@@ -487,8 +488,9 @@ contract OmnichainDeployerEdgeCases is Test {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(hook, false, true);
 
+        JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
-            projectOwner, "test", configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
+            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
         );
     }
 
@@ -498,10 +500,10 @@ contract OmnichainDeployerEdgeCases is Test {
 
     function _storeTiered721Hook(address hook721, bool useCashOut) internal {
         // Use vm.store to set _tiered721HookOf[projectId][rulesetId] = JBTiered721HookConfig(hook, useCashOut).
-        // _tiered721HookOf is at base slot 0 (first storage variable in the contract).
+        // _tiered721HookOf is at base slot 1 (second storage variable, after _extraDataHookOf).
         // For mapping(uint256 => mapping(uint256 => struct)):
-        //   slot = keccak256(rulesetId . keccak256(projectId . 0))
-        bytes32 outerSlot = keccak256(abi.encode(projectId, uint256(0)));
+        //   slot = keccak256(rulesetId . keccak256(projectId . 1))
+        bytes32 outerSlot = keccak256(abi.encode(projectId, uint256(1)));
         bytes32 innerSlot = keccak256(abi.encode(rulesetId, outerSlot));
         // Pack: address (160 bits) | bool (1 bit at position 160)
         bytes32 value = bytes32(uint256(uint160(hook721)) | (useCashOut ? uint256(1) << 160 : 0));

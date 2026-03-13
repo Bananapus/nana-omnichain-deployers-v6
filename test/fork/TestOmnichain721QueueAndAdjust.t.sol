@@ -6,10 +6,7 @@ import "./OmnichainForkTestBase.sol";
 import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsData.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {IJBOwnable} from "@bananapus/ownable-v6/src/interfaces/IJBOwnable.sol";
-import {JBQueueRulesetsConfig} from "@bananapus/721-hook-v6/src/structs/JBQueueRulesetsConfig.sol";
-import {JBLaunchRulesetsConfig} from "@bananapus/721-hook-v6/src/structs/JBLaunchRulesetsConfig.sol";
-import {JBPayDataHookRulesetConfig} from "@bananapus/721-hook-v6/src/structs/JBPayDataHookRulesetConfig.sol";
-import {JBPayDataHookRulesetMetadata} from "@bananapus/721-hook-v6/src/structs/JBPayDataHookRulesetMetadata.sol";
+import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 
 /// @notice Tests that queueing rulesets with a 721 hook properly transfers hook ownership
@@ -29,51 +26,18 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
         vm.warp(block.timestamp + 1 days);
 
         // Step 4: Queue 721 rulesets via the deployer.
-        JBDeploy721TiersHookConfig memory hookConfig = _build721Config();
+        (JBRulesetConfig[] memory rulesets,,) = _buildLaunchConfig(5000);
 
-        JBPayDataHookRulesetConfig[] memory rulesetConfigs = new JBPayDataHookRulesetConfig[](1);
-        rulesetConfigs[0] = JBPayDataHookRulesetConfig({
-            mustStartAtOrAfter: uint48(0),
-            duration: uint32(0),
-            weight: INITIAL_ISSUANCE,
-            weightCutPercent: uint32(0),
-            approvalHook: IJBRulesetApprovalHook(address(0)),
-            metadata: JBPayDataHookRulesetMetadata({
-                reservedPercent: 0,
-                cashOutTaxRate: 5000,
-                baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                pausePay: false,
-                pauseCreditTransfers: false,
-                allowOwnerMinting: false,
-                allowSetCustomToken: false,
-                allowTerminalMigration: false,
-                allowSetController: false,
-                allowSetTerminals: false,
-                allowAddAccountingContext: false,
-                allowAddPriceFeed: false,
-                ownerMustSendPayouts: false,
-                holdFees: false,
-                useTotalSurplusForCashOuts: false,
-                useDataHookForCashOut: false,
-                metadata: 0
-            }),
-            splitGroups: new JBSplitGroup[](0),
-            fundAccessLimitGroups: new JBFundAccessLimitGroup[](0)
-        });
-
-        JBQueueRulesetsConfig memory queueConfig = JBQueueRulesetsConfig({
-            projectId: uint56(projectId), rulesetConfigurations: rulesetConfigs, memo: "add 721 hook"
-        });
-
-        (, IJB721TiersHook hook) = DEPLOYER.queue721RulesetsOf({
+        (, IJB721TiersHook hook) = DEPLOYER.queueRulesetsOf({
             projectId: projectId,
-            deployTiersHookConfig: hookConfig,
-            queueRulesetsConfig: queueConfig,
-            controller: IJBController(address(jbController())),
-            dataHookConfig: JBDeployerHookConfig({
-                dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false
+            deploy721Config: JBOmnichain721Config({
+                deployTiersHookConfig: _build721Config(),
+                useDataHookForCashOut: false,
+                salt: bytes32("Q721")
             }),
-            salt: bytes32("Q721")
+            rulesetConfigurations: rulesets,
+            memo: "add 721 hook",
+            controller: IJBController(address(jbController()))
         });
 
         // Step 5: Verify hook ownership was transferred to the project.
@@ -129,54 +93,21 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
         // Step 3: Warp forward.
         vm.warp(block.timestamp + 1 days);
 
-        // Step 4: Queue new 721 rulesets with a fresh hook.
-        JBDeploy721TiersHookConfig memory newHookConfig = _build721Config();
+        // Step 4: Queue new 721 rulesets with a fresh hook + buyback as custom data hook.
+        (JBRulesetConfig[] memory rulesets,,) = _buildLaunchConfig(3000);
+        rulesets[0].metadata.dataHook = address(BUYBACK_HOOK);
+        rulesets[0].metadata.useDataHookForPay = true;
 
-        JBPayDataHookRulesetConfig[] memory rulesetConfigs = new JBPayDataHookRulesetConfig[](1);
-        rulesetConfigs[0] = JBPayDataHookRulesetConfig({
-            mustStartAtOrAfter: uint48(0),
-            duration: uint32(0),
-            weight: INITIAL_ISSUANCE,
-            weightCutPercent: uint32(0),
-            approvalHook: IJBRulesetApprovalHook(address(0)),
-            metadata: JBPayDataHookRulesetMetadata({
-                reservedPercent: 0,
-                cashOutTaxRate: 3000,
-                baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                pausePay: false,
-                pauseCreditTransfers: false,
-                allowOwnerMinting: false,
-                allowSetCustomToken: false,
-                allowTerminalMigration: false,
-                allowSetController: false,
-                allowSetTerminals: false,
-                allowAddAccountingContext: false,
-                allowAddPriceFeed: false,
-                ownerMustSendPayouts: false,
-                holdFees: false,
-                useTotalSurplusForCashOuts: false,
-                useDataHookForCashOut: false,
-                metadata: 0
-            }),
-            splitGroups: new JBSplitGroup[](0),
-            fundAccessLimitGroups: new JBFundAccessLimitGroup[](0)
-        });
-
-        JBQueueRulesetsConfig memory queueConfig = JBQueueRulesetsConfig({
-            projectId: uint56(projectId), rulesetConfigurations: rulesetConfigs, memo: "replace hook"
-        });
-
-        (, IJB721TiersHook newHook) = DEPLOYER.queue721RulesetsOf({
+        (, IJB721TiersHook newHook) = DEPLOYER.queueRulesetsOf({
             projectId: projectId,
-            deployTiersHookConfig: newHookConfig,
-            queueRulesetsConfig: queueConfig,
-            controller: IJBController(address(jbController())),
-            dataHookConfig: JBDeployerHookConfig({
-                dataHook: IJBRulesetDataHook(address(BUYBACK_HOOK)),
-                useDataHookForPay: true,
-                useDataHookForCashOut: false
+            deploy721Config: JBOmnichain721Config({
+                deployTiersHookConfig: _build721Config(),
+                useDataHookForCashOut: false,
+                salt: bytes32("REPLACE")
             }),
-            salt: bytes32("REPLACE")
+            rulesetConfigurations: rulesets,
+            memo: "replace hook",
+            controller: IJBController(address(jbController()))
         });
 
         // The new hook should be different from the original.
@@ -224,51 +155,18 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
         _grantDeployerPermissions(projectId);
         vm.warp(block.timestamp + 1 days);
 
-        JBDeploy721TiersHookConfig memory hookConfig = _build721Config();
+        (JBRulesetConfig[] memory rulesets,,) = _buildLaunchConfig(5000);
 
-        JBPayDataHookRulesetConfig[] memory rulesetConfigs = new JBPayDataHookRulesetConfig[](1);
-        rulesetConfigs[0] = JBPayDataHookRulesetConfig({
-            mustStartAtOrAfter: uint48(0),
-            duration: uint32(0),
-            weight: INITIAL_ISSUANCE,
-            weightCutPercent: uint32(0),
-            approvalHook: IJBRulesetApprovalHook(address(0)),
-            metadata: JBPayDataHookRulesetMetadata({
-                reservedPercent: 0,
-                cashOutTaxRate: 5000,
-                baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                pausePay: false,
-                pauseCreditTransfers: false,
-                allowOwnerMinting: false,
-                allowSetCustomToken: false,
-                allowTerminalMigration: false,
-                allowSetController: false,
-                allowSetTerminals: false,
-                allowAddAccountingContext: false,
-                allowAddPriceFeed: false,
-                ownerMustSendPayouts: false,
-                holdFees: false,
-                useTotalSurplusForCashOuts: false,
-                useDataHookForCashOut: false,
-                metadata: 0
-            }),
-            splitGroups: new JBSplitGroup[](0),
-            fundAccessLimitGroups: new JBFundAccessLimitGroup[](0)
-        });
-
-        JBQueueRulesetsConfig memory queueConfig = JBQueueRulesetsConfig({
-            projectId: uint56(projectId), rulesetConfigurations: rulesetConfigs, memo: "test perms"
-        });
-
-        (, IJB721TiersHook hook) = DEPLOYER.queue721RulesetsOf({
+        (, IJB721TiersHook hook) = DEPLOYER.queueRulesetsOf({
             projectId: projectId,
-            deployTiersHookConfig: hookConfig,
-            queueRulesetsConfig: queueConfig,
-            controller: IJBController(address(jbController())),
-            dataHookConfig: JBDeployerHookConfig({
-                dataHook: IJBRulesetDataHook(address(0)), useDataHookForPay: false, useDataHookForCashOut: false
+            deploy721Config: JBOmnichain721Config({
+                deployTiersHookConfig: _build721Config(),
+                useDataHookForCashOut: false,
+                salt: bytes32("PERMS")
             }),
-            salt: bytes32("PERMS")
+            rulesetConfigurations: rulesets,
+            memo: "test perms",
+            controller: IJBController(address(jbController()))
         });
 
         // A random address should NOT be able to adjust tiers.

@@ -25,6 +25,7 @@ import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRules
 
 import {JBOmnichainDeployer} from "../src/JBOmnichainDeployer.sol";
 import {JBDeployerHookConfig} from "../src/structs/JBDeployerHookConfig.sol";
+import {JBOmnichain721Config} from "../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../src/structs/JBSuckerDeploymentConfig.sol";
 
 import {TestBaseWorkflow} from "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
@@ -176,10 +177,12 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
     function _launchProject(uint256 rulesetCount) internal returns (uint256 projectId) {
         JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(rulesetCount);
         JBTerminalConfig[] memory terminals = _makeTerminalConfigs();
+        JBOmnichain721Config memory empty721Config;
 
-        (projectId,) = deployer.launchProjectFor(
+        (projectId,,) = deployer.launchProjectFor(
             owner,
             "ipfs://test",
+            empty721Config,
             rulesets,
             terminals,
             "launch",
@@ -191,10 +194,12 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
     function _launchProjectWithHook(uint256 rulesetCount, address hook) internal returns (uint256 projectId) {
         JBRulesetConfig[] memory rulesets = _makeRulesetConfigsWithHook(rulesetCount, hook);
         JBTerminalConfig[] memory terminals = _makeTerminalConfigs();
+        JBOmnichain721Config memory empty721Config;
 
-        (projectId,) = deployer.launchProjectFor(
+        (projectId,,) = deployer.launchProjectFor(
             owner,
             "ipfs://test",
+            empty721Config,
             rulesets,
             terminals,
             "launch",
@@ -259,7 +264,8 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
 
         // Should succeed without reverting.
-        deployer.queueRulesetsOf(projectId, rulesets, "queue", IJBController(address(jbController())));
+        JBOmnichain721Config memory empty721;
+        deployer.queueRulesetsOf(projectId, empty721, rulesets, "queue", IJBController(address(jbController())));
     }
 
     /// @notice Queue rulesets reverts when called in the same block as launch
@@ -272,7 +278,8 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
 
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector);
-        deployer.queueRulesetsOf(projectId, rulesets, "queue", IJBController(address(jbController())));
+        JBOmnichain721Config memory empty721;
+        deployer.queueRulesetsOf(projectId, empty721, rulesets, "queue", IJBController(address(jbController())));
     }
 
     /// @notice Queue via deployer reverts when someone already queued via the controller
@@ -293,7 +300,8 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         // Deployer queue in the same block should revert.
         JBRulesetConfig[] memory deployerRulesets = _makeRulesetConfigs(1);
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector);
-        deployer.queueRulesetsOf(projectId, deployerRulesets, "deployer-queue", IJBController(address(jbController())));
+        JBOmnichain721Config memory empty721;
+        deployer.queueRulesetsOf(projectId, empty721, deployerRulesets, "deployer-queue", IJBController(address(jbController())));
     }
 
     /// @notice Queue succeeds after warping past the latestRulesetIdOf from a multi-ruleset launch.
@@ -305,12 +313,14 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         // Verify we can't queue in the same block (latestRulesetIdOf = block.timestamp + 1 >= block.timestamp).
         JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector);
-        deployer.queueRulesetsOf(projectId, rulesets, "too-early", IJBController(address(jbController())));
+        JBOmnichain721Config memory empty721;
+        deployer.queueRulesetsOf(projectId, empty721, rulesets, "too-early", IJBController(address(jbController())));
 
         // Warp past latestRulesetIdOf so the guard passes.
         vm.warp(block.timestamp + 2);
 
         // Now should succeed.
-        deployer.queueRulesetsOf(projectId, rulesets, "ok-now", IJBController(address(jbController())));
+        JBOmnichain721Config memory empty721b;
+        deployer.queueRulesetsOf(projectId, empty721b, rulesets, "ok-now", IJBController(address(jbController())));
     }
 }
