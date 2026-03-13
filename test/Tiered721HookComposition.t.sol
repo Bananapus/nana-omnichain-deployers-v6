@@ -348,7 +348,7 @@ contract Tiered721HookComposition is Test {
         assertEq(totalSupply, 5000, "buyback hook's totalSupply");
     }
 
-    function test_beforeCashOut_no721_forwardsToUserHook() public {
+    function test_beforeCashOut_zeroTiers_forwardsToUserHook() public {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(customHookAddr, true, true);
         deployer.launchProjectFor(
@@ -367,7 +367,7 @@ contract Tiered721HookComposition is Test {
         assertEq(totalSupply, 1000, "user hook's totalSupply");
     }
 
-    function test_beforeCashOut_no721_noUserHook_returnsOriginal() public {
+    function test_beforeCashOut_zeroTiers_noUserHook_returnsOriginal() public {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(0), false, false);
         deployer.launchProjectFor(
@@ -493,20 +493,20 @@ contract Tiered721HookComposition is Test {
     // non-721 functions: unchanged behavior
     // ---------------------------------------------------------------
 
-    function test_launchProjectFor_noTiered721Hook() public {
+    function test_launchProjectFor_zeroTiers_still721Hook() public {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(buybackHookAddr, true, false);
         deployer.launchProjectFor(
             projectOwner, "test", _empty721Config(), configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
         );
         (IJB721TiersHook stored721,) = deployer.tiered721HookOf(projectId, block.timestamp);
-        assertEq(address(stored721), address(0), "no 721 hook for non-721 project");
+        assertEq(address(stored721), hookAddr, "721 hook always deployed even with 0 tiers");
         JBDeployerHookConfig memory storedHook = deployer.extraDataHookOf(projectId, block.timestamp);
         assertEq(address(storedHook.dataHook), buybackHookAddr, "user hook stored");
         assertTrue(storedHook.useDataHookForPay);
     }
 
-    function test_beforePay_non721_buybackOnly_forwardsCorrectly() public {
+    function test_beforePay_zeroTiers_buybackComposesWith721() public {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(buybackHookAddr, true, false);
         deployer.launchProjectFor(
@@ -523,8 +523,10 @@ contract Tiered721HookComposition is Test {
         JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
         (uint256 weight, JBPayHookSpecification[] memory specs) = deployer.beforePayRecordedWith(context);
         assertEq(weight, 888, "buyback weight");
-        assertEq(specs.length, 1, "only buyback spec");
-        assertEq(address(specs[0].hook), buybackHookAddr);
+        assertEq(specs.length, 2, "721 spec + buyback spec");
+        assertEq(address(specs[0].hook), hookAddr, "first = 721 hook");
+        assertEq(specs[0].amount, 0, "721 hook amount = 0");
+        assertEq(address(specs[1].hook), buybackHookAddr, "second = buyback");
     }
 
     // ---------------------------------------------------------------

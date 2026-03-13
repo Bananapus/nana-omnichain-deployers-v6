@@ -18,18 +18,15 @@ Admin privileges and their scope in nana-omnichain-deployers-v6.
 | Function | Required Role | Permission ID | Scope | What It Does |
 |----------|--------------|---------------|-------|--------------|
 | `deploySuckersFor` | Project owner or operator | `DEPLOY_SUCKERS` | Per-project | Deploys new cross-chain suckers for an existing project via the sucker registry. |
-| `launch721RulesetsFor` | Project owner or operator | `QUEUE_RULESETS` + `SET_TERMINALS` | Per-project | Deploys a 721 tiers hook, launches new rulesets with terminal configuration for an existing project. |
-| `launchRulesetsFor` | Project owner or operator | `QUEUE_RULESETS` + `SET_TERMINALS` | Per-project | Launches new rulesets with terminal configuration for an existing project (no 721 hook). |
-| `queue721RulesetsOf` | Project owner or operator | `QUEUE_RULESETS` | Per-project | Deploys a 721 tiers hook and queues new rulesets for an existing project. |
-| `queueRulesetsOf` | Project owner or operator | `QUEUE_RULESETS` | Per-project | Queues new rulesets for an existing project (no 721 hook). |
+| `launchRulesetsFor` | Project owner or operator | `QUEUE_RULESETS` + `SET_TERMINALS` | Per-project | Deploys a 721 tiers hook, launches new rulesets with terminal configuration for an existing project. |
+| `queueRulesetsOf` | Project owner or operator | `QUEUE_RULESETS` | Per-project | Queues new rulesets for an existing project. If tiers provided, deploys a new 721 hook. Otherwise, carries forward the 721 hook from the latest ruleset. |
 
 ### Permissionless Functions
 
 | Function | Who Can Call | What It Does |
 |----------|-------------|--------------|
-| `launchProjectFor` | Anyone | Creates a new project with suckers. The ERC-721 is minted to the specified `owner`. |
-| `launch721ProjectFor` | Anyone | Creates a new project with a 721 tiers hook and suckers. The ERC-721 is minted to the specified `owner`. |
-| `beforePayRecordedWith` | JBMultiTerminal (via controller) | View function: forwards pay data to the stored data hook, or passes through if none configured. |
+| `launchProjectFor` | Anyone | Creates a new project with a 721 tiers hook (even with 0 tiers) and suckers. The ERC-721 is minted to the specified `owner`. Returns `(projectId, hook, suckers)`. |
+| `beforePayRecordedWith` | JBMultiTerminal (via controller) | View function: calls 721 hook for specs, then custom hook (if configured) with reduced amount. Merges results. |
 | `beforeCashOutRecordedWith` | JBMultiTerminal (via controller) | View function: returns 0% cash-out tax for registered suckers. Checks 721 hook (from `_tiered721HookOf`) then custom hook (from `_extraDataHookOf`) — the first with `useDataHookForCashOut: true` handles it. If neither has the flag set, returns original values. |
 | `hasMintPermissionFor` | JBController | View function: returns true for registered suckers, otherwise checks the custom hook in `_extraDataHookOf`. |
 | `extraDataHookOf` | Anyone | View function: returns the stored `JBDeployerHookConfig` for a project/ruleset pair (the custom data hook). |
@@ -37,17 +34,20 @@ Admin privileges and their scope in nana-omnichain-deployers-v6.
 
 ## Deployment Administration
 
-**Who can deploy omnichain projects:** Anyone. The `launchProjectFor` and `launch721ProjectFor` functions are permissionless. The caller specifies an `owner` address that receives the project ERC-721.
+**Who can deploy omnichain projects:** Anyone. The `launchProjectFor` function is permissionless. The caller specifies an `owner` address that receives the project ERC-721.
 
 **Deployment flow:**
-1. The deployer temporarily owns the project ERC-721 (minted to `address(this)`).
-2. It configures rulesets, sets itself as the data hook wrapper, and optionally deploys suckers.
-3. It transfers the project ERC-721 to the specified `owner`.
+1. The deployer deploys a 721 tiers hook via `HOOK_DEPLOYER` (even with 0 tiers).
+2. It configures rulesets via `_setup721()`, sets itself as the data hook wrapper.
+3. It calls `controller.launchProjectFor`, which mints the project ERC-721 to `address(this)`.
+4. It transfers 721 hook ownership to the project (requires project NFT to exist).
+5. It optionally deploys suckers via the sucker registry.
+6. It transfers the project ERC-721 to the specified `owner`.
 
 **Configurable parameters at deployment:**
 - Ruleset configurations (duration, weight, decay, approval hooks, splits, fund access limits, metadata flags).
 - Terminal configurations (which terminals accept which tokens).
-- 721 tiers hook configuration (tier pricing, supply, metadata, categories).
+- 721 tiers hook configuration (tier pricing, supply, metadata, categories — can be empty for 0 tiers).
 - Sucker deployment configuration (which chains, which deployers, token mappings).
 - Salt for deterministic cross-chain address matching.
 
@@ -56,7 +56,7 @@ Admin privileges and their scope in nana-omnichain-deployers-v6.
 | Action | Who | Mechanism |
 |--------|-----|-----------|
 | Deploy suckers for existing project | Project owner or DEPLOY_SUCKERS operator | `deploySuckersFor` calls `SUCKER_REGISTRY.deploySuckersFor` |
-| Deploy suckers during project launch | Project deployer (anyone) | Included in `launchProjectFor` / `launch721ProjectFor` if `salt != bytes32(0)` |
+| Deploy suckers during project launch | Project deployer (anyone) | Included in `launchProjectFor` if `salt != bytes32(0)` |
 | Map sucker tokens | JBSuckerRegistry | Granted MAP_SUCKER_TOKEN at construction with projectId=0 wildcard |
 | Grant 0% cash-out tax to suckers | Automatic | `beforeCashOutRecordedWith` checks `SUCKER_REGISTRY.isSuckerOf` |
 | Grant mint permission to suckers | Automatic | `hasMintPermissionFor` checks `SUCKER_REGISTRY.isSuckerOf` |
@@ -76,7 +76,7 @@ These values are set at deployment and cannot be changed:
 | Trusted forwarder | `address` | The ERC-2771 trusted forwarder for meta-transactions. |
 | MAP_SUCKER_TOKEN grant | Permission | Granted to SUCKER_REGISTRY at construction for all projects (projectId=0). Cannot be revoked by this contract. |
 
-**Data hook mappings** (`_tiered721HookOf[projectId][rulesetId]` and `_extraDataHookOf[projectId][rulesetId]`) are write-once per ruleset ID. They are set during `_setup` / `_setup721` and never updated or deleted.
+**Data hook mappings** (`_tiered721HookOf[projectId][rulesetId]` and `_extraDataHookOf[projectId][rulesetId]`) are write-once per ruleset ID. They are set during `_setup721()` and never updated or deleted.
 
 ## Admin Boundaries
 
@@ -87,7 +87,7 @@ What admins **cannot** do:
 - **Cannot modify stored data hooks.** Once a ruleset's hooks are stored in `_tiered721HookOf` and `_extraDataHookOf`, they cannot be changed. New rulesets can use different hooks, but existing mappings are permanent.
 - **Cannot bypass permission checks.** All post-deployment admin functions require JBPermissions verification against the project owner.
 - **Cannot revoke sucker privileges.** Once a sucker is registered in JBSuckerRegistry, it automatically gets 0% cash-out tax and mint permission for its project. Revocation must happen at the registry level.
-- **Cannot set the deployer as its own data hook.** Both `_setup` and `_setup721` explicitly revert with `JBOmnichainDeployer_InvalidHook` if a hook is `address(this)`.
+- **Cannot set the deployer as its own data hook.** `_setup721()` explicitly reverts with `JBOmnichainDeployer_InvalidHook` if a hook is `address(this)`.
 - **Cannot use a controller that doesn't match the project.** `_validateController` reverts with `JBOmnichainDeployer_ControllerMismatch` if the provided controller is not the project's actual controller in the directory.
 - **Cannot steal project ownership during deployment.** The deployer holds the project ERC-721 only transiently and transfers it to the specified owner in the same transaction.
 - **Cannot drain funds.** The deployer never holds or manages token balances. It only orchestrates configuration.
