@@ -86,15 +86,6 @@ contract JBOmnichainDeployer is
     IJBSuckerRegistry public immutable SUCKER_REGISTRY;
 
     //*********************************************************************//
-    // --------------------- public stored properties ------------------- //
-    //*********************************************************************//
-
-    /// @notice Each project's tiered 721 hook config per ruleset.
-    /// @custom:param projectId The ID of the project to get the 721 hook for.
-    /// @custom:param rulesetId The ID of the ruleset to get the 721 hook for.
-    mapping(uint256 projectId => mapping(uint256 rulesetId => JBTiered721HookConfig)) internal _tiered721HookOf;
-
-    //*********************************************************************//
     // -------------------- internal stored properties ------------------- //
     //*********************************************************************//
 
@@ -102,6 +93,11 @@ contract JBOmnichainDeployer is
     /// @custom:param projectId The ID of the project to get the extra data hook for.
     /// @custom:param rulesetId The ID of the ruleset to get the extra data hook for.
     mapping(uint256 projectId => mapping(uint256 rulesetId => JBDeployerHookConfig)) internal _extraDataHookOf;
+
+    /// @notice Each project's tiered 721 hook config per ruleset.
+    /// @custom:param projectId The ID of the project to get the 721 hook for.
+    /// @custom:param rulesetId The ID of the ruleset to get the 721 hook for.
+    mapping(uint256 projectId => mapping(uint256 rulesetId => JBTiered721HookConfig)) internal _tiered721HookOf;
 
     //*********************************************************************//
     // -------------------------- constructor ---------------------------- //
