@@ -266,6 +266,14 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         view
         returns (JBLaunchProjectConfig memory, JBSuckerDeploymentConfig memory)
     {
+        return _buildLaunchConfig(cashOutTaxRate, true);
+    }
+
+    function _buildLaunchConfig(uint16 cashOutTaxRate, bool useDataHookForCashOut)
+        internal
+        view
+        returns (JBLaunchProjectConfig memory, JBSuckerDeploymentConfig memory)
+    {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
@@ -296,7 +304,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
                 ownerMustSendPayouts: false,
                 holdFees: false,
                 useTotalSurplusForCashOuts: false,
-                useDataHookForCashOut: true,
+                useDataHookForCashOut: useDataHookForCashOut,
                 metadata: 0
             }),
             splitGroups: new JBSplitGroup[](0),
@@ -318,9 +326,20 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
 
     /// @notice Deploy a project with 721 hook + buyback hook as custom data hook.
     function _deploy721WithBuyback(uint16 cashOutTaxRate) internal returns (uint256 projectId, IJB721TiersHook hook) {
+        return _deploy721WithBuyback(cashOutTaxRate, true);
+    }
+
+    /// @notice Deploy a project with 721 hook + buyback hook, with configurable cashout hook flag.
+    function _deploy721WithBuyback(
+        uint16 cashOutTaxRate,
+        bool useDataHookForCashOut
+    )
+        internal
+        returns (uint256 projectId, IJB721TiersHook hook)
+    {
         JBDeploy721TiersHookConfig memory hookConfig = _build721Config();
         (JBLaunchProjectConfig memory launchConfig, JBSuckerDeploymentConfig memory suckerConfig) =
-            _buildLaunchConfig(cashOutTaxRate);
+            _buildLaunchConfig(cashOutTaxRate, useDataHookForCashOut);
 
         (projectId, hook,) = DEPLOYER.launch721ProjectFor({
             owner: multisig(),

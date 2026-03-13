@@ -81,7 +81,10 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
         assertEq(hookProjectId, uint88(projectId), "Hook should be owned by the project");
 
         // Step 6: Verify the hook is stored.
-        assertEq(address(DEPLOYER.tiered721HookOf(projectId)), address(hook), "Deployer should store the new 721 hook");
+        {
+            (IJB721TiersHook storedHook,) = DEPLOYER.tiered721HookOf(projectId, block.timestamp);
+            assertEq(address(storedHook), address(hook), "Deployer should store the new 721 hook");
+        }
 
         // Step 7: The project owner (multisig) should be able to add tiers.
         JB721TierConfig[] memory newTiers = new JB721TierConfig[](1);
@@ -177,8 +180,11 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
         // The new hook should be different from the original.
         assertFalse(address(newHook) == address(originalHook), "New hook should be a different address");
 
-        // The deployer should store the new hook (overwriting the old one).
-        assertEq(address(DEPLOYER.tiered721HookOf(projectId)), address(newHook), "Deployer should store the new hook");
+        // The deployer should store the new hook for this ruleset.
+        {
+            (IJB721TiersHook storedNewHook,) = DEPLOYER.tiered721HookOf(projectId, block.timestamp);
+            assertEq(address(storedNewHook), address(newHook), "Deployer should store the new hook");
+        }
 
         // The new hook should be owned by the project.
         IJBOwnable ownableNewHook = IJBOwnable(address(newHook));

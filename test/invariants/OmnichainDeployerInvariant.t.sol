@@ -16,11 +16,13 @@ contract OmnichainDeployerInvariant is OmnichainForkTestBase {
     address actor2;
     address actor3;
     address suckerAddr;
+    uint256 launchRulesetId;
 
     function setUp() public override {
         super.setUp();
 
         // Deploy project with 721 hook + buyback.
+        launchRulesetId = block.timestamp;
         (uint256 pid, IJB721TiersHook hook) = _deploy721WithBuyback(5000);
         _setupPool(pid, 10_000 ether);
 
@@ -138,11 +140,10 @@ contract OmnichainDeployerInvariant is OmnichainForkTestBase {
 
     // ───────────────────────── Invariant 6: Hook storage consistency
 
-    /// @notice After deployment, tiered721HookOf should be set.
+    /// @notice After deployment, tiered721HookOf should be set for the launch ruleset.
     function invariant_HookStorageConsistency() public view {
         uint256 projectId = handler.projectId();
-        assertTrue(
-            address(DEPLOYER.tiered721HookOf(projectId)) != address(0), "721 hook should be stored after deployment"
-        );
+        (IJB721TiersHook hook,) = DEPLOYER.tiered721HookOf(projectId, launchRulesetId);
+        assertTrue(address(hook) != address(0), "721 hook should be stored after deployment");
     }
 }

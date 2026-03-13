@@ -247,12 +247,12 @@ contract TestJBOmnichainDeployer is Test {
     }
 
     //*********************************************************************//
-    // --- dataHookOf ---------------------------------------------------- //
+    // --- extraDataHookOf ----------------------------------------------- //
     //*********************************************************************//
 
-    function test_dataHooksOf_returnsEmpty() public view {
-        JBDeployerHookConfig[] memory hooks = deployer.dataHooksOf(projectId, 999);
-        assertEq(hooks.length, 0);
+    function test_extraDataHookOf_returnsEmpty() public view {
+        JBDeployerHookConfig memory hook = deployer.extraDataHookOf(projectId, 999);
+        assertEq(address(hook.dataHook), address(0));
     }
 
     //*********************************************************************//

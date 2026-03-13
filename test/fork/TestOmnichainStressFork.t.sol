@@ -93,8 +93,9 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
     // 721 cashout paths
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice 721 hook processes cashout when holder has NFTs.
-    function test_fork_cashOut_721ProjectWithNFT() public {
+    /// @notice 721 hook with useDataHookForCashOut: fungible cashout reverts because
+    ///         the 721 hook can't handle ERC-20 token cashouts.
+    function test_fork_cashOut_721ProjectWithNFT_revertsForFungible() public {
         (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000);
         _setupPool(projectId, 10_000 ether);
 
@@ -117,28 +118,22 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
         assertGt(payerTokens, 0, "PAYER should have tokens");
 
-        // Cash out fungible tokens — 721 hook is skipped for cashout (can't handle ERC-20).
-        // Original tax rate (50%) applies from ruleset metadata.
-        uint256 surplus = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
-
+        // Cash out fungible tokens — 721 hook has useDataHookForCashOut=true, so it reverts.
         vm.prank(PAYER);
-        uint256 reclaimed = jbMultiTerminal()
-            .cashOutTokensOf({
-                holder: PAYER,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(PAYER),
-                metadata: ""
-            });
-
-        assertGt(reclaimed, 0, "Should reclaim some ETH");
-        assertLt(reclaimed, surplus, "Should get less than full surplus due to tax");
+        vm.expectRevert();
+        jbMultiTerminal().cashOutTokensOf({
+            holder: PAYER,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(PAYER),
+            metadata: ""
+        });
     }
 
-    /// @notice 721 hook skipped for fungible cashout. Bonding curve + tax apply from ruleset metadata.
-    function test_fork_cashOut_fungibleOnly_defaults() public {
+    /// @notice 721 hook with useDataHookForCashOut: fungible-only cashout reverts.
+    function test_fork_cashOut_fungibleOnly_revertsWith721Hook() public {
         (uint256 projectId,) = _deploy721WithBuyback(5000);
         _setupPool(projectId, 10_000 ether);
 
@@ -155,26 +150,138 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         });
 
         uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
+
+        // Cash out — 721 hook has useDataHookForCashOut=true, reverts for fungible tokens.
+        vm.prank(PAYER);
+        vm.expectRevert();
+        jbMultiTerminal().cashOutTokensOf({
+            holder: PAYER,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(PAYER),
+            metadata: ""
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 721 cashout paths — useDataHookForCashOut=false (fungible cashouts succeed)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @notice 721 hook with useDataHookForCashOut=false: fungible cashout succeeds with tax.
+    function test_fork_cashOut_721Project_noCashOutHook_succeeds() public {
+        (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000, false);
+        _setupPool(projectId, 10_000 ether);
+
+        address metadataTarget = hook.METADATA_ID_TARGET();
+        bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
+
+        // Pay to mint an NFT.
+        vm.prank(PAYER);
+        jbMultiTerminal().pay{value: 1 ether}({
+            projectId: projectId,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: 1 ether,
+            beneficiary: PAYER,
+            minReturnedTokens: 0,
+            memo: "get NFT",
+            metadata: metadata
+        });
+
+        uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
+        assertGt(payerTokens, 0, "PAYER should have tokens");
+
         uint256 surplus = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
 
-        // Cash out — 721 hook skipped (can't handle ERC-20). Original 50% tax rate applies.
-        // When cashing out all supply, bonding curve returns full surplus.
-        // The terminal then takes a 2.5% fee on the reclaimed amount.
+        // 721 hook NOT invoked for cashout — fungible cashout succeeds with 50% tax.
         vm.prank(PAYER);
-        uint256 reclaimed = jbMultiTerminal()
-            .cashOutTokensOf({
-                holder: PAYER,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(PAYER),
-                metadata: ""
-            });
+        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
+            holder: PAYER,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(PAYER),
+            metadata: ""
+        });
 
-        // Reclaim should be positive and less than surplus (tax + fee applied).
+        assertGt(reclaimed, 0, "Should reclaim some ETH");
+        assertLt(reclaimed, surplus, "Should get less than full surplus due to tax");
+    }
+
+    /// @notice 721 hook with useDataHookForCashOut=false: fungible-only cashout succeeds.
+    function test_fork_cashOut_fungibleOnly_noCashOutHook_succeeds() public {
+        (uint256 projectId,) = _deploy721WithBuyback(5000, false);
+        _setupPool(projectId, 10_000 ether);
+
+        vm.prank(PAYER);
+        jbMultiTerminal().pay{value: 5 ether}({
+            projectId: projectId,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: 5 ether,
+            beneficiary: PAYER,
+            minReturnedTokens: 0,
+            memo: "fungible only",
+            metadata: ""
+        });
+
+        uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
+        uint256 surplus = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
+
+        // 721 hook NOT invoked for cashout — bonding curve + 50% tax + 2.5% fee apply.
+        vm.prank(PAYER);
+        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
+            holder: PAYER,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(PAYER),
+            metadata: ""
+        });
+
         assertGt(reclaimed, 0, "Should reclaim some ETH");
         assertLt(reclaimed, surplus, "Should be less than surplus due to tax and fees");
+    }
+
+    /// @notice 721 hook with useDataHookForCashOut=false: fee calculation after splits.
+    function test_fork_feeCalculation_cashOutAfterSplits_noCashOutHook() public {
+        (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000, false);
+        _setupPool(projectId, 10_000 ether);
+
+        address metadataTarget = hook.METADATA_ID_TARGET();
+        bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
+
+        // Pay with tier metadata (triggers 30% split).
+        vm.prank(PAYER);
+        jbMultiTerminal().pay{value: 1 ether}({
+            projectId: projectId,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: 1 ether,
+            beneficiary: PAYER,
+            minReturnedTokens: 0,
+            memo: "with splits",
+            metadata: metadata
+        });
+
+        uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
+        uint256 terminalBalance = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
+
+        // Cash out all tokens — bonding curve + 50% tax rate + 2.5% fee all apply.
+        vm.prank(PAYER);
+        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
+            holder: PAYER,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(PAYER),
+            metadata: ""
+        });
+
+        assertGt(reclaimed, 0, "Should get some reclaim");
+        assertLt(reclaimed, terminalBalance, "Reclaim should be less than terminal balance due to tax + fee");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -324,8 +431,8 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
     // Fee routing
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Verify fee is charged on cashout reclaim, and bonding curve applies with tax rate.
-    function test_fork_feeCalculation_cashOutAfterSplits() public {
+    /// @notice 721 hook with useDataHookForCashOut: cashout after split-payment also reverts for fungible.
+    function test_fork_feeCalculation_cashOutAfterSplits_reverts() public {
         (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000);
         _setupPool(projectId, 10_000 ether);
 
@@ -345,24 +452,19 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         });
 
         uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
-        uint256 terminalBalance = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
 
-        // Cash out all tokens — bonding curve + 50% tax rate + 2.5% fee all apply.
+        // Cash out fungible tokens — 721 hook has useDataHookForCashOut=true, reverts.
         vm.prank(PAYER);
-        uint256 reclaimed = jbMultiTerminal()
-            .cashOutTokensOf({
-                holder: PAYER,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(PAYER),
-                metadata: ""
-            });
-
-        // Reclaim should be positive but less than terminal balance (bonding curve tax + fee).
-        assertGt(reclaimed, 0, "Should get some reclaim");
-        assertLt(reclaimed, terminalBalance, "Reclaim should be less than terminal balance due to tax + fee");
+        vm.expectRevert();
+        jbMultiTerminal().cashOutTokensOf({
+            holder: PAYER,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(PAYER),
+            metadata: ""
+        });
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -14,22 +14,30 @@ import {JBSuckerDeploymentConfig} from "../structs/JBSuckerDeploymentConfig.sol"
 
 /// @notice Deploys Juicebox projects with omnichain sucker support.
 interface IJBOmnichainDeployer {
-    /// @notice Get the data hooks for a project and ruleset.
-    /// @param projectId The ID of the project to get the data hooks for.
-    /// @param rulesetId The ID of the ruleset to get the data hooks for.
-    /// @return hooks The data hooks configured for the project/ruleset.
-    function dataHooksOf(
+    /// @notice Get the extra data hook for a project and ruleset.
+    /// @param projectId The ID of the project to get the extra data hook for.
+    /// @param rulesetId The ID of the ruleset to get the extra data hook for.
+    /// @return hook The extra data hook configured for the project/ruleset.
+    function extraDataHookOf(
         uint256 projectId,
         uint256 rulesetId
     )
         external
         view
-        returns (JBDeployerHookConfig[] memory hooks);
+        returns (JBDeployerHookConfig memory hook);
 
-    /// @notice Each project's tiered 721 hook, stored separately from the custom data hook.
+    /// @notice Get the tiered 721 hook config for a project and ruleset.
     /// @param projectId The ID of the project to get the 721 hook for.
-    /// @return The project's tiered 721 hook.
-    function tiered721HookOf(uint256 projectId) external view returns (IJB721TiersHook);
+    /// @param rulesetId The ID of the ruleset to get the 721 hook for.
+    /// @return hook The 721 tiers hook.
+    /// @return useDataHookForCashOut Whether the 721 hook is used for cash outs.
+    function tiered721HookOf(
+        uint256 projectId,
+        uint256 rulesetId
+    )
+        external
+        view
+        returns (IJB721TiersHook hook, bool useDataHookForCashOut);
 
     /// @notice Deploy new suckers for an existing project.
     /// @param projectId The ID of the project to deploy suckers for.

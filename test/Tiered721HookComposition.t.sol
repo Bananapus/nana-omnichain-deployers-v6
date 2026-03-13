@@ -150,7 +150,8 @@ contract Tiered721HookComposition is Test {
             salt: bytes32(0)
         });
 
-        assertEq(address(deployer.tiered721HookOf(pid)), hookAddr, "721 hook stored separately");
+        (IJB721TiersHook storedHook,) = deployer.tiered721HookOf(pid, block.timestamp);
+        assertEq(address(storedHook), hookAddr, "721 hook stored separately");
         assertEq(address(hook), hookAddr, "returned hook matches");
     }
 
@@ -168,12 +169,15 @@ contract Tiered721HookComposition is Test {
         });
 
         uint256 storedRulesetId = block.timestamp;
-        JBDeployerHookConfig[] memory hooks = deployer.dataHooksOf(pid, storedRulesetId);
-        assertEq(hooks.length, 2, "should have 721 + custom hook");
-        assertEq(address(hooks[0].dataHook), hookAddr, "first hook should be 721");
-        assertTrue(hooks[0].useDataHookForPay, "721 useDataHookForPay should be true");
-        assertEq(address(hooks[1].dataHook), buybackHookAddr, "second hook should be custom");
-        assertTrue(hooks[1].useDataHookForPay, "custom useDataHookForPay should be true");
+
+        // 721 hook stored per-ruleset.
+        (IJB721TiersHook stored721,) = deployer.tiered721HookOf(pid, storedRulesetId);
+        assertEq(address(stored721), hookAddr, "721 hook should be stored per-ruleset");
+
+        // Extra data hook stored separately.
+        JBDeployerHookConfig memory extraHook = deployer.extraDataHookOf(pid, storedRulesetId);
+        assertEq(address(extraHook.dataHook), buybackHookAddr, "extra hook should be custom");
+        assertTrue(extraHook.useDataHookForPay, "custom useDataHookForPay should be true");
     }
 
     function test_launch721ProjectFor_noDataHook_stores721Only() public {
@@ -189,12 +193,13 @@ contract Tiered721HookComposition is Test {
             salt: bytes32(0)
         });
 
-        assertEq(address(deployer.tiered721HookOf(pid)), hookAddr, "721 hook stored");
-
         uint256 storedRulesetId = block.timestamp;
-        JBDeployerHookConfig[] memory hooks = deployer.dataHooksOf(pid, storedRulesetId);
-        assertEq(hooks.length, 1, "should have only 721 hook");
-        assertEq(address(hooks[0].dataHook), hookAddr, "only hook should be 721");
+        (IJB721TiersHook stored721,) = deployer.tiered721HookOf(pid, storedRulesetId);
+        assertEq(address(stored721), hookAddr, "721 hook stored");
+
+        // No extra data hook.
+        JBDeployerHookConfig memory extraHook = deployer.extraDataHookOf(pid, storedRulesetId);
+        assertEq(address(extraHook.dataHook), address(0), "no extra hook");
     }
 
     // ---------------------------------------------------------------
@@ -760,7 +765,8 @@ contract Tiered721HookComposition is Test {
             salt: bytes32(0)
         });
 
-        assertEq(address(deployer.tiered721HookOf(projectId)), hookAddr);
+        (IJB721TiersHook stored721,) = deployer.tiered721HookOf(projectId, block.timestamp);
+        assertEq(address(stored721), hookAddr);
         assertEq(address(hook), hookAddr);
     }
 
@@ -787,7 +793,8 @@ contract Tiered721HookComposition is Test {
             salt: bytes32(0)
         });
 
-        assertEq(address(deployer.tiered721HookOf(projectId)), hookAddr);
+        (IJB721TiersHook stored721,) = deployer.tiered721HookOf(projectId, block.timestamp);
+        assertEq(address(stored721), hookAddr);
         assertEq(address(hook), hookAddr);
     }
 
@@ -804,13 +811,13 @@ contract Tiered721HookComposition is Test {
         );
 
         // No 721 hook stored for non-721 launch.
-        assertEq(address(deployer.tiered721HookOf(projectId)), address(0), "no 721 hook for non-721 project");
+        (IJB721TiersHook stored721,) = deployer.tiered721HookOf(projectId, block.timestamp);
+        assertEq(address(stored721), address(0), "no 721 hook for non-721 project");
 
         // User data hook IS stored.
-        JBDeployerHookConfig[] memory storedHooks = deployer.dataHooksOf(projectId, block.timestamp);
-        assertEq(storedHooks.length, 1, "should have 1 hook");
-        assertEq(address(storedHooks[0].dataHook), buybackHookAddr, "user hook stored");
-        assertTrue(storedHooks[0].useDataHookForPay);
+        JBDeployerHookConfig memory storedHook = deployer.extraDataHookOf(projectId, block.timestamp);
+        assertEq(address(storedHook.dataHook), buybackHookAddr, "user hook stored");
+        assertTrue(storedHook.useDataHookForPay);
     }
 
     function test_beforePay_non721_buybackOnly_forwardsCorrectly() public {
@@ -1086,7 +1093,8 @@ contract Tiered721HookComposition is Test {
     // ---------------------------------------------------------------
 
     function test_tiered721HookOf_returnsZeroByDefault() public view {
-        assertEq(address(deployer.tiered721HookOf(999)), address(0));
+        (IJB721TiersHook stored721,) = deployer.tiered721HookOf(999, 0);
+        assertEq(address(stored721), address(0));
     }
 
     // ---------------------------------------------------------------

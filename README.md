@@ -8,12 +8,12 @@ Deploy Juicebox projects with cross-chain suckers and optional 721 tiers hooks i
 
 Launching a cross-chain Juicebox project normally takes several steps: deploy the project, configure rulesets, set up terminals, deploy suckers, and wire up a data hook that exempts suckers from cash out taxes. `JBOmnichainDeployer` collapses all of this into one transaction.
 
-It works by inserting itself as the data hook on every ruleset it touches, storing the project's hooks in an ordered array (`_dataHooksOf[projectId][rulesetId]`), each with per-hook `useDataHookForPay` and `useDataHookForCashOut` flags. The 721 tiers hook (if any) is also stored separately in `tiered721HookOf` for convenience. When the protocol calls data hook functions during payments and cash outs, the deployer:
+It works by inserting itself as the data hook on every ruleset it touches, storing hooks in two separate mappings: the 721 tiers hook (if any) is stored per-ruleset in `_tiered721HookOf[projectId][rulesetId]` with its own `useDataHookForCashOut` flag, and an optional custom data hook (e.g., buyback hook) is stored per-ruleset in `_extraDataHookOf[projectId][rulesetId]` with `useDataHookForPay` and `useDataHookForCashOut` flags. When the protocol calls data hook functions during payments and cash outs, the deployer:
 
 - **Checks if the holder is a sucker** -- if so, returns 0% cash out tax and grants mint permission. This early return means suckers can always bridge tokens without interference, even if the project's hooks would revert.
-- **Composes the 721 hook and custom data hook** for payments -- the 721 hook is called first (via `tiered721HookOf`) to get its specs (including split fund amounts), then custom hooks from the array with `useDataHookForPay: true` are called with a reduced amount context (payment minus split amount) so they only consider the available funds. The deployer adjusts the returned weight proportionally for splits, ensuring the terminal only mints tokens for the amount that actually enters the project treasury.
-- **Iterates hooks for cash outs** -- the first hook in the array with `useDataHookForCashOut: true` handles the cash out. If the 721 hook has `useDataHookForCashOut: true` and reverts (e.g., for fungible-only cashouts), that revert propagates. Set `useDataHookForCashOut: false` on the 721 metadata to skip it and let the custom hook handle cashouts instead.
-- **Returns default values** if no hook in the array has the relevant flag set.
+- **Composes the 721 hook and custom data hook** for payments -- the 721 hook is called first (via `tiered721HookOf`) to get its specs (including split fund amounts), then the custom hook from `_extraDataHookOf` (if `useDataHookForPay: true`) is called with a reduced amount context (payment minus split amount) so it only considers the available funds. The deployer adjusts the returned weight proportionally for splits, ensuring the terminal only mints tokens for the amount that actually enters the project treasury.
+- **Checks hooks for cash outs** -- the 721 hook is checked first (if `useDataHookForCashOut: true`), then the custom hook. The first with the flag set handles the cash out. If the 721 hook has `useDataHookForCashOut: true` and reverts (e.g., for fungible-only cashouts), that revert propagates. Set `useDataHookForCashOut: false` on the 721 metadata to skip it and let the custom hook handle cashouts instead.
+- **Returns default values** if neither hook has the relevant flag set.
 
 This wrapping is invisible to the project and its users. The project's hooks (buyback hook, 721 hook, etc.) work exactly as configured, and can be composed together.
 
@@ -43,17 +43,17 @@ sequenceDiagram
     participant Terminal
     participant Deployer as JBOmnichainDeployer
     participant Registry as JBSuckerRegistry
-    participant Hook as Hooks Array
+    participant Hook as 721 / Custom Hook
 
     Terminal->>Deployer: beforeCashOutRecordedWith(context)
     Deployer->>Registry: isSuckerOf(projectId, holder)?
     alt Holder is a sucker
         Deployer-->>Terminal: 0% tax (early return)
-    else First hook with useDataHookForCashOut=true
+    else 721 or custom hook with useDataHookForCashOut=true
         Deployer->>Hook: beforeCashOutRecordedWith(context)
         Hook-->>Deployer: taxRate, count, supply, specs
         Deployer-->>Terminal: forward hook response
-    else No hook has useDataHookForCashOut=true
+    else Neither hook has useDataHookForCashOut=true
         Deployer-->>Terminal: original values (default)
     end
 ```
@@ -63,12 +63,12 @@ sequenceDiagram
 The `launch721*` and `queue721*` variants deploy a tiered ERC-721 hook alongside the project. The deployer:
 
 1. Deploys the 721 hook via `HOOK_DEPLOYER`
-2. Stores the 721 hook in `tiered721HookOf[projectId]` (convenience view)
+2. Stores the 721 hook per-ruleset in `_tiered721HookOf[projectId][rulesetId]` with its `useDataHookForCashOut` flag
 3. Converts 721-specific ruleset configs (`JBPayDataHookRulesetConfig`) to standard configs, enforcing `useDataHookForPay = true` and `allowSetCustomToken = false`
-4. Builds the hooks array: 721 hook first (with `useDataHookForPay: true`, `useDataHookForCashOut` from 721 metadata), then the optional custom hook (e.g., buyback hook) with its own per-hook flags
+4. Stores the optional custom hook (e.g., buyback hook) separately in `_extraDataHookOf[projectId][rulesetId]` with its own per-hook flags
 5. Transfers hook ownership to the project via `JBOwnable.transferOwnershipToProject()`
 
-This means a project can have both a 721 hook (for NFT minting on payments) and a custom data hook (for buyback, custom weight logic, etc.) running simultaneously. During payments, both hooks' specifications are merged. During cash outs, the first hook in the array with `useDataHookForCashOut: true` handles it.
+This means a project can have both a 721 hook (for NFT minting on payments) and a custom data hook (for buyback, custom weight logic, etc.) running simultaneously. During payments, both hooks' specifications are merged. During cash outs, the 721 hook is checked first (if `useDataHookForCashOut: true`), then the custom hook.
 
 ### Deterministic Cross-Chain Addresses
 
@@ -99,9 +99,10 @@ The `queueRulesetsOf` and `queue721RulesetsOf` functions guard against predictio
 
 | Type | Description |
 |------|-------------|
-| `JBDeployerHookConfig` | Per-hook config with `dataHook`, `useDataHookForPay`, and `useDataHookForCashOut` flags. Stored in an ordered array per `(projectId, rulesetId)` in `_dataHooksOf`. For 721 projects, the 721 hook is the first element; the custom hook (if any) follows. |
+| `JBDeployerHookConfig` | Per-hook config with `dataHook`, `useDataHookForPay`, and `useDataHookForCashOut` flags. Stored as a single value per `(projectId, rulesetId)` in `_extraDataHookOf` for the custom data hook. |
+| `JBTiered721HookConfig` | Per-ruleset 721 hook config with `hook` (the `IJB721TiersHook`) and `useDataHookForCashOut` flag. Stored per `(projectId, rulesetId)` in `_tiered721HookOf`. |
 | `JBSuckerDeploymentConfig` | Wraps an array of `JBSuckerDeployerConfig` with a `bytes32` salt for deterministic cross-chain addresses. |
-| `IJBOmnichainDeployer` | Interface for all deployer entry points and the `dataHooksOf` view. |
+| `IJBOmnichainDeployer` | Interface for all deployer entry points and the `extraDataHookOf` view. |
 
 ## Install
 
@@ -151,7 +152,8 @@ src/
   interfaces/
     IJBOmnichainDeployer.sol            # Public interface
   structs/
-    JBDeployerHookConfig.sol            # Per-hook config (dataHook + flags)
+    JBDeployerHookConfig.sol            # Custom hook config (dataHook + flags)
+    JBTiered721HookConfig.sol           # Per-ruleset 721 hook config
     JBSuckerDeploymentConfig.sol        # Sucker deployment params
 test/
   JBOmnichainDeployer.t.sol             # Unit tests

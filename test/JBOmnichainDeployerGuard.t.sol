@@ -239,15 +239,13 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         uint256 rulesetId0 = block.timestamp;
         uint256 rulesetId1 = block.timestamp + 1;
 
-        JBDeployerHookConfig[] memory hooks0 = deployer.dataHooksOf(projectId, rulesetId0);
-        JBDeployerHookConfig[] memory hooks1 = deployer.dataHooksOf(projectId, rulesetId1);
+        JBDeployerHookConfig memory hook0 = deployer.extraDataHookOf(projectId, rulesetId0);
+        JBDeployerHookConfig memory hook1 = deployer.extraDataHookOf(projectId, rulesetId1);
 
-        assertEq(hooks0.length, 1, "should have 1 hook for ruleset 0");
-        assertEq(address(hooks0[0].dataHook), mockHook, "hook 0 mismatch");
-        assertTrue(hooks0[0].useDataHookForPay, "useDataHookForPay 0 should be true");
-        assertEq(hooks1.length, 1, "should have 1 hook for ruleset 1");
-        assertEq(address(hooks1[0].dataHook), mockHook, "hook 1 mismatch");
-        assertTrue(hooks1[0].useDataHookForPay, "useDataHookForPay 1 should be true");
+        assertEq(address(hook0.dataHook), mockHook, "hook 0 mismatch");
+        assertTrue(hook0.useDataHookForPay, "useDataHookForPay 0 should be true");
+        assertEq(address(hook1.dataHook), mockHook, "hook 1 mismatch");
+        assertTrue(hook1.useDataHookForPay, "useDataHookForPay 1 should be true");
     }
 
     /// @notice Queue rulesets succeeds when called in a different block than launch.

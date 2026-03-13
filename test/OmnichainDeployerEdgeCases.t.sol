@@ -323,9 +323,9 @@ contract OmnichainDeployerEdgeCases is Test {
         _launchProjectWithHook(address(0));
         rulesetId = block.timestamp;
 
-        // Store a 721 hook that would change values if called.
+        // Store a 721 hook with useDataHookForCashOut = false.
         address mock721 = makeAddr("mock721ForCashOut");
-        _storeTiered721Hook(mock721);
+        _storeTiered721Hook(mock721, false);
 
         vm.mockCall(
             mock721,
@@ -493,11 +493,21 @@ contract OmnichainDeployerEdgeCases is Test {
     }
 
     function _storeTiered721Hook(address hook721) internal {
-        // Use vm.store to set tiered721HookOf[projectId] = hook721.
-        // Slot is keccak256(abi.encode(projectId, 0)) for slot 0 (tiered721HookOf mapping).
-        bytes32 slot = keccak256(abi.encode(projectId, uint256(0)));
-        vm.store(address(deployer), slot, bytes32(uint256(uint160(hook721))));
-        assertEq(address(deployer.tiered721HookOf(projectId)), hook721, "721 hook should be stored");
+        _storeTiered721Hook(hook721, true);
+    }
+
+    function _storeTiered721Hook(address hook721, bool useCashOut) internal {
+        // Use vm.store to set _tiered721HookOf[projectId][rulesetId] = JBTiered721HookConfig(hook, useCashOut).
+        // _tiered721HookOf is at base slot 0 (first storage variable in the contract).
+        // For mapping(uint256 => mapping(uint256 => struct)):
+        //   slot = keccak256(rulesetId . keccak256(projectId . 0))
+        bytes32 outerSlot = keccak256(abi.encode(projectId, uint256(0)));
+        bytes32 innerSlot = keccak256(abi.encode(rulesetId, outerSlot));
+        // Pack: address (160 bits) | bool (1 bit at position 160)
+        bytes32 value = bytes32(uint256(uint160(hook721)) | (useCashOut ? uint256(1) << 160 : 0));
+        vm.store(address(deployer), innerSlot, value);
+        (IJB721TiersHook storedHook,) = deployer.tiered721HookOf(projectId, rulesetId);
+        assertEq(address(storedHook), hook721, "721 hook should be stored");
     }
 
     function _makePayContext(uint256 pid, uint256 rid) internal returns (JBBeforePayRecordedContext memory) {

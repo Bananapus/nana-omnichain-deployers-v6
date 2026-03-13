@@ -13,7 +13,7 @@
 | Risk | Description | Mitigation |
 |------|-------------|------------|
 | Sucker privilege abuse | Any registered sucker gets 0% cashout tax | Sucker registration requires DEPLOY_SUCKERS permission |
-| Data hook centralization | Deployer is the data hook for all omnichain projects | Simple pass-through logic minimizes attack surface. Each hook has per-hook `useDataHookForCashOut` flags — set to `false` on the 721 metadata to skip it for fungible cashouts. Suckers always get the early return regardless of hook configuration. |
+| Data hook centralization | Deployer is the data hook for all omnichain projects | Simple pass-through logic minimizes attack surface. The 721 hook (in `_tiered721HookOf`) and custom hook (in `_extraDataHookOf`) each have their own `useDataHookForCashOut` flag — set to `false` on the 721 metadata to skip it for fungible cashouts. Suckers always get the early return regardless of hook configuration. |
 | Controller mismatch | Reverts if provided controller doesn't match project's actual controller | Explicit validation via `JBOmnichainDeployer_ControllerMismatch` |
 | Invalid self-hook | Reverts if someone tries to set deployer as hook for deployer itself | `JBOmnichainDeployer_InvalidHook` check |
 | Ownership transfer | Project ownership transferred during deployment | Ownership returned to caller after setup |
