@@ -381,6 +381,219 @@ contract JBOmnichainDeployer is
         override
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers)
     {
+        return _launchProjectFor(
+            owner,
+            projectUri,
+            deploy721Config,
+            rulesetConfigurations,
+            terminalConfigurations,
+            memo,
+            suckerDeploymentConfiguration,
+            controller
+        );
+    }
+
+    /// @notice Creates a project with a default (empty-tier) 721 hook and with suckers.
+    /// @dev Uses `baseCurrency` from the first ruleset and `decimals = 18` for the default 721 config.
+    /// @param owner The address to set as the owner of the project.
+    /// @param projectUri The project's metadata URI.
+    /// @param rulesetConfigurations The rulesets to queue.
+    /// @param terminalConfigurations The terminals to set up for the project.
+    /// @param memo A memo to pass along to the emitted event.
+    /// @param suckerDeploymentConfiguration The suckers to set up for the project.
+    /// @param controller The controller to use for launching the project.
+    /// @return projectId The ID of the newly launched project.
+    /// @return hook The 721 tiers hook that was deployed for the project.
+    /// @return suckers The addresses of the deployed suckers.
+    function launchProjectFor(
+        address owner,
+        string calldata projectUri,
+        JBRulesetConfig[] memory rulesetConfigurations,
+        JBTerminalConfig[] calldata terminalConfigurations,
+        string calldata memo,
+        JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
+        IJBController controller
+    )
+        external
+        override
+        returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers)
+    {
+        return _launchProjectFor(
+            owner,
+            projectUri,
+            _default721Config(rulesetConfigurations),
+            rulesetConfigurations,
+            terminalConfigurations,
+            memo,
+            suckerDeploymentConfiguration,
+            controller
+        );
+    }
+
+    /// @notice Launches new rulesets for a project with a 721 tiers hook attached, using this contract as the data
+    /// hook.
+    /// @param projectId The ID of the project to launch the rulesets for.
+    /// @param deploy721Config The 721 hook deployment config (hook config + cash-out flag + salt).
+    /// @param rulesetConfigurations The rulesets to launch. Custom data hooks are read from each ruleset's metadata.
+    /// @param terminalConfigurations The terminals to set up for the project.
+    /// @param memo A memo to pass along to the emitted event.
+    /// @param controller The controller to use for launching the rulesets.
+    /// @return rulesetId The ID of the newly launched rulesets.
+    /// @return hook The 721 tiers hook that was deployed for the project.
+    function launchRulesetsFor(
+        uint256 projectId,
+        JBOmnichain721Config memory deploy721Config,
+        JBRulesetConfig[] memory rulesetConfigurations,
+        JBTerminalConfig[] calldata terminalConfigurations,
+        string calldata memo,
+        IJBController controller
+    )
+        external
+        override
+        returns (uint256 rulesetId, IJB721TiersHook hook)
+    {
+        return
+            _launchRulesetsFor(
+                projectId, deploy721Config, rulesetConfigurations, terminalConfigurations, memo, controller
+            );
+    }
+
+    /// @notice Launches new rulesets for a project with a default (empty-tier) 721 hook.
+    /// @dev Uses `baseCurrency` from the first ruleset and `decimals = 18` for the default 721 config.
+    /// @param projectId The ID of the project to launch the rulesets for.
+    /// @param rulesetConfigurations The rulesets to launch.
+    /// @param terminalConfigurations The terminals to set up for the project.
+    /// @param memo A memo to pass along to the emitted event.
+    /// @param controller The controller to use for launching the rulesets.
+    /// @return rulesetId The ID of the newly launched rulesets.
+    /// @return hook The 721 tiers hook that was deployed for the project.
+    function launchRulesetsFor(
+        uint256 projectId,
+        JBRulesetConfig[] memory rulesetConfigurations,
+        JBTerminalConfig[] calldata terminalConfigurations,
+        string calldata memo,
+        IJBController controller
+    )
+        external
+        override
+        returns (uint256 rulesetId, IJB721TiersHook hook)
+    {
+        return _launchRulesetsFor(
+            projectId,
+            _default721Config(rulesetConfigurations),
+            rulesetConfigurations,
+            terminalConfigurations,
+            memo,
+            controller
+        );
+    }
+
+    /// @dev Make sure this contract can only receive project NFTs from `JBProjects`.
+    function onERC721Received(address, address, uint256, bytes calldata) external view returns (bytes4) {
+        // Make sure the 721 received is from the `JBProjects` contract.
+        if (msg.sender != address(PROJECTS)) revert JBOmnichainDeployer_UnexpectedNFTReceived();
+
+        return IERC721Receiver.onERC721Received.selector;
+    }
+
+    /// @notice Queues new rulesets for a project with a 721 tiers hook attached, using this contract as the data hook.
+    /// @dev If `deploy721Config.deployTiersHookConfig.tiersConfig.tiers.length > 0`, a new 721 hook is deployed.
+    /// Otherwise, the 721 hook from the latest ruleset is carried forward.
+    /// @param projectId The ID of the project to queue the rulesets for.
+    /// @param deploy721Config The 721 hook deployment config (hook config + cash-out flag + salt).
+    /// @param rulesetConfigurations The rulesets to queue. Custom data hooks are read from each ruleset's metadata.
+    /// @param memo A memo to pass along to the emitted event.
+    /// @param controller The controller to use for queuing the rulesets.
+    /// @return rulesetId The ID of the newly queued rulesets.
+    /// @return hook The 721 tiers hook (newly deployed or carried forward from the previous ruleset).
+    function queueRulesetsOf(
+        uint256 projectId,
+        JBOmnichain721Config memory deploy721Config,
+        JBRulesetConfig[] memory rulesetConfigurations,
+        string calldata memo,
+        IJBController controller
+    )
+        external
+        override
+        returns (uint256 rulesetId, IJB721TiersHook hook)
+    {
+        return _queueRulesetsOf(projectId, deploy721Config, rulesetConfigurations, memo, controller);
+    }
+
+    /// @notice Queues new rulesets for a project with a default (empty-tier) 721 hook, carrying forward the existing
+    /// hook.
+    /// @dev Uses `baseCurrency` from the first ruleset and `decimals = 18` for the default 721 config. With 0 tiers in
+    /// the default config, the existing hook is always carried forward.
+    /// @param projectId The ID of the project to queue the rulesets for.
+    /// @param rulesetConfigurations The rulesets to queue.
+    /// @param memo A memo to pass along to the emitted event.
+    /// @param controller The controller to use for queuing the rulesets.
+    /// @return rulesetId The ID of the newly queued rulesets.
+    /// @return hook The 721 tiers hook carried forward from the previous ruleset.
+    function queueRulesetsOf(
+        uint256 projectId,
+        JBRulesetConfig[] memory rulesetConfigurations,
+        string calldata memo,
+        IJBController controller
+    )
+        external
+        override
+        returns (uint256 rulesetId, IJB721TiersHook hook)
+    {
+        return
+            _queueRulesetsOf(
+                projectId, _default721Config(rulesetConfigurations), rulesetConfigurations, memo, controller
+            );
+    }
+
+    //*********************************************************************//
+    // ------------------------ internal functions ----------------------- //
+    //*********************************************************************//
+
+    /// @dev ERC-2771 specifies the context as being a single address (20 bytes).
+    function _contextSuffixLength() internal view virtual override(ERC2771Context, Context) returns (uint256) {
+        return ERC2771Context._contextSuffixLength();
+    }
+
+    /// @notice The calldata. Preferred to use over `msg.data`.
+    /// @return calldata The `msg.data` of this call.
+    function _msgData() internal view override(ERC2771Context, Context) returns (bytes calldata) {
+        return ERC2771Context._msgData();
+    }
+
+    /// @notice The message's sender. Preferred to use over `msg.sender`.
+    /// @return sender The address which sent this call.
+    function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
+        return ERC2771Context._msgSender();
+    }
+
+    /// @notice Returns a default `JBOmnichain721Config` with `currency` from the first ruleset's `baseCurrency`,
+    /// `decimals = 18`, empty tiers, no cash-out handling, and no salt.
+    /// @param rulesetConfigurations The ruleset configurations to derive defaults from.
+    /// @return config The default 721 config.
+    function _default721Config(JBRulesetConfig[] memory rulesetConfigurations)
+        internal
+        pure
+        returns (JBOmnichain721Config memory config)
+    {
+        config.deployTiersHookConfig.tiersConfig.currency = rulesetConfigurations[0].metadata.baseCurrency;
+        config.deployTiersHookConfig.tiersConfig.decimals = 18;
+    }
+
+    /// @notice Internal implementation of `launchProjectFor`.
+    function _launchProjectFor(
+        address owner,
+        string calldata projectUri,
+        JBOmnichain721Config memory deploy721Config,
+        JBRulesetConfig[] memory rulesetConfigurations,
+        JBTerminalConfig[] calldata terminalConfigurations,
+        string calldata memo,
+        JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
+        IJBController controller
+    )
+        internal
+        returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers)
+    {
         // Get the next project ID.
         projectId = PROJECTS.count() + 1;
 
@@ -423,17 +636,8 @@ contract JBOmnichainDeployer is
         PROJECTS.transferFrom(address(this), owner, projectId);
     }
 
-    /// @notice Launches new rulesets for a project with a 721 tiers hook attached, using this contract as the data
-    /// hook.
-    /// @param projectId The ID of the project to launch the rulesets for.
-    /// @param deploy721Config The 721 hook deployment config (hook config + cash-out flag + salt).
-    /// @param rulesetConfigurations The rulesets to launch. Custom data hooks are read from each ruleset's metadata.
-    /// @param terminalConfigurations The terminals to set up for the project.
-    /// @param memo A memo to pass along to the emitted event.
-    /// @param controller The controller to use for launching the rulesets.
-    /// @return rulesetId The ID of the newly launched rulesets.
-    /// @return hook The 721 tiers hook that was deployed for the project.
-    function launchRulesetsFor(
+    /// @notice Internal implementation of `launchRulesetsFor`.
+    function _launchRulesetsFor(
         uint256 projectId,
         JBOmnichain721Config memory deploy721Config,
         JBRulesetConfig[] memory rulesetConfigurations,
@@ -441,8 +645,7 @@ contract JBOmnichainDeployer is
         string calldata memo,
         IJBController controller
     )
-        external
-        override
+        internal
         returns (uint256 rulesetId, IJB721TiersHook hook)
     {
         // Enforce permissions.
@@ -477,33 +680,15 @@ contract JBOmnichainDeployer is
         });
     }
 
-    /// @dev Make sure this contract can only receive project NFTs from `JBProjects`.
-    function onERC721Received(address, address, uint256, bytes calldata) external view returns (bytes4) {
-        // Make sure the 721 received is from the `JBProjects` contract.
-        if (msg.sender != address(PROJECTS)) revert JBOmnichainDeployer_UnexpectedNFTReceived();
-
-        return IERC721Receiver.onERC721Received.selector;
-    }
-
-    /// @notice Queues new rulesets for a project with a 721 tiers hook attached, using this contract as the data hook.
-    /// @dev If `deploy721Config.deployTiersHookConfig.tiersConfig.tiers.length > 0`, a new 721 hook is deployed.
-    /// Otherwise, the 721 hook from the latest ruleset is carried forward.
-    /// @param projectId The ID of the project to queue the rulesets for.
-    /// @param deploy721Config The 721 hook deployment config (hook config + cash-out flag + salt).
-    /// @param rulesetConfigurations The rulesets to queue. Custom data hooks are read from each ruleset's metadata.
-    /// @param memo A memo to pass along to the emitted event.
-    /// @param controller The controller to use for queuing the rulesets.
-    /// @return rulesetId The ID of the newly queued rulesets.
-    /// @return hook The 721 tiers hook (newly deployed or carried forward from the previous ruleset).
-    function queueRulesetsOf(
+    /// @notice Internal implementation of `queueRulesetsOf`.
+    function _queueRulesetsOf(
         uint256 projectId,
         JBOmnichain721Config memory deploy721Config,
         JBRulesetConfig[] memory rulesetConfigurations,
         string calldata memo,
         IJBController controller
     )
-        external
-        override
+        internal
         returns (uint256 rulesetId, IJB721TiersHook hook)
     {
         // Enforce permissions.
@@ -541,27 +726,6 @@ contract JBOmnichainDeployer is
         rulesetId = controller.queueRulesetsOf({
             projectId: projectId, rulesetConfigurations: rulesetConfigurations, memo: memo
         });
-    }
-
-    //*********************************************************************//
-    // ------------------------ internal functions ----------------------- //
-    //*********************************************************************//
-
-    /// @dev ERC-2771 specifies the context as being a single address (20 bytes).
-    function _contextSuffixLength() internal view virtual override(ERC2771Context, Context) returns (uint256) {
-        return ERC2771Context._contextSuffixLength();
-    }
-
-    /// @notice The calldata. Preferred to use over `msg.data`.
-    /// @return calldata The `msg.data` of this call.
-    function _msgData() internal view override(ERC2771Context, Context) returns (bytes calldata) {
-        return ERC2771Context._msgData();
-    }
-
-    /// @notice The message's sender. Preferred to use over `msg.sender`.
-    /// @return sender The address which sent this call.
-    function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
-        return ERC2771Context._msgSender();
     }
 
     /// @notice Deploys a 721 tiers hook for a project.

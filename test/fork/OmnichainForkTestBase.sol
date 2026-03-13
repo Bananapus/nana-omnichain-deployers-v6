@@ -184,8 +184,9 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
 
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK =
-            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), address(0));
+        EXAMPLE_HOOK = new JB721TiersHook(
+            jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), address(0)
+        );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
 

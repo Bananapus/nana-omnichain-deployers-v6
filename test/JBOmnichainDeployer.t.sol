@@ -26,6 +26,8 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {IJBOwnable} from "@bananapus/ownable-v6/src/interfaces/IJBOwnable.sol";
+import {IJBRulesets} from "@bananapus/core-v6/src/interfaces/IJBRulesets.sol";
+import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 
 import {JBOmnichainDeployer} from "../src/JBOmnichainDeployer.sol";
 import {IJBOmnichainDeployer} from "../src/interfaces/IJBOmnichainDeployer.sol";
@@ -276,6 +278,142 @@ contract TestJBOmnichainDeployer is Test {
     function test_extraDataHookOf_returnsEmpty() public view {
         JBDeployerHookConfig memory hook = deployer.extraDataHookOf(projectId, 999);
         assertEq(address(hook.dataHook), address(0));
+    }
+
+    //*********************************************************************//
+    // --- Simplified launchProjectFor ----------------------------------- //
+    //*********************************************************************//
+
+    function test_launchProjectFor_simplified_usesDefaultCurrency() public {
+        IJBController controller = IJBController(makeAddr("controller"));
+        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
+        );
+        vm.mockCall(
+            address(projects),
+            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
+            abi.encode()
+        );
+
+        uint32 expectedCurrency = 2; // USD
+        JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
+        configs[0] = _makeRulesetConfig(address(0), false, false);
+        configs[0].metadata.baseCurrency = expectedCurrency;
+
+        JBTerminalConfig[] memory terminals = new JBTerminalConfig[](0);
+
+        (uint256 pid, IJB721TiersHook hook,) =
+            deployer.launchProjectFor(projectOwner, "test", configs, terminals, "", _emptySuckerConfig(), controller);
+
+        assertEq(pid, projectId, "should return correct project ID");
+        assertEq(address(hook), hookAddr, "should deploy 721 hook");
+
+        // Verify 721 hook is stored for the project.
+        (IJB721TiersHook storedHook,) = deployer.tiered721HookOf(projectId, block.timestamp);
+        assertEq(address(storedHook), hookAddr, "should store 721 hook");
+    }
+
+    //*********************************************************************//
+    // --- Simplified launchRulesetsFor ---------------------------------- //
+    //*********************************************************************//
+
+    function test_launchRulesetsFor_simplified_usesDefaultCurrency() public {
+        IJBController controller = IJBController(makeAddr("controller"));
+        IJBDirectory directory = IJBDirectory(makeAddr("directory"));
+
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
+        vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
+            abi.encode(IERC165(address(controller)))
+        );
+        vm.mockCall(
+            address(controller),
+            abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
+            abi.encode(uint256(block.timestamp))
+        );
+
+        uint32 expectedCurrency = 2; // USD
+        JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
+        configs[0] = _makeRulesetConfig(address(0), false, false);
+        configs[0].metadata.baseCurrency = expectedCurrency;
+
+        JBTerminalConfig[] memory terminals = new JBTerminalConfig[](0);
+
+        vm.prank(projectOwner);
+        (uint256 rulesetId_, IJB721TiersHook hook) =
+            deployer.launchRulesetsFor(projectId, configs, terminals, "", controller);
+
+        assertEq(rulesetId_, block.timestamp, "should return ruleset ID");
+        assertEq(address(hook), hookAddr, "should deploy 721 hook");
+    }
+
+    //*********************************************************************//
+    // --- Simplified queueRulesetsOf ------------------------------------ //
+    //*********************************************************************//
+
+    function test_queueRulesetsOf_simplified_carriesForwardHook() public {
+        // First launch a project so there's a hook to carry forward.
+        IJBController controller = IJBController(makeAddr("controller"));
+        IJBDirectory directory = IJBDirectory(makeAddr("directory"));
+        IJBRulesets rulesets = IJBRulesets(makeAddr("rulesets"));
+
+        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
+        );
+        vm.mockCall(
+            address(projects),
+            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
+            abi.encode()
+        );
+
+        JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
+        configs[0] = _makeRulesetConfig(address(0), false, false);
+        JBTerminalConfig[] memory terminals = new JBTerminalConfig[](0);
+
+        // Launch the project to store the hook at block.timestamp.
+        uint256 launchTimestamp = block.timestamp;
+        deployer.launchProjectFor(projectOwner, "test", configs, terminals, "", _emptySuckerConfig(), controller);
+
+        // Now set up mocks for queueRulesetsOf.
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
+        vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
+            abi.encode(IERC165(address(controller)))
+        );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.RULESETS.selector), abi.encode(rulesets));
+        vm.mockCall(
+            address(rulesets),
+            abi.encodeWithSelector(IJBRulesets.latestRulesetIdOf.selector, projectId),
+            abi.encode(launchTimestamp)
+        );
+        // Warp forward so latestRulesetId < block.timestamp.
+        vm.warp(block.timestamp + 1);
+
+        uint256 expectedQueuedId = block.timestamp;
+        vm.mockCall(
+            address(controller),
+            abi.encodeWithSelector(IJBController.queueRulesetsOf.selector),
+            abi.encode(expectedQueuedId)
+        );
+
+        JBRulesetConfig[] memory newConfigs = new JBRulesetConfig[](1);
+        newConfigs[0] = _makeRulesetConfig(address(0), false, false);
+
+        vm.prank(projectOwner);
+        (uint256 queuedRulesetId, IJB721TiersHook hook) =
+            deployer.queueRulesetsOf(projectId, newConfigs, "", controller);
+
+        assertEq(queuedRulesetId, expectedQueuedId, "should return queued ruleset ID");
+        // With empty tiers the hook is carried forward from the launch.
+        assertEq(address(hook), hookAddr, "should carry forward existing hook");
     }
 
     //*********************************************************************//
