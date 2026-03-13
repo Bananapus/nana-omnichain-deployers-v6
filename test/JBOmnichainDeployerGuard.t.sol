@@ -23,10 +23,6 @@ import {JBFundAccessLimitGroup} from "@bananapus/core-v6/src/structs/JBFundAcces
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetApprovalHook.sol";
 
-import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
-import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookProjectDeployer.sol";
-import {IJBOwnable} from "@bananapus/ownable-v6/src/interfaces/IJBOwnable.sol";
-
 import {JBOmnichainDeployer} from "../src/JBOmnichainDeployer.sol";
 import {JBDeployerHookConfig} from "../src/structs/JBDeployerHookConfig.sol";
 import {JBOmnichain721Config} from "../src/structs/JBOmnichain721Config.sol";
@@ -84,9 +80,6 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
     JBOmnichainDeployer deployer;
     MockSuckerRegistry suckerRegistry;
 
-    address mockHookDeployerAddr = makeAddr("hookDeployer");
-    address mockHookAddr = makeAddr("mockHook");
-
     address owner;
 
     function setUp() public override {
@@ -95,19 +88,9 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         owner = multisig();
         suckerRegistry = new MockSuckerRegistry();
 
-        // Mock hook deployer and deployed hook.
-        vm.mockCall(
-            mockHookDeployerAddr,
-            abi.encodeWithSelector(IJB721TiersHookDeployer.deployHookFor.selector),
-            abi.encode(IJB721TiersHook(mockHookAddr))
-        );
-        vm.mockCall(
-            mockHookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector), abi.encode()
-        );
-
         deployer = new JBOmnichainDeployer(
             IJBSuckerRegistry(address(suckerRegistry)),
-            IJB721TiersHookDeployer(mockHookDeployerAddr),
+            IJB721TiersHookDeployer(address(0)),
             IJBPermissions(address(jbPermissions())),
             IJBProjects(address(jbProjects())),
             trustedForwarder()

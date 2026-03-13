@@ -19,9 +19,6 @@ import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSucker
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
-import {IJBOwnable} from "@bananapus/ownable-v6/src/interfaces/IJBOwnable.sol";
-
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
@@ -35,8 +32,7 @@ contract ValidateController is Test {
     IJBPermissions permissions = IJBPermissions(makeAddr("permissions"));
     IJBProjects projects = IJBProjects(makeAddr("projects"));
     IJBSuckerRegistry suckerRegistry = IJBSuckerRegistry(makeAddr("suckerRegistry"));
-    IJB721TiersHookDeployer hookDeployer721 = IJB721TiersHookDeployer(makeAddr("hookDeployer"));
-    address hookAddr = makeAddr("hook721");
+    IJB721TiersHookDeployer hookDeployer = IJB721TiersHookDeployer(makeAddr("hookDeployer"));
 
     IJBController legitimateController = IJBController(makeAddr("legitimateController"));
     IJBController fakeController = IJBController(makeAddr("fakeController"));
@@ -53,7 +49,7 @@ contract ValidateController is Test {
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
 
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer721, permissions, projects, address(0));
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, address(0));
 
         // Default mocks: permissions always pass.
         vm.mockCall(
@@ -92,14 +88,6 @@ contract ValidateController is Test {
             abi.encodeWithSelector(IJBRulesets.latestRulesetIdOf.selector, projectId),
             abi.encode(uint256(0))
         );
-
-        // Hook deployer mocks (every path now deploys a 721 hook).
-        vm.mockCall(
-            address(hookDeployer721),
-            abi.encodeWithSelector(IJB721TiersHookDeployer.deployHookFor.selector),
-            abi.encode(IJB721TiersHook(hookAddr))
-        );
-        vm.mockCall(hookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector), abi.encode());
     }
 
     // ──────────────────── queueRulesetsOf
