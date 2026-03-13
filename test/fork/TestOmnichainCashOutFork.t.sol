@@ -86,15 +86,16 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
         // The 721 hook reverts for fungible token cashouts (can't handle ERC-20).
         vm.prank(PAYER);
         vm.expectRevert();
-        jbMultiTerminal().cashOutTokensOf({
-            holder: PAYER,
-            projectId: projectId,
-            cashOutCount: payerTokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(PAYER),
-            metadata: ""
-        });
+        jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: PAYER,
+                projectId: projectId,
+                cashOutCount: payerTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(PAYER),
+                metadata: ""
+            });
     }
 
     /// @notice Deploy with 721 hook + useDataHookForCashOut=false: fungible cashout succeeds
@@ -121,15 +122,16 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
         uint256 surplus = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
 
         vm.prank(PAYER);
-        uint256 reclaimedAmount = jbMultiTerminal().cashOutTokensOf({
-            holder: PAYER,
-            projectId: projectId,
-            cashOutCount: payerTokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(PAYER),
-            metadata: ""
-        });
+        uint256 reclaimedAmount = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: PAYER,
+                projectId: projectId,
+                cashOutCount: payerTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(PAYER),
+                metadata: ""
+            });
 
         // Pro-rata share with 50% tax applied.
         uint256 proRataShare = surplus; // cashing out all tokens

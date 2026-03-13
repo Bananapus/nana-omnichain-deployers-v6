@@ -855,8 +855,7 @@ contract JBOmnichainDeployer is
             // Store the 721 hook config per-ruleset.
             // slither-disable-next-line reentrancy-benign
             _tiered721HookOf[projectId][block.timestamp + i] = JBTiered721HookConfig({
-                hook: hook721,
-                useDataHookForCashOut: rulesetConfigurations[i].metadata.useDataHookForCashOut
+                hook: hook721, useDataHookForCashOut: rulesetConfigurations[i].metadata.useDataHookForCashOut
             });
 
             // Store the custom hook if set.

@@ -269,7 +269,10 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         return _buildLaunchConfig(cashOutTaxRate, true);
     }
 
-    function _buildLaunchConfig(uint16 cashOutTaxRate, bool useDataHookForCashOut)
+    function _buildLaunchConfig(
+        uint16 cashOutTaxRate,
+        bool useDataHookForCashOut
+    )
         internal
         view
         returns (JBLaunchProjectConfig memory, JBSuckerDeploymentConfig memory)

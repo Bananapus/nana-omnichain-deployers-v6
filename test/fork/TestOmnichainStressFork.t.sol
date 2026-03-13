@@ -121,15 +121,16 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         // Cash out fungible tokens — 721 hook has useDataHookForCashOut=true, so it reverts.
         vm.prank(PAYER);
         vm.expectRevert();
-        jbMultiTerminal().cashOutTokensOf({
-            holder: PAYER,
-            projectId: projectId,
-            cashOutCount: payerTokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(PAYER),
-            metadata: ""
-        });
+        jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: PAYER,
+                projectId: projectId,
+                cashOutCount: payerTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(PAYER),
+                metadata: ""
+            });
     }
 
     /// @notice 721 hook with useDataHookForCashOut: fungible-only cashout reverts.
@@ -154,15 +155,16 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         // Cash out — 721 hook has useDataHookForCashOut=true, reverts for fungible tokens.
         vm.prank(PAYER);
         vm.expectRevert();
-        jbMultiTerminal().cashOutTokensOf({
-            holder: PAYER,
-            projectId: projectId,
-            cashOutCount: payerTokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(PAYER),
-            metadata: ""
-        });
+        jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: PAYER,
+                projectId: projectId,
+                cashOutCount: payerTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(PAYER),
+                metadata: ""
+            });
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -196,15 +198,16 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
 
         // 721 hook NOT invoked for cashout — fungible cashout succeeds with 50% tax.
         vm.prank(PAYER);
-        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
-            holder: PAYER,
-            projectId: projectId,
-            cashOutCount: payerTokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(PAYER),
-            metadata: ""
-        });
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: PAYER,
+                projectId: projectId,
+                cashOutCount: payerTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(PAYER),
+                metadata: ""
+            });
 
         assertGt(reclaimed, 0, "Should reclaim some ETH");
         assertLt(reclaimed, surplus, "Should get less than full surplus due to tax");
@@ -231,15 +234,16 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
 
         // 721 hook NOT invoked for cashout — bonding curve + 50% tax + 2.5% fee apply.
         vm.prank(PAYER);
-        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
-            holder: PAYER,
-            projectId: projectId,
-            cashOutCount: payerTokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(PAYER),
-            metadata: ""
-        });
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: PAYER,
+                projectId: projectId,
+                cashOutCount: payerTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(PAYER),
+                metadata: ""
+            });
 
         assertGt(reclaimed, 0, "Should reclaim some ETH");
         assertLt(reclaimed, surplus, "Should be less than surplus due to tax and fees");
@@ -270,15 +274,16 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
 
         // Cash out all tokens — bonding curve + 50% tax rate + 2.5% fee all apply.
         vm.prank(PAYER);
-        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
-            holder: PAYER,
-            projectId: projectId,
-            cashOutCount: payerTokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(PAYER),
-            metadata: ""
-        });
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: PAYER,
+                projectId: projectId,
+                cashOutCount: payerTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(PAYER),
+                metadata: ""
+            });
 
         assertGt(reclaimed, 0, "Should get some reclaim");
         assertLt(reclaimed, terminalBalance, "Reclaim should be less than terminal balance due to tax + fee");
@@ -456,15 +461,16 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         // Cash out fungible tokens — 721 hook has useDataHookForCashOut=true, reverts.
         vm.prank(PAYER);
         vm.expectRevert();
-        jbMultiTerminal().cashOutTokensOf({
-            holder: PAYER,
-            projectId: projectId,
-            cashOutCount: payerTokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(PAYER),
-            metadata: ""
-        });
+        jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: PAYER,
+                projectId: projectId,
+                cashOutCount: payerTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(PAYER),
+                metadata: ""
+            });
     }
 
     // ─────────────────────────────────────────────────────────────────────────
