@@ -31,6 +31,8 @@ import {JBFundAccessLimitGroup} from "@bananapus/core-v6/src/structs/JBFundAcces
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
+import {IJBOwnable} from "@bananapus/ownable-v6/src/interfaces/IJBOwnable.sol";
+
 import {JBOmnichainDeployer} from "../src/JBOmnichainDeployer.sol";
 import {JBDeployerHookConfig} from "../src/structs/JBDeployerHookConfig.sol";
 import {JBOmnichain721Config} from "../src/structs/JBOmnichain721Config.sol";
@@ -94,6 +96,7 @@ contract OmnichainDeployerEdgeCases is Test {
     address projectOwner = makeAddr("projectOwner");
     address sucker = makeAddr("sucker");
     address attacker = makeAddr("attacker");
+    address hookAddr = makeAddr("hook721");
 
     CustomCashOutHook customHook;
 
@@ -120,6 +123,21 @@ contract OmnichainDeployerEdgeCases is Test {
         vm.mockCall(
             address(suckerRegistry), abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false)
         );
+
+        // Hook deployer mocks (every path now deploys a 721 hook).
+        vm.mockCall(
+            address(hookDeployer),
+            abi.encodeWithSelector(IJB721TiersHookDeployer.deployHookFor.selector),
+            abi.encode(IJB721TiersHook(hookAddr))
+        );
+        vm.mockCall(hookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector), abi.encode());
+
+        // Default mock: 721 hook returns original weight and empty specs (0 tiers).
+        vm.mockCall(
+            hookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(0), new JBPayHookSpecification[](0))
+        );
     }
 
     // =========================================================================
@@ -134,7 +152,7 @@ contract OmnichainDeployerEdgeCases is Test {
         );
         vm.mockCall(
             address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("safeTransferFrom(address,address,uint256)"))),
+            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
             abi.encode()
         );
 
@@ -459,7 +477,7 @@ contract OmnichainDeployerEdgeCases is Test {
         );
         vm.mockCall(
             address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("safeTransferFrom(address,address,uint256)"))),
+            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
             abi.encode()
         );
 
@@ -481,7 +499,7 @@ contract OmnichainDeployerEdgeCases is Test {
         );
         vm.mockCall(
             address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("safeTransferFrom(address,address,uint256)"))),
+            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
             abi.encode()
         );
 

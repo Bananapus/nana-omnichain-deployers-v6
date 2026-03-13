@@ -47,18 +47,17 @@ interface IJBOmnichainDeployer {
         external
         returns (address[] memory suckers);
 
-    /// @notice Creates a project, optionally with a 721 tiers hook attached, and with suckers.
-    /// @dev If `deploy721Config.deployTiersHookConfig.tiersConfig.tiers.length > 0`, a 721 hook is deployed.
+    /// @notice Creates a project with a 721 tiers hook attached and with suckers.
     /// @param owner The address to set as the owner of the project.
     /// @param projectUri The project's metadata URI.
-    /// @param deploy721Config The 721 hook deployment config. Pass a zero-initialized struct for non-721 projects.
+    /// @param deploy721Config The 721 hook deployment config (hook config + cash-out flag + salt).
     /// @param rulesetConfigurations The rulesets to queue. Custom data hooks are read from each ruleset's metadata.
     /// @param terminalConfigurations The terminals to set up for the project.
     /// @param memo A memo to pass along to the emitted event.
     /// @param suckerDeploymentConfiguration The suckers to set up for the project.
     /// @param controller The controller to use for launching the project.
     /// @return projectId The ID of the newly launched project.
-    /// @return hook The 721 tiers hook that was deployed for the project (`address(0)` if none).
+    /// @return hook The 721 tiers hook that was deployed for the project.
     /// @return suckers The addresses of the deployed suckers.
     function launchProjectFor(
         address owner,
@@ -73,16 +72,15 @@ interface IJBOmnichainDeployer {
         external
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers);
 
-    /// @notice Launches new rulesets for a project, optionally with a 721 tiers hook attached.
-    /// @dev If `deploy721Config.deployTiersHookConfig.tiersConfig.tiers.length > 0`, a 721 hook is deployed.
+    /// @notice Launches new rulesets for a project with a 721 tiers hook attached.
     /// @param projectId The ID of the project to launch the rulesets for.
-    /// @param deploy721Config The 721 hook deployment config. Pass a zero-initialized struct for non-721 rulesets.
+    /// @param deploy721Config The 721 hook deployment config (hook config + cash-out flag + salt).
     /// @param rulesetConfigurations The rulesets to launch. Custom data hooks are read from each ruleset's metadata.
     /// @param terminalConfigurations The terminals to set up for the project.
     /// @param memo A memo to pass along to the emitted event.
     /// @param controller The controller to use for launching the rulesets.
     /// @return rulesetId The ID of the newly launched rulesets.
-    /// @return hook The 721 tiers hook that was deployed for the project (`address(0)` if none).
+    /// @return hook The 721 tiers hook that was deployed for the project.
     function launchRulesetsFor(
         uint256 projectId,
         JBOmnichain721Config memory deploy721Config,
@@ -94,15 +92,16 @@ interface IJBOmnichainDeployer {
         external
         returns (uint256 rulesetId, IJB721TiersHook hook);
 
-    /// @notice Queues new rulesets for a project, optionally with a 721 tiers hook attached.
-    /// @dev If `deploy721Config.deployTiersHookConfig.tiersConfig.tiers.length > 0`, a 721 hook is deployed.
+    /// @notice Queues new rulesets for a project with a 721 tiers hook attached.
+    /// @dev If `deploy721Config.deployTiersHookConfig.tiersConfig.tiers.length > 0`, a new 721 hook is deployed.
+    /// Otherwise, the 721 hook from the latest ruleset is carried forward.
     /// @param projectId The ID of the project to queue the rulesets for.
-    /// @param deploy721Config The 721 hook deployment config. Pass a zero-initialized struct for non-721 rulesets.
+    /// @param deploy721Config The 721 hook deployment config (hook config + cash-out flag + salt).
     /// @param rulesetConfigurations The rulesets to queue. Custom data hooks are read from each ruleset's metadata.
     /// @param memo A memo to pass along to the emitted event.
     /// @param controller The controller to use for queuing the rulesets.
     /// @return rulesetId The ID of the newly queued rulesets.
-    /// @return hook The 721 tiers hook that was deployed for the project (`address(0)` if none).
+    /// @return hook The 721 tiers hook (newly deployed or carried forward from the previous ruleset).
     function queueRulesetsOf(
         uint256 projectId,
         JBOmnichain721Config memory deploy721Config,
