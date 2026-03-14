@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
@@ -209,7 +209,10 @@ contract Tiered721HookComposition is Test {
         JBPayHookSpecification[] memory userSpecs = new JBPayHookSpecification[](3);
         for (uint256 i; i < 3; i++) {
             userSpecs[i] = JBPayHookSpecification({
-                hook: IJBPayHook(address(uint160(100 + i))), amount: (i + 1) * 0.1 ether, metadata: bytes("")
+                // forge-lint: disable-next-line(unsafe-typecast)
+                hook: IJBPayHook(address(uint160(100 + i))),
+                amount: (i + 1) * 0.1 ether,
+                metadata: bytes("")
             });
         }
         vm.mockCall(
@@ -223,6 +226,7 @@ contract Tiered721HookComposition is Test {
         assertEq(specs.length, 4, "1 (721) + 3 (user)");
         assertEq(address(specs[0].hook), hookAddr, "first = 721");
         for (uint256 i; i < 3; i++) {
+            // forge-lint: disable-next-line(unsafe-typecast)
             assertEq(address(specs[i + 1].hook), address(uint160(100 + i)), "user spec position correct");
             assertEq(specs[i + 1].amount, (i + 1) * 0.1 ether);
         }

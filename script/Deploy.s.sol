@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "@sphinx-labs/contracts/contracts/foundry/SphinxPlugin.sol";
-import {Script, stdJson, VmSafe} from "forge-std/Script.sol";
+import {Sphinx} from "@sphinx-labs/contracts/contracts/foundry/Sphinx.sol";
+import {Script} from "forge-std/Script.sol";
 
-import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
-import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
-import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
+import {CoreDeployment, CoreDeploymentLib} from "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
+import {Hook721Deployment, Hook721DeploymentLib} from "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
+import {SuckerDeployment, SuckerDeploymentLib} from "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
 
-import "src/JBOmnichainDeployer.sol";
+import {JBOmnichainDeployer} from "src/JBOmnichainDeployer.sol";
 
 contract Deploy is Script, Sphinx {
     bytes32 constant NANA_OMNICHAIN_DEPLOYER_SALT = "JBOmnichainDeployerV6_";

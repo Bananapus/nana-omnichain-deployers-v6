@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import "./OmnichainForkTestBase.sol";
+import {OmnichainForkTestBase} from "./OmnichainForkTestBase.sol";
+
+import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
+import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 
 /// @notice Fork tests verifying JBOmnichainDeployer weight scaling with 721 splits + real buyback hook.
 ///
@@ -19,12 +22,12 @@ contract TestOmnichainWeightFork is OmnichainForkTestBase {
         address metadataTarget = hook.METADATA_ID_TARGET();
         bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
 
-        vm.prank(PAYER);
+        vm.prank(payer);
         uint256 tokensReceived = jbMultiTerminal().pay{value: 1 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
             amount: 1 ether,
-            beneficiary: PAYER,
+            beneficiary: payer,
             minReturnedTokens: 0,
             memo: "omnichain: mint path with splits",
             metadata: metadata
@@ -40,12 +43,12 @@ contract TestOmnichainWeightFork is OmnichainForkTestBase {
 
         // Without tier metadata and without a buyback hook in the data hook chain,
         // no splits or swaps apply. Full 1000 tokens minted per ETH.
-        vm.prank(PAYER);
+        vm.prank(payer);
         uint256 tokensReceived = jbMultiTerminal().pay{value: 1 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
             amount: 1 ether,
-            beneficiary: PAYER,
+            beneficiary: payer,
             minReturnedTokens: 0,
             memo: "omnichain: no tier metadata, full issuance",
             metadata: ""
@@ -59,12 +62,12 @@ contract TestOmnichainWeightFork is OmnichainForkTestBase {
         (uint256 projectId,) = _deploy721WithBuyback(5000);
         _setupPool(projectId, 10_000 ether);
 
-        vm.prank(PAYER);
+        vm.prank(payer);
         uint256 tokensReceived = jbMultiTerminal().pay{value: 1 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
             amount: 1 ether,
-            beneficiary: PAYER,
+            beneficiary: payer,
             minReturnedTokens: 0,
             memo: "omnichain: no splits baseline",
             metadata: ""

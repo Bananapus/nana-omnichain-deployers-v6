@@ -8,6 +8,7 @@ import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBD
 /// @param useDataHookForCashOut Whether the 721 hook should handle cash outs (via beforeCashOutRecordedWith).
 /// @param salt A salt to use for the deterministic 721 hook deployment. Combined with `msg.sender` internally, so
 /// cross-chain deterministic addresses require the same sender on each chain.
+// forge-lint: disable-next-line(pascal-case-struct)
 struct JBOmnichain721Config {
     JBDeploy721TiersHookConfig deployTiersHookConfig;
     bool useDataHookForCashOut;

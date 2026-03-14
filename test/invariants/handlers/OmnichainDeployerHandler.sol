@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBMetadataResolver} from "@bananapus/core-v6/src/libraries/JBMetadataResolver.sol";
@@ -37,25 +37,25 @@ contract OmnichainDeployerHandler is Test {
     address public projectOwner;
 
     // ───────────────────────── Ghost variables — conservation
-    uint256 public ghost_totalPaidIn;
-    uint256 public ghost_totalCashedOut;
-    uint256 public ghost_totalTokensMinted;
-    uint256 public ghost_totalTokensBurned;
+    uint256 public ghostTotalPaidIn;
+    uint256 public ghostTotalCashedOut;
+    uint256 public ghostTotalTokensMinted;
+    uint256 public ghostTotalTokensBurned;
 
     // ───────────────────────── Ghost variables — invariants
-    bool public ghost_suckerCashOutTaxAlwaysZero = true;
-    bool public ghost_721SpecAlwaysFirst = true;
+    bool public ghostSuckerCashOutTaxAlwaysZero = true;
+    bool public ghost721SpecAlwaysFirst = true;
 
     // ───────────────────────── Per-actor tracking
-    mapping(address => uint256) public ghost_actorContributed;
-    mapping(address => uint256) public ghost_actorExtracted;
+    mapping(address => uint256) public ghostActorContributed;
+    mapping(address => uint256) public ghostActorExtracted;
 
     // ───────────────────────── Operation counters
-    uint256 public calls_payProject;
-    uint256 public calls_cashOutTokens;
-    uint256 public calls_payAsSucker;
-    uint256 public calls_cashOutAsSucker;
-    uint256 public calls_warpTime;
+    uint256 public callsPayProject;
+    uint256 public callsCashOutTokens;
+    uint256 public callsPayAsSucker;
+    uint256 public callsCashOutAsSucker;
+    uint256 public callsWarpTime;
 
     constructor(
         JBOmnichainDeployer _deployer,
@@ -83,7 +83,7 @@ contract OmnichainDeployerHandler is Test {
         projectOwner = _projectOwner;
 
         // Seed ghost with any tokens minted before handler starts tracking (e.g. pool liquidity).
-        ghost_totalTokensMinted = tokens.totalSupplyOf(_projectId);
+        ghostTotalTokensMinted = tokens.totalSupplyOf(_projectId);
     }
 
     // ───────────────────────── Actor helpers
@@ -96,7 +96,7 @@ contract OmnichainDeployerHandler is Test {
 
     /// @notice Pay the project with a random amount (0.01-5 ETH). Optionally includes tier metadata.
     function payProject(uint256 seed) external {
-        calls_payProject++;
+        callsPayProject++;
 
         address actor = _selectActor(seed);
         uint256 amount = bound(seed, 0.01 ether, 5 ether);
@@ -131,12 +131,12 @@ contract OmnichainDeployerHandler is Test {
         }) returns (
             uint256
         ) {
-            ghost_totalPaidIn += amount;
-            ghost_actorContributed[actor] += amount;
+            ghostTotalPaidIn += amount;
+            ghostActorContributed[actor] += amount;
 
             uint256 supplyAfter = tokens.totalSupplyOf(projectId);
             if (supplyAfter > supplyBefore) {
-                ghost_totalTokensMinted += supplyAfter - supplyBefore;
+                ghostTotalTokensMinted += supplyAfter - supplyBefore;
             }
         } catch {
             // Payment may fail if tier is sold out or other reasons — ok.
@@ -145,7 +145,7 @@ contract OmnichainDeployerHandler is Test {
 
     /// @notice Cash out a random portion of a holder's tokens.
     function cashOutTokens(uint256 seed) external {
-        calls_cashOutTokens++;
+        callsCashOutTokens++;
 
         address actor = _selectActor(seed);
         uint256 balance = tokens.totalBalanceOf(actor, projectId);
@@ -166,12 +166,12 @@ contract OmnichainDeployerHandler is Test {
         }) returns (
             uint256 reclaimed
         ) {
-            ghost_totalCashedOut += reclaimed;
-            ghost_actorExtracted[actor] += reclaimed;
+            ghostTotalCashedOut += reclaimed;
+            ghostActorExtracted[actor] += reclaimed;
 
             uint256 supplyAfter = tokens.totalSupplyOf(projectId);
             if (supplyBefore > supplyAfter) {
-                ghost_totalTokensBurned += supplyBefore - supplyAfter;
+                ghostTotalTokensBurned += supplyBefore - supplyAfter;
             }
         } catch {
             // May fail if insufficient surplus or other reasons — ok.
@@ -180,7 +180,7 @@ contract OmnichainDeployerHandler is Test {
 
     /// @notice Pay as the sucker address.
     function payAsSucker(uint256 seed) external {
-        calls_payAsSucker++;
+        callsPayAsSucker++;
 
         uint256 amount = bound(seed, 0.01 ether, 2 ether);
         vm.deal(suckerAddr, suckerAddr.balance + amount);
@@ -199,19 +199,19 @@ contract OmnichainDeployerHandler is Test {
         }) returns (
             uint256
         ) {
-            ghost_totalPaidIn += amount;
-            ghost_actorContributed[suckerAddr] += amount;
+            ghostTotalPaidIn += amount;
+            ghostActorContributed[suckerAddr] += amount;
 
             uint256 supplyAfter = tokens.totalSupplyOf(projectId);
             if (supplyAfter > supplyBefore) {
-                ghost_totalTokensMinted += supplyAfter - supplyBefore;
+                ghostTotalTokensMinted += supplyAfter - supplyBefore;
             }
         } catch {}
     }
 
     /// @notice Cash out as the sucker address — should always get 0% tax.
     function cashOutAsSucker(uint256 seed) external {
-        calls_cashOutAsSucker++;
+        callsCashOutAsSucker++;
 
         uint256 balance = tokens.totalBalanceOf(suckerAddr, projectId);
         if (balance == 0) return;
@@ -236,17 +236,17 @@ contract OmnichainDeployerHandler is Test {
         }) returns (
             uint256 reclaimed
         ) {
-            ghost_totalCashedOut += reclaimed;
-            ghost_actorExtracted[suckerAddr] += reclaimed;
+            ghostTotalCashedOut += reclaimed;
+            ghostActorExtracted[suckerAddr] += reclaimed;
 
             uint256 supplyAfter = tokens.totalSupplyOf(projectId);
             if (supplyBefore > supplyAfter) {
-                ghost_totalTokensBurned += supplyBefore - supplyAfter;
+                ghostTotalTokensBurned += supplyBefore - supplyAfter;
             }
 
             // Sucker should get full pro-rata (0% tax). Allow 1 wei tolerance for rounding.
             if (expectedProRata > 0 && reclaimed + 1 < expectedProRata) {
-                ghost_suckerCashOutTaxAlwaysZero = false;
+                ghostSuckerCashOutTaxAlwaysZero = false;
             }
         } catch {
             // May fail if insufficient surplus — ok.
@@ -255,7 +255,7 @@ contract OmnichainDeployerHandler is Test {
 
     /// @notice Advance time by 1-7 days.
     function warpTime(uint256 seed) external {
-        calls_warpTime++;
+        callsWarpTime++;
         uint256 jump = bound(seed, 1 days, 7 days);
         vm.warp(block.timestamp + jump);
     }

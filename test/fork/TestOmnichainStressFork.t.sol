@@ -1,7 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import "./OmnichainForkTestBase.sol";
+import {OmnichainForkTestBase} from "./OmnichainForkTestBase.sol";
+
+import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
+import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetApprovalHook.sol";
+import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
+import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
+import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+import {JBFundAccessLimitGroup} from "@bananapus/core-v6/src/structs/JBFundAccessLimitGroup.sol";
+import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
+import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
+import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
+import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
+import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
+import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
+import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 
 /// @notice Fork stress tests for the omnichain deployer covering multi-pay-hook interactions,
 ///         721 cashout paths, proportional cashouts, and fee routing.
@@ -22,12 +36,12 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
 
         uint256 balanceBefore = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
 
-        vm.prank(PAYER);
+        vm.prank(payer);
         uint256 tokensReceived = jbMultiTerminal().pay{value: 2 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
             amount: 2 ether,
-            beneficiary: PAYER,
+            beneficiary: payer,
             minReturnedTokens: 0,
             memo: "multi-hook: 721 + buyback",
             metadata: metadata
@@ -54,12 +68,12 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
 
         // Pay exactly the tier price (1 ETH). With 30% split, 0.3 ETH goes to split beneficiary,
         // 0.7 ETH goes to project. Weight = mulDiv(1000, 0.7e18, 1e18) = 700.
-        vm.prank(PAYER);
+        vm.prank(payer);
         uint256 tokensReceived = jbMultiTerminal().pay{value: 1 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
             amount: 1 ether,
-            beneficiary: PAYER,
+            beneficiary: payer,
             minReturnedTokens: 0,
             memo: "exact tier price",
             metadata: metadata
@@ -75,12 +89,12 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         _setupPool(projectId, 10_000 ether);
 
         // Pay without tier metadata — 721 hook returns no specs, full weight.
-        vm.prank(PAYER);
+        vm.prank(payer);
         uint256 tokensReceived = jbMultiTerminal().pay{value: 1 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
             amount: 1 ether,
-            beneficiary: PAYER,
+            beneficiary: payer,
             minReturnedTokens: 0,
             memo: "no tier metadata",
             metadata: ""
@@ -103,32 +117,32 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
 
         // Pay to mint an NFT.
-        vm.prank(PAYER);
+        vm.prank(payer);
         jbMultiTerminal().pay{value: 1 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
             amount: 1 ether,
-            beneficiary: PAYER,
+            beneficiary: payer,
             minReturnedTokens: 0,
             memo: "get NFT",
             metadata: metadata
         });
 
-        // Verify PAYER has tokens.
-        uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
-        assertGt(payerTokens, 0, "PAYER should have tokens");
+        // Verify payer has tokens.
+        uint256 payerTokens = jbTokens().totalBalanceOf(payer, projectId);
+        assertGt(payerTokens, 0, "payer should have tokens");
 
         // Cash out fungible tokens — 721 hook has useDataHookForCashOut=true, so it reverts.
-        vm.prank(PAYER);
+        vm.prank(payer);
         vm.expectRevert();
         jbMultiTerminal()
             .cashOutTokensOf({
-                holder: PAYER,
+                holder: payer,
                 projectId: projectId,
                 cashOutCount: payerTokens,
                 tokenToReclaim: JBConstants.NATIVE_TOKEN,
                 minTokensReclaimed: 0,
-                beneficiary: payable(PAYER),
+                beneficiary: payable(payer),
                 metadata: ""
             });
     }
@@ -139,30 +153,30 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         _setupPool(projectId, 10_000 ether);
 
         // Pay without tier metadata — get only fungible tokens.
-        vm.prank(PAYER);
+        vm.prank(payer);
         jbMultiTerminal().pay{value: 5 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
             amount: 5 ether,
-            beneficiary: PAYER,
+            beneficiary: payer,
             minReturnedTokens: 0,
             memo: "fungible only",
             metadata: ""
         });
 
-        uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
+        uint256 payerTokens = jbTokens().totalBalanceOf(payer, projectId);
 
         // Cash out — 721 hook has useDataHookForCashOut=true, reverts for fungible tokens.
-        vm.prank(PAYER);
+        vm.prank(payer);
         vm.expectRevert();
         jbMultiTerminal()
             .cashOutTokensOf({
-                holder: PAYER,
+                holder: payer,
                 projectId: projectId,
                 cashOutCount: payerTokens,
                 tokenToReclaim: JBConstants.NATIVE_TOKEN,
                 minTokensReclaimed: 0,
-                beneficiary: payable(PAYER),
+                beneficiary: payable(payer),
                 metadata: ""
             });
     }
@@ -180,32 +194,32 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
 
         // Pay to mint an NFT.
-        vm.prank(PAYER);
+        vm.prank(payer);
         jbMultiTerminal().pay{value: 1 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
             amount: 1 ether,
-            beneficiary: PAYER,
+            beneficiary: payer,
             minReturnedTokens: 0,
             memo: "get NFT",
             metadata: metadata
         });
 
-        uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
-        assertGt(payerTokens, 0, "PAYER should have tokens");
+        uint256 payerTokens = jbTokens().totalBalanceOf(payer, projectId);
+        assertGt(payerTokens, 0, "payer should have tokens");
 
         uint256 surplus = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
 
         // 721 hook NOT invoked for cashout — fungible cashout succeeds with 50% tax.
-        vm.prank(PAYER);
+        vm.prank(payer);
         uint256 reclaimed = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: PAYER,
+                holder: payer,
                 projectId: projectId,
                 cashOutCount: payerTokens,
                 tokenToReclaim: JBConstants.NATIVE_TOKEN,
                 minTokensReclaimed: 0,
-                beneficiary: payable(PAYER),
+                beneficiary: payable(payer),
                 metadata: ""
             });
 
@@ -218,30 +232,30 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         (uint256 projectId,) = _deploy721WithBuyback(5000, false);
         _setupPool(projectId, 10_000 ether);
 
-        vm.prank(PAYER);
+        vm.prank(payer);
         jbMultiTerminal().pay{value: 5 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
             amount: 5 ether,
-            beneficiary: PAYER,
+            beneficiary: payer,
             minReturnedTokens: 0,
             memo: "fungible only",
             metadata: ""
         });
 
-        uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
+        uint256 payerTokens = jbTokens().totalBalanceOf(payer, projectId);
         uint256 surplus = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
 
         // 721 hook NOT invoked for cashout — bonding curve + 50% tax + 2.5% fee apply.
-        vm.prank(PAYER);
+        vm.prank(payer);
         uint256 reclaimed = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: PAYER,
+                holder: payer,
                 projectId: projectId,
                 cashOutCount: payerTokens,
                 tokenToReclaim: JBConstants.NATIVE_TOKEN,
                 minTokensReclaimed: 0,
-                beneficiary: payable(PAYER),
+                beneficiary: payable(payer),
                 metadata: ""
             });
 
@@ -258,30 +272,30 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
 
         // Pay with tier metadata (triggers 30% split).
-        vm.prank(PAYER);
+        vm.prank(payer);
         jbMultiTerminal().pay{value: 1 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
             amount: 1 ether,
-            beneficiary: PAYER,
+            beneficiary: payer,
             minReturnedTokens: 0,
             memo: "with splits",
             metadata: metadata
         });
 
-        uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
+        uint256 payerTokens = jbTokens().totalBalanceOf(payer, projectId);
         uint256 terminalBalance = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
 
         // Cash out all tokens — bonding curve + 50% tax rate + 2.5% fee all apply.
-        vm.prank(PAYER);
+        vm.prank(payer);
         uint256 reclaimed = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: PAYER,
+                holder: payer,
                 projectId: projectId,
                 cashOutCount: payerTokens,
                 tokenToReclaim: JBConstants.NATIVE_TOKEN,
                 minTokensReclaimed: 0,
-                beneficiary: payable(PAYER),
+                beneficiary: payable(payer),
                 metadata: ""
             });
 
@@ -299,18 +313,18 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         uint256 projectId = _deployPlainWithReservedPercent(5000, 1000);
 
         // Pay to get tokens.
-        vm.prank(PAYER);
+        vm.prank(payer);
         jbMultiTerminal().pay{value: 10 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
             amount: 10 ether,
-            beneficiary: PAYER,
+            beneficiary: payer,
             minReturnedTokens: 0,
             memo: "fund",
             metadata: ""
         });
 
-        uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
+        uint256 payerTokens = jbTokens().totalBalanceOf(payer, projectId);
 
         // There should be pending reserved tokens.
         uint256 pendingReserved = jbController().pendingReservedTokenBalanceOf(projectId);
@@ -319,15 +333,15 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         // Total supply used for cashout includes pending reserved.
         uint256 surplus = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
 
-        vm.prank(PAYER);
+        vm.prank(payer);
         uint256 reclaimed = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: PAYER,
+                holder: payer,
                 projectId: projectId,
                 cashOutCount: payerTokens,
                 tokenToReclaim: JBConstants.NATIVE_TOKEN,
                 minTokensReclaimed: 0,
-                beneficiary: payable(PAYER),
+                beneficiary: payable(payer),
                 metadata: ""
             });
 
@@ -445,30 +459,30 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
 
         // Pay with tier metadata (triggers 30% split).
-        vm.prank(PAYER);
+        vm.prank(payer);
         jbMultiTerminal().pay{value: 1 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
             amount: 1 ether,
-            beneficiary: PAYER,
+            beneficiary: payer,
             minReturnedTokens: 0,
             memo: "with splits",
             metadata: metadata
         });
 
-        uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
+        uint256 payerTokens = jbTokens().totalBalanceOf(payer, projectId);
 
         // Cash out fungible tokens — 721 hook has useDataHookForCashOut=true, reverts.
-        vm.prank(PAYER);
+        vm.prank(payer);
         vm.expectRevert();
         jbMultiTerminal()
             .cashOutTokensOf({
-                holder: PAYER,
+                holder: payer,
                 projectId: projectId,
                 cashOutCount: payerTokens,
                 tokenToReclaim: JBConstants.NATIVE_TOKEN,
                 minTokensReclaimed: 0,
-                beneficiary: payable(PAYER),
+                beneficiary: payable(payer),
                 metadata: ""
             });
     }
@@ -529,7 +543,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
             JBSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32(0)});
 
         JBOmnichain721Config memory empty721Config;
-        (projectId,,) = DEPLOYER.launchProjectFor({
+        (projectId,,) = omnichainDeployer.launchProjectFor({
             owner: multisig(),
             projectUri: "ipfs://reserved-test",
             deploy721Config: empty721Config,

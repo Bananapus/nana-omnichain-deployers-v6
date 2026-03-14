@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import "./fork/OmnichainForkTestBase.sol";
+import {OmnichainForkTestBase} from "./fork/OmnichainForkTestBase.sol";
 
-import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
 import {IJBCashOutHook} from "@bananapus/core-v6/src/interfaces/IJBCashOutHook.sol";
-import {JBAfterPayRecordedContext} from "@bananapus/core-v6/src/structs/JBAfterPayRecordedContext.sol";
-import {JBAfterCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBAfterCashOutRecordedContext.sol";
 import {IJBMultiTerminal} from "@bananapus/core-v6/src/interfaces/IJBMultiTerminal.sol";
+import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
+import {JBAfterCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBAfterCashOutRecordedContext.sol";
+import {JBAfterPayRecordedContext} from "@bananapus/core-v6/src/structs/JBAfterPayRecordedContext.sol";
+import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 
 /// @notice Pay hook that re-enters terminal.pay during afterPayRecordedWith.
 contract ReentrantPayHook is IJBPayHook {
@@ -143,12 +144,12 @@ contract OmnichainDeployerReentrancy is OmnichainForkTestBase {
         vm.deal(address(hook), 10 ether);
 
         // First, pay to get a baseline.
-        vm.prank(PAYER);
+        vm.prank(payer);
         jbMultiTerminal().pay{value: 1 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
             amount: 1 ether,
-            beneficiary: PAYER,
+            beneficiary: payer,
             minReturnedTokens: 0,
             memo: "baseline",
             metadata: ""
@@ -213,7 +214,7 @@ contract OmnichainDeployerReentrancy is OmnichainForkTestBase {
         // Pay to get tokens for the hook contract.
         ReentrantCashOutHook hook = new ReentrantCashOutHook(jbMultiTerminal(), projectId);
 
-        vm.prank(PAYER);
+        vm.prank(payer);
         jbMultiTerminal().pay{value: 5 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
@@ -271,27 +272,27 @@ contract OmnichainDeployerReentrancy is OmnichainForkTestBase {
         ReentrantPayToCashOutHook hook = new ReentrantPayToCashOutHook(jbMultiTerminal(), projectId);
         vm.deal(address(hook), 10 ether);
 
-        // First: have PAYER pay to get tokens.
-        vm.prank(PAYER);
+        // First: have payer pay to get tokens.
+        vm.prank(payer);
         jbMultiTerminal().pay{value: 5 ether}({
             projectId: projectId,
             token: JBConstants.NATIVE_TOKEN,
             amount: 5 ether,
-            beneficiary: PAYER,
+            beneficiary: payer,
             minReturnedTokens: 0,
             memo: "baseline",
             metadata: ""
         });
 
-        uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, projectId);
+        uint256 payerTokens = jbTokens().totalBalanceOf(payer, projectId);
 
         // Track overall balance.
         uint256 terminalBalanceBefore = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
-        uint256 hookETHBefore = address(hook).balance;
+        // hook.balance tracked implicitly through terminalBalanceBefore/After.
 
-        // The hook will try to cash out PAYER's tokens during the pay callback.
+        // The hook will try to cash out payer's tokens during the pay callback.
         // This should fail because the hook is not the holder and doesn't have permission.
-        hook.setRedeemParams(PAYER, payerTokens / 2);
+        hook.setRedeemParams(payer, payerTokens / 2);
 
         vm.prank(address(hook));
         try jbMultiTerminal().pay{value: 1 ether}({
@@ -304,9 +305,9 @@ contract OmnichainDeployerReentrancy is OmnichainForkTestBase {
             metadata: ""
         }) {
             // If the outer pay succeeds, the reentrant cashout should have failed
-            // (hook can't cashout PAYER's tokens without permission).
-            uint256 payerTokensAfter = jbTokens().totalBalanceOf(PAYER, projectId);
-            assertEq(payerTokensAfter, payerTokens, "PAYER tokens should be unchanged - hook cannot redeem them");
+            // (hook can't cashout payer's tokens without permission).
+            uint256 payerTokensAfter = jbTokens().totalBalanceOf(payer, projectId);
+            assertEq(payerTokensAfter, payerTokens, "payer tokens should be unchanged - hook cannot redeem them");
         } catch {
             // Entire tx reverted — also acceptable.
         }
