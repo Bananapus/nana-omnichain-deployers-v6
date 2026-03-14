@@ -7,7 +7,7 @@ Admin privileges and their scope in nana-omnichain-deployers-v6.
 | Role | How Assigned | Scope |
 |------|-------------|-------|
 | Project owner | Holds the project's ERC-721 (minted by `JBProjects`) | Per-project. Can delegate via `JBPermissions`. |
-| Permitted operator | Granted specific permission IDs by the project owner through `JBPermissions` | Per-project, per-permission. ROOT (255) grants all. Wildcard projectId=0 grants across all projects. |
+| Permitted operator | Granted specific permission IDs by the project owner through `JBPermissions` | Per-project, per-permission. ROOT (1) grants all. Wildcard projectId=0 grants across all projects. |
 | Registered sucker | Deployed via `JBSuckerRegistry.deploySuckersFor` (requires DEPLOY_SUCKERS permission) | Per-project. Gets 0% cash-out tax and mint permission automatically. |
 | JBSuckerRegistry | Set at construction, granted MAP_SUCKER_TOKEN for all projects (projectId=0 wildcard) | Protocol-wide. Maps tokens for sucker bridging. |
 
