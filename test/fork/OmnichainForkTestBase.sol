@@ -141,7 +141,6 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
     // ─────────────────────────
 
     address constant POOL_MANAGER_ADDR = 0x000000000004444c5dc75cB358380D2e3dE08A90;
-    address constant WETH_ADDR = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     int24 constant TICK_LOWER = -887_220;
     int24 constant TICK_UPPER = 887_220;
 
@@ -422,12 +421,10 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         address projectToken = address(jbTokens().tokenOf(projectId));
         require(projectToken != address(0), "project token not deployed");
 
-        address token0 = projectToken < WETH_ADDR ? projectToken : WETH_ADDR;
-        address token1 = projectToken < WETH_ADDR ? WETH_ADDR : projectToken;
-
+        // V4 uses address(0) for native ETH (not WETH). address(0) < any non-zero address.
         key = PoolKey({
-            currency0: Currency.wrap(token0),
-            currency1: Currency.wrap(token1),
+            currency0: Currency.wrap(address(0)),
+            currency1: Currency.wrap(projectToken),
             fee: 10_000, // 1% fee (matches REVDeployer DEFAULT_BUYBACK_POOL_FEE)
             tickSpacing: int24(60),
             hooks: IHooks(address(0))
@@ -438,14 +435,11 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
 
         vm.prank(address(jbController()));
         jbTokens().mintFor(address(liqHelper), projectId, liquidityTokenAmount);
+        // Give the liquidity helper native ETH — V4 settles natively, no WETH needed.
         vm.deal(address(liqHelper), liquidityTokenAmount);
-        vm.prank(address(liqHelper));
-        (bool wethSuccess,) = WETH_ADDR.call{value: liquidityTokenAmount}(abi.encodeWithSignature("deposit()"));
-        require(wethSuccess, "WETH deposit failed");
 
         vm.startPrank(address(liqHelper));
         IERC20(projectToken).approve(address(poolManager), type(uint256).max);
-        IERC20(WETH_ADDR).approve(address(poolManager), type(uint256).max);
         vm.stopPrank();
 
         // forge-lint: disable-next-line(unsafe-typecast)

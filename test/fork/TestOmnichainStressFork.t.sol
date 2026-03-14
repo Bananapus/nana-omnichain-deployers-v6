@@ -542,11 +542,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         JBSuckerDeploymentConfig memory suckerConfig =
             JBSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32(0)});
 
-        JBOmnichain721Config memory empty721Config;
+        JBOmnichain721Config memory config721;
+        config721.deployTiersHookConfig.tiersConfig.currency = uint32(uint160(JBConstants.NATIVE_TOKEN));
+        config721.deployTiersHookConfig.tiersConfig.decimals = 18;
+
         (projectId,,) = omnichainDeployer.launchProjectFor({
             owner: multisig(),
             projectUri: "ipfs://reserved-test",
-            deploy721Config: empty721Config,
+            deploy721Config: config721,
             rulesetConfigurations: rulesets,
             terminalConfigurations: tc,
             memo: "reserved",
