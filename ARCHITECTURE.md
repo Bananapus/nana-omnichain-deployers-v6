@@ -79,3 +79,4 @@ Owner → JBOmnichainDeployer.launchRulesetsFor()
 - `@bananapus/permission-ids-v6` — Permission constants
 - `@bananapus/suckers-v6` — Cross-chain sucker registry
 - `@openzeppelin/contracts` — ERC2771, ERC721Receiver
+- `@prb/math` — Fixed-point math (`mulDiv` for weight scaling)

@@ -17,8 +17,11 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 | Function | What it does |
 |----------|-------------|
 | `launchProjectFor(owner, projectUri, deploy721Config, rulesetConfigs, terminalConfigs, memo, suckerConfig, controller)` | Creates a new project with a 721 tiers hook, rulesets, terminals, and suckers in one tx. Always deploys a 721 hook (even with 0 tiers). Temporarily holds the project NFT. Returns `(projectId, hook, suckers)`. |
+| `launchProjectFor(owner, projectUri, rulesetConfigs, terminalConfigs, memo, suckerConfig, controller)` | Simplified overload — omits `deploy721Config`, uses `_default721Config` (empty tiers, baseCurrency from first ruleset, decimals=18). |
 | `launchRulesetsFor(projectId, deploy721Config, rulesetConfigs, terminalConfigs, memo, controller)` | Launches new rulesets + terminals with a new 721 tiers hook for an existing project. Requires `QUEUE_RULESETS` + `SET_TERMINALS`. Returns `(rulesetId, hook)`. |
+| `launchRulesetsFor(projectId, rulesetConfigs, terminalConfigs, memo, controller)` | Simplified overload — omits `deploy721Config`, uses `_default721Config`. |
 | `queueRulesetsOf(projectId, deploy721Config, rulesetConfigs, memo, controller)` | Queues future rulesets. If tiers provided, deploys a new 721 hook. Otherwise, carries forward the 721 hook from the latest ruleset. Requires `QUEUE_RULESETS`. Reverts if rulesets were already queued in the same block. Returns `(rulesetId, hook)`. |
+| `queueRulesetsOf(projectId, rulesetConfigs, memo, controller)` | Simplified overload — omits `deploy721Config`, uses `_default721Config`. With 0 tiers, always carries forward the existing hook. |
 | `deploySuckersFor(projectId, suckerConfig)` | Deploys new suckers for an existing project. Requires `DEPLOY_SUCKERS`. |
 
 ### Data Hook (IJBRulesetDataHook)
@@ -48,6 +51,7 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 | `nana-ownable-v6` | `JBOwnable` | Transferring 721 hook ownership to the project |
 | `nana-permission-ids-v6` | `JBPermissionIds` | Permission constants |
 | `@openzeppelin/contracts` | `ERC2771Context`, `IERC721Receiver` | Meta-transaction support, receiving project NFTs |
+| `@prb/math` | `mulDiv` | Weight scaling for 721 tier split amounts in `beforePayRecordedWith` |
 
 ## Key Types
 
@@ -87,7 +91,7 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 6. The deployer **always forces `useDataHookForCashOut = true`** at the protocol level so it can intercept cash outs for sucker tax exemption. However, the 721 hook's `useDataHookForCashOut` flag (stored in `_tiered721HookOf`) and the custom hook's flag (stored in `_extraDataHookOf`) each control whether that hook processes cash outs. Set `useDataHookForCashOut: false` on the 721 config to skip it for fungible cashouts (it reverts with `JB721Hook_UnexpectedTokenCashedOut` otherwise).
 7. Suckers get an **early return** in `beforeCashOutRecordedWith` -- they bypass all stored hooks entirely. This means suckers can cash out even if any hook would revert.
 8. If no custom hook is stored or it doesn't grant permission, `hasMintPermissionFor` returns `false` for non-suckers. Only the custom hook in `_extraDataHookOf` is checked — the 721 hook is not consulted.
-9. 721 ruleset config conversion enforces `useDataHookForPay = true` and `allowSetCustomToken = false`. These cannot be overridden.
+9. `_setup721()` sets `metadata.dataHook = address(this)`, `metadata.useDataHookForPay = true`, and `metadata.useDataHookForCashOut = true` on every ruleset. These cannot be overridden.
 10. Hook ownership is transferred to the **project** (not the owner) via `JBOwnable.transferOwnershipToProject(projectId)`. This happens **after** the project NFT is minted — in `launchProjectFor`, the hook is deployed before `controller.launchProjectFor`, and ownership is transferred after the project exists.
 11. The deployer holds the project NFT temporarily during launch. If the controller's `launchProjectFor` reverts, the entire transaction reverts -- no stuck NFTs.
 12. The constructor grants `MAP_SUCKER_TOKEN` permission to `SUCKER_REGISTRY` with `projectId=0`, meaning the registry can map tokens for **any project** deployed through this deployer.

@@ -18,14 +18,14 @@ Admin privileges and their scope in nana-omnichain-deployers-v6.
 | Function | Required Role | Permission ID | Scope | What It Does |
 |----------|--------------|---------------|-------|--------------|
 | `deploySuckersFor` | Project owner or operator | `DEPLOY_SUCKERS` | Per-project | Deploys new cross-chain suckers for an existing project via the sucker registry. |
-| `launchRulesetsFor` | Project owner or operator | `QUEUE_RULESETS` + `SET_TERMINALS` | Per-project | Deploys a 721 tiers hook, launches new rulesets with terminal configuration for an existing project. |
-| `queueRulesetsOf` | Project owner or operator | `QUEUE_RULESETS` | Per-project | Queues new rulesets for an existing project. If tiers provided, deploys a new 721 hook. Otherwise, carries forward the 721 hook from the latest ruleset. |
+| `launchRulesetsFor` | Project owner or operator | `QUEUE_RULESETS` + `SET_TERMINALS` | Per-project | Deploys a 721 tiers hook, launches new rulesets with terminal configuration for an existing project. Has a simplified overload without `deploy721Config`. |
+| `queueRulesetsOf` | Project owner or operator | `QUEUE_RULESETS` | Per-project | Queues new rulesets for an existing project. If tiers provided, deploys a new 721 hook. Otherwise, carries forward the 721 hook from the latest ruleset. Has a simplified overload without `deploy721Config`. |
 
 ### Permissionless Functions
 
 | Function | Who Can Call | What It Does |
 |----------|-------------|--------------|
-| `launchProjectFor` | Anyone | Creates a new project with a 721 tiers hook (even with 0 tiers) and suckers. The ERC-721 is minted to the specified `owner`. Returns `(projectId, hook, suckers)`. |
+| `launchProjectFor` | Anyone | Creates a new project with a 721 tiers hook (even with 0 tiers) and suckers. The ERC-721 is minted to the specified `owner`. Returns `(projectId, hook, suckers)`. Has a simplified overload without `deploy721Config` that uses a default empty-tier 721 config. |
 | `beforePayRecordedWith` | JBMultiTerminal (via controller) | View function: calls 721 hook for specs, then custom hook (if configured) with reduced amount. Merges results. |
 | `beforeCashOutRecordedWith` | JBMultiTerminal (via controller) | View function: returns 0% cash-out tax for registered suckers. Checks 721 hook (from `_tiered721HookOf`) then custom hook (from `_extraDataHookOf`) — the first with `useDataHookForCashOut: true` handles it. If neither has the flag set, returns original values. |
 | `hasMintPermissionFor` | JBController | View function: returns true for registered suckers, otherwise checks the custom hook in `_extraDataHookOf`. |

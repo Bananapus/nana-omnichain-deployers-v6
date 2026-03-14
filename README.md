@@ -68,12 +68,16 @@ Every project deployed through `JBOmnichainDeployer` gets a 721 tiers hook, even
 1. Deploys the 721 hook via `HOOK_DEPLOYER`
 2. Transfers hook ownership to the project via `JBOwnable.transferOwnershipToProject(projectId)` (after the project NFT exists)
 3. Stores the 721 hook per-ruleset in `_tiered721HookOf[projectId][rulesetId]` with its `useDataHookForCashOut` flag
-4. Converts 721-specific ruleset configs to standard configs, enforcing `useDataHookForPay = true` and `allowSetCustomToken = false`
+4. Sets itself as the data hook on each ruleset, enforcing `useDataHookForPay = true` and `useDataHookForCashOut = true`
 5. Stores the optional custom hook (e.g., buyback hook) separately in `_extraDataHookOf[projectId][rulesetId]` with its own per-hook flags
 
 For `queueRulesetsOf`, if no new tiers are provided, the 721 hook from the latest ruleset is carried forward instead of deploying a new one.
 
 This means a project can have both a 721 hook (for NFT minting on payments) and a custom data hook (for buyback, custom weight logic, etc.) running simultaneously. During payments, both hooks' specifications are merged. During cash outs, the 721 hook is checked first (if `useDataHookForCashOut: true`), then the custom hook.
+
+### Simplified Overloads
+
+Each of `launchProjectFor`, `launchRulesetsFor`, and `queueRulesetsOf` has a simplified overload that omits the `deploy721Config` parameter. These use `_default721Config(rulesetConfigurations)`, which creates an empty-tier 721 config with `currency` from the first ruleset's `baseCurrency`, `decimals = 18`, `useDataHookForCashOut = false`, and no salt. For `queueRulesetsOf`, since the default config has 0 tiers, the existing 721 hook is always carried forward.
 
 ### Deterministic Cross-Chain Addresses
 
@@ -154,7 +158,7 @@ runs = 4096
 
 ```
 src/
-  JBOmnichainDeployer.sol               # Main contract (~893 lines)
+  JBOmnichainDeployer.sol               # Main contract (~817 lines)
   interfaces/
     IJBOmnichainDeployer.sol            # Public interface
   structs/
