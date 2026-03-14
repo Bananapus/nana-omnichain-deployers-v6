@@ -1,31 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import "forge-std/Test.sol";
 import {TestBaseWorkflow} from "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
 
-import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
-import {JBMetadataResolver} from "@bananapus/core-v6/src/libraries/JBMetadataResolver.sol";
-import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
-import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
-import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
-import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
-import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
-import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
-import {JBFundAccessLimitGroup} from "@bananapus/core-v6/src/structs/JBFundAccessLimitGroup.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetApprovalHook.sol";
-import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 import {IJBSplitHook} from "@bananapus/core-v6/src/interfaces/IJBSplitHook.sol";
-import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
+import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
+import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+import {JBFundAccessLimitGroup} from "@bananapus/core-v6/src/structs/JBFundAccessLimitGroup.sol";
+import {JBMetadataResolver} from "@bananapus/core-v6/src/libraries/JBMetadataResolver.sol";
+import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
+import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
+import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
+import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
+import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
-import {JBDeployerHookConfig} from "../../src/structs/JBDeployerHookConfig.sol";
+import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
-import {JBSuckersPair} from "@bananapus/suckers-v6/src/structs/JBSuckersPair.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
 
 import {JB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
@@ -39,14 +35,11 @@ import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBD
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
 import {JB721TiersHookFlags} from "@bananapus/721-hook-v6/src/structs/JB721TiersHookFlags.sol";
-import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
 // Buyback hook
 import {JBBuybackHook} from "@bananapus/buyback-hook-v6/src/JBBuybackHook.sol";
-import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
-import {IWETH9} from "@bananapus/buyback-hook-v6/src/interfaces/external/IWETH9.sol";
 import {IGeomeanOracle} from "@bananapus/buyback-hook-v6/src/interfaces/IGeomeanOracle.sol";
 
 // Uniswap V4
@@ -54,7 +47,7 @@ import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {IUnlockCallback} from "@uniswap/v4-core/src/interfaces/callback/IUnlockCallback.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
-import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
+import {PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {Currency, CurrencyLibrary} from "@uniswap/v4-core/src/types/Currency.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {ModifyLiquidityParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
@@ -65,7 +58,7 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @notice Helper that adds liquidity to a V4 pool via the unlock/callback pattern.
 contract OmnichainLiquidityHelper is IUnlockCallback {
-    IPoolManager public immutable poolManager;
+    IPoolManager public immutable POOL_MANAGER;
 
     struct AddLiqParams {
         PoolKey key;
@@ -75,7 +68,7 @@ contract OmnichainLiquidityHelper is IUnlockCallback {
     }
 
     constructor(IPoolManager _poolManager) {
-        poolManager = _poolManager;
+        POOL_MANAGER = _poolManager;
     }
 
     function addLiquidity(
@@ -87,14 +80,15 @@ contract OmnichainLiquidityHelper is IUnlockCallback {
         external
         payable
     {
+        // forge-lint: disable-next-line(named-struct-fields)
         bytes memory data = abi.encode(AddLiqParams(key, tickLower, tickUpper, liquidityDelta));
-        poolManager.unlock(data);
+        POOL_MANAGER.unlock(data);
     }
 
     function unlockCallback(bytes calldata data) external override returns (bytes memory) {
-        require(msg.sender == address(poolManager), "only PM");
+        require(msg.sender == address(POOL_MANAGER), "only PM");
         AddLiqParams memory params = abi.decode(data, (AddLiqParams));
-        (BalanceDelta callerDelta,) = poolManager.modifyLiquidity(
+        (BalanceDelta callerDelta,) = POOL_MANAGER.modifyLiquidity(
             params.key,
             ModifyLiquidityParams({
                 tickLower: params.tickLower,
@@ -113,19 +107,22 @@ contract OmnichainLiquidityHelper is IUnlockCallback {
 
     function _settleIfNegative(Currency currency, int128 delta) internal {
         if (delta >= 0) return;
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 amount = uint256(uint128(-delta));
         if (currency.isAddressZero()) {
-            poolManager.settle{value: amount}();
+            POOL_MANAGER.settle{value: amount}();
         } else {
-            poolManager.sync(currency);
-            IERC20(Currency.unwrap(currency)).transfer(address(poolManager), amount);
-            poolManager.settle();
+            POOL_MANAGER.sync(currency);
+            // forge-lint: disable-next-line(erc20-unchecked-transfer)
+            IERC20(Currency.unwrap(currency)).transfer(address(POOL_MANAGER), amount);
+            POOL_MANAGER.settle();
         }
     }
 
     function _takeIfPositive(Currency currency, int128 delta) internal {
         if (delta <= 0) return;
-        poolManager.take(currency, address(this), uint256(uint128(delta)));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        POOL_MANAGER.take(currency, address(this), uint256(uint128(delta)));
     }
 
     receive() external payable {}
@@ -144,26 +141,24 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
     // ─────────────────────────
 
     address constant POOL_MANAGER_ADDR = 0x000000000004444c5dc75cB358380D2e3dE08A90;
-    address constant WETH_ADDR = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     int24 constant TICK_LOWER = -887_220;
     int24 constant TICK_UPPER = 887_220;
 
     // ───────────────────────── State
     // ─────────────────────────
 
-    JBOmnichainDeployer DEPLOYER;
-    JBBuybackHook BUYBACK_HOOK;
-    JB721TiersHook EXAMPLE_HOOK;
-    IJB721TiersHookDeployer HOOK_DEPLOYER;
-    IJB721TiersHookStore HOOK_STORE;
-    IJBAddressRegistry ADDRESS_REGISTRY;
-    IJBSuckerRegistry SUCKER_REGISTRY;
+    JBOmnichainDeployer omnichainDeployer;
+    JBBuybackHook buybackHook;
+    JB721TiersHook exampleHook;
+    IJB721TiersHookDeployer hookDeployer721;
+    IJB721TiersHookStore hookStore;
+    IJBAddressRegistry addressRegistry;
+    IJBSuckerRegistry suckerRegistry;
     IPoolManager poolManager;
-    IWETH9 weth;
     OmnichainLiquidityHelper liqHelper;
 
-    address PAYER = makeAddr("payer");
-    address SPLIT_BENEFICIARY = makeAddr("splitBeneficiary");
+    address payer = makeAddr("payer");
+    address splitBeneficiary = makeAddr("splitBeneficiary");
 
     uint104 constant TIER_PRICE = 1 ether;
     uint32 constant SPLIT_PERCENT = 300_000_000; // 30%
@@ -179,27 +174,36 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         super.setUp();
 
         poolManager = IPoolManager(POOL_MANAGER_ADDR);
-        weth = IWETH9(WETH_ADDR);
+
         liqHelper = new OmnichainLiquidityHelper(poolManager);
 
-        SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
-        HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK =
-            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), address(0));
-        ADDRESS_REGISTRY = new JBAddressRegistry();
-        HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
-
-        BUYBACK_HOOK = new JBBuybackHook(
-            jbDirectory(), jbPermissions(), jbPrices(), jbProjects(), jbTokens(), weth, poolManager, address(0)
+        suckerRegistry = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
+        hookStore = new JB721TiersHookStore();
+        exampleHook = new JB721TiersHook(
+            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), hookStore, jbSplits(), address(0)
         );
+        addressRegistry = new JBAddressRegistry();
+        hookDeployer721 = new JB721TiersHookDeployer(exampleHook, hookStore, addressRegistry, multisig());
 
-        DEPLOYER = new JBOmnichainDeployer(SUCKER_REGISTRY, HOOK_DEPLOYER, jbPermissions(), jbProjects(), address(0));
+        buybackHook = new JBBuybackHook({
+            directory: jbDirectory(),
+            permissions: jbPermissions(),
+            prices: jbPrices(),
+            projects: jbProjects(),
+            tokens: jbTokens(),
+            poolManager: poolManager,
+            oracleHook: IHooks(address(0)),
+            trustedForwarder: address(0)
+        });
+
+        omnichainDeployer =
+            new JBOmnichainDeployer(suckerRegistry, hookDeployer721, jbPermissions(), jbProjects(), address(0));
 
         // Allow the deployer to set first controller.
         vm.prank(multisig());
-        jbDirectory().setIsAllowedToSetFirstController(address(DEPLOYER), true);
+        jbDirectory().setIsAllowedToSetFirstController(address(omnichainDeployer), true);
 
-        vm.deal(PAYER, 100 ether);
+        vm.deal(payer, 100 ether);
     }
 
     // ───────────────────────── Config Helpers
@@ -212,7 +216,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
             preferAddToBalance: false,
             percent: uint32(JBConstants.SPLITS_TOTAL_PERCENT),
             projectId: 0,
-            beneficiary: payable(SPLIT_BENEFICIARY),
+            beneficiary: payable(splitBeneficiary),
             lockedUntil: 0,
             hook: IJBSplitHook(address(0))
         });
@@ -223,6 +227,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
             votingUnits: 0,
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
+            // forge-lint: disable-next-line(unsafe-typecast)
             encodedIPFSUri: bytes32("tier1"),
             category: 1,
             discountPercent: 0,
@@ -243,10 +248,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
             tokenUriResolver: IJB721TokenUriResolver(address(0)),
             contractUri: "ipfs://contract",
             tiersConfig: JB721InitTiersConfig({
-                tiers: tiers,
-                currency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                decimals: 18,
-                prices: IJBPrices(address(0))
+                tiers: tiers, currency: uint32(uint160(JBConstants.NATIVE_TOKEN)), decimals: 18
             }),
             reserveBeneficiary: address(0),
             flags: JB721TiersHookFlags({
@@ -262,7 +264,11 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
     function _buildLaunchConfig(uint16 cashOutTaxRate)
         internal
         view
-        returns (JBRulesetConfig[] memory rulesets, JBTerminalConfig[] memory tc, JBSuckerDeploymentConfig memory suckerConfig)
+        returns (
+            JBRulesetConfig[] memory rulesets,
+            JBTerminalConfig[] memory tc,
+            JBSuckerDeploymentConfig memory suckerConfig
+        )
     {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
@@ -321,19 +327,23 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         internal
         returns (uint256 projectId, IJB721TiersHook hook)
     {
-        (JBRulesetConfig[] memory rulesets, JBTerminalConfig[] memory tc, JBSuckerDeploymentConfig memory suckerConfig) =
-            _buildLaunchConfig(cashOutTaxRate);
+        (
+            JBRulesetConfig[] memory rulesets,
+            JBTerminalConfig[] memory tc,
+            JBSuckerDeploymentConfig memory suckerConfig
+        ) = _buildLaunchConfig(cashOutTaxRate);
 
         // Set the buyback hook as a custom data hook in the ruleset metadata.
-        rulesets[0].metadata.dataHook = address(BUYBACK_HOOK);
+        rulesets[0].metadata.dataHook = address(buybackHook);
         rulesets[0].metadata.useDataHookForPay = true;
 
-        (projectId, hook,) = DEPLOYER.launchProjectFor({
+        (projectId, hook,) = omnichainDeployer.launchProjectFor({
             owner: multisig(),
             projectUri: "ipfs://omnichain-fork",
             deploy721Config: JBOmnichain721Config({
                 deployTiersHookConfig: _build721Config(),
                 useDataHookForCashOut: use721ForCashOut,
+                // forge-lint: disable-next-line(unsafe-typecast)
                 salt: bytes32("OMNI_721")
             }),
             rulesetConfigurations: rulesets,
@@ -393,11 +403,9 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         JBSuckerDeploymentConfig memory suckerConfig =
             JBSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32(0)});
 
-        JBOmnichain721Config memory empty721Config;
-        (projectId,,) = DEPLOYER.launchProjectFor({
+        (projectId,,) = omnichainDeployer.launchProjectFor({
             owner: multisig(),
             projectUri: "ipfs://plain",
-            deploy721Config: empty721Config,
             rulesetConfigurations: rulesets,
             terminalConfigurations: tc,
             memo: "plain",
@@ -413,12 +421,10 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         address projectToken = address(jbTokens().tokenOf(projectId));
         require(projectToken != address(0), "project token not deployed");
 
-        address token0 = projectToken < WETH_ADDR ? projectToken : WETH_ADDR;
-        address token1 = projectToken < WETH_ADDR ? WETH_ADDR : projectToken;
-
+        // V4 uses address(0) for native ETH (not WETH). address(0) < any non-zero address.
         key = PoolKey({
-            currency0: Currency.wrap(token0),
-            currency1: Currency.wrap(token1),
+            currency0: Currency.wrap(address(0)),
+            currency1: Currency.wrap(projectToken),
             fee: 10_000, // 1% fee (matches REVDeployer DEFAULT_BUYBACK_POOL_FEE)
             tickSpacing: int24(60),
             hooks: IHooks(address(0))
@@ -429,15 +435,14 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
 
         vm.prank(address(jbController()));
         jbTokens().mintFor(address(liqHelper), projectId, liquidityTokenAmount);
+        // Give the liquidity helper native ETH — V4 settles natively, no WETH needed.
         vm.deal(address(liqHelper), liquidityTokenAmount);
-        vm.prank(address(liqHelper));
-        IWETH9(WETH_ADDR).deposit{value: liquidityTokenAmount}();
 
         vm.startPrank(address(liqHelper));
         IERC20(projectToken).approve(address(poolManager), type(uint256).max);
-        IERC20(WETH_ADDR).approve(address(poolManager), type(uint256).max);
         vm.stopPrank();
 
+        // forge-lint: disable-next-line(unsafe-typecast)
         int256 liquidityDelta = int256(liquidityTokenAmount / 2);
         vm.prank(address(liqHelper));
         liqHelper.addLiquidity(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
@@ -445,7 +450,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         _mockOracle(liquidityDelta, 0, 2 days);
 
         vm.prank(multisig());
-        BUYBACK_HOOK.setPoolFor({
+        buybackHook.setPoolFor({
             projectId: projectId, poolKey: key, twapWindow: 2 days, terminalToken: JBConstants.NATIVE_TOKEN
         });
     }
@@ -454,11 +459,13 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         vm.etch(address(0), hex"00");
         int56[] memory tickCumulatives = new int56[](2);
         tickCumulatives[0] = 0;
+        // forge-lint: disable-next-line(unsafe-typecast)
         tickCumulatives[1] = int56(tick) * int56(int32(uint32(twapWindow)));
         uint136[] memory secondsPerLiquidityCumulativeX128s = new uint136[](2);
         secondsPerLiquidityCumulativeX128s[0] = 0;
         uint256 liq = uint256(liquidity > 0 ? liquidity : -liquidity);
         if (liq == 0) liq = 1;
+        // forge-lint: disable-next-line(unsafe-typecast)
         secondsPerLiquidityCumulativeX128s[1] = uint136((twapWindow << 128) / liq);
         vm.mockCall(
             address(0),
@@ -477,7 +484,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
     // ───────────────────────── Metadata Helpers
     // ─────────────────────────
 
-    function _buildPayMetadataNoQuote(address hookMetadataTarget) internal view returns (bytes memory) {
+    function _buildPayMetadataNoQuote(address hookMetadataTarget) internal pure returns (bytes memory) {
         uint16[] memory tierIds = new uint16[](1);
         tierIds[0] = 1;
         bytes memory tierData = abi.encode(true, tierIds);

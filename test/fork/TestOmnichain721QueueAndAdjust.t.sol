@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import "./OmnichainForkTestBase.sol";
+import {OmnichainForkTestBase} from "./OmnichainForkTestBase.sol";
 
+import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsData.sol";
-import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
-import {IJBOwnable} from "@bananapus/ownable-v6/src/interfaces/IJBOwnable.sol";
-import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
+import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
+import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
+import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
+import {IJBOwnable} from "@bananapus/ownable-v6/src/interfaces/IJBOwnable.sol";
+import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
+import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
 
 /// @notice Tests that queueing rulesets with a 721 hook properly transfers hook ownership
 ///         to the project, enabling the project owner to later adjust tiers.
@@ -28,11 +32,12 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
         // Step 4: Queue 721 rulesets via the deployer.
         (JBRulesetConfig[] memory rulesets,,) = _buildLaunchConfig(5000);
 
-        (, IJB721TiersHook hook) = DEPLOYER.queueRulesetsOf({
+        (, IJB721TiersHook hook) = omnichainDeployer.queueRulesetsOf({
             projectId: projectId,
             deploy721Config: JBOmnichain721Config({
                 deployTiersHookConfig: _build721Config(),
                 useDataHookForCashOut: false,
+                // forge-lint: disable-next-line(unsafe-typecast)
                 salt: bytes32("Q721")
             }),
             rulesetConfigurations: rulesets,
@@ -43,11 +48,12 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
         // Step 5: Verify hook ownership was transferred to the project.
         IJBOwnable ownableHook = IJBOwnable(address(hook));
         (, uint88 hookProjectId,) = ownableHook.jbOwner();
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(hookProjectId, uint88(projectId), "Hook should be owned by the project");
 
         // Step 6: Verify the hook is stored.
         {
-            (IJB721TiersHook storedHook,) = DEPLOYER.tiered721HookOf(projectId, block.timestamp);
+            (IJB721TiersHook storedHook,) = omnichainDeployer.tiered721HookOf(projectId, block.timestamp);
             assertEq(address(storedHook), address(hook), "Deployer should store the new 721 hook");
         }
 
@@ -59,6 +65,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             votingUnits: 0,
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
+            // forge-lint: disable-next-line(unsafe-typecast)
             encodedIPFSUri: bytes32("tier2"),
             category: 2,
             discountPercent: 0,
@@ -95,14 +102,15 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
 
         // Step 4: Queue new 721 rulesets with a fresh hook + buyback as custom data hook.
         (JBRulesetConfig[] memory rulesets,,) = _buildLaunchConfig(3000);
-        rulesets[0].metadata.dataHook = address(BUYBACK_HOOK);
+        rulesets[0].metadata.dataHook = address(buybackHook);
         rulesets[0].metadata.useDataHookForPay = true;
 
-        (, IJB721TiersHook newHook) = DEPLOYER.queueRulesetsOf({
+        (, IJB721TiersHook newHook) = omnichainDeployer.queueRulesetsOf({
             projectId: projectId,
             deploy721Config: JBOmnichain721Config({
                 deployTiersHookConfig: _build721Config(),
                 useDataHookForCashOut: false,
+                // forge-lint: disable-next-line(unsafe-typecast)
                 salt: bytes32("REPLACE")
             }),
             rulesetConfigurations: rulesets,
@@ -115,13 +123,14 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
 
         // The deployer should store the new hook for this ruleset.
         {
-            (IJB721TiersHook storedNewHook,) = DEPLOYER.tiered721HookOf(projectId, block.timestamp);
+            (IJB721TiersHook storedNewHook,) = omnichainDeployer.tiered721HookOf(projectId, block.timestamp);
             assertEq(address(storedNewHook), address(newHook), "Deployer should store the new hook");
         }
 
         // The new hook should be owned by the project.
         IJBOwnable ownableNewHook = IJBOwnable(address(newHook));
         (, uint88 newHookProjectId,) = ownableNewHook.jbOwner();
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(newHookProjectId, uint88(projectId), "New hook should be owned by the project");
 
         // Owner should be able to adjust tiers on the new hook.
@@ -132,6 +141,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             votingUnits: 0,
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
+            // forge-lint: disable-next-line(unsafe-typecast)
             encodedIPFSUri: bytes32("tier3"),
             category: 3,
             discountPercent: 0,
@@ -157,11 +167,12 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
 
         (JBRulesetConfig[] memory rulesets,,) = _buildLaunchConfig(5000);
 
-        (, IJB721TiersHook hook) = DEPLOYER.queueRulesetsOf({
+        (, IJB721TiersHook hook) = omnichainDeployer.queueRulesetsOf({
             projectId: projectId,
             deploy721Config: JBOmnichain721Config({
                 deployTiersHookConfig: _build721Config(),
                 useDataHookForCashOut: false,
+                // forge-lint: disable-next-line(unsafe-typecast)
                 salt: bytes32("PERMS")
             }),
             rulesetConfigurations: rulesets,
@@ -178,6 +189,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             votingUnits: 0,
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
+            // forge-lint: disable-next-line(unsafe-typecast)
             encodedIPFSUri: bytes32("bad"),
             category: 4,
             discountPercent: 0,
@@ -210,6 +222,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
         jbPermissions()
             .setPermissionsFor(
                 multisig(),
+                // forge-lint: disable-next-line(unsafe-typecast)
                 JBPermissionsData({operator: address(this), projectId: uint64(projectId), permissionIds: queuePerms})
             );
 
@@ -219,7 +232,10 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             .setPermissionsFor(
                 multisig(),
                 JBPermissionsData({
-                    operator: address(DEPLOYER), projectId: uint64(projectId), permissionIds: queuePerms
+                    operator: address(omnichainDeployer),
+                    // forge-lint: disable-next-line(unsafe-typecast)
+                    projectId: uint64(projectId),
+                    permissionIds: queuePerms
                 })
             );
     }

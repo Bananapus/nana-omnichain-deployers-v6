@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
@@ -125,18 +125,16 @@ contract Tiered721HookComposition is Test {
     // ---------------------------------------------------------------
 
     function test_launch721ProjectFor_stores721HookSeparately() public {
-        (uint256 pid, IJB721TiersHook hook,) = _launch721({
-            dataHook: buybackHookAddr, useForPay: true, useForCashOut: false, use721ForCashOut: false
-        });
+        (uint256 pid, IJB721TiersHook hook,) =
+            _launch721({dataHook: buybackHookAddr, useForPay: true, useForCashOut: false, use721ForCashOut: false});
         (IJB721TiersHook storedHook,) = deployer.tiered721HookOf(pid, block.timestamp);
         assertEq(address(storedHook), hookAddr, "721 hook stored separately");
         assertEq(address(hook), hookAddr, "returned hook matches");
     }
 
     function test_launch721ProjectFor_storesUserDataHook() public {
-        (uint256 pid,,) = _launch721({
-            dataHook: buybackHookAddr, useForPay: true, useForCashOut: false, use721ForCashOut: false
-        });
+        (uint256 pid,,) =
+            _launch721({dataHook: buybackHookAddr, useForPay: true, useForCashOut: false, use721ForCashOut: false});
         uint256 storedRulesetId = block.timestamp;
         (IJB721TiersHook stored721,) = deployer.tiered721HookOf(pid, storedRulesetId);
         assertEq(address(stored721), hookAddr, "721 hook should be stored per-ruleset");
@@ -146,9 +144,8 @@ contract Tiered721HookComposition is Test {
     }
 
     function test_launch721ProjectFor_noDataHook_stores721Only() public {
-        (uint256 pid,,) = _launch721({
-            dataHook: address(0), useForPay: false, useForCashOut: false, use721ForCashOut: false
-        });
+        (uint256 pid,,) =
+            _launch721({dataHook: address(0), useForPay: false, useForCashOut: false, use721ForCashOut: false});
         uint256 storedRulesetId = block.timestamp;
         (IJB721TiersHook stored721,) = deployer.tiered721HookOf(pid, storedRulesetId);
         assertEq(address(stored721), hookAddr, "721 hook stored");
@@ -212,7 +209,10 @@ contract Tiered721HookComposition is Test {
         JBPayHookSpecification[] memory userSpecs = new JBPayHookSpecification[](3);
         for (uint256 i; i < 3; i++) {
             userSpecs[i] = JBPayHookSpecification({
-                hook: IJBPayHook(address(uint160(100 + i))), amount: (i + 1) * 0.1 ether, metadata: bytes("")
+                // forge-lint: disable-next-line(unsafe-typecast)
+                hook: IJBPayHook(address(uint160(100 + i))),
+                amount: (i + 1) * 0.1 ether,
+                metadata: bytes("")
             });
         }
         vm.mockCall(
@@ -226,6 +226,7 @@ contract Tiered721HookComposition is Test {
         assertEq(specs.length, 4, "1 (721) + 3 (user)");
         assertEq(address(specs[0].hook), hookAddr, "first = 721");
         for (uint256 i; i < 3; i++) {
+            // forge-lint: disable-next-line(unsafe-typecast)
             assertEq(address(specs[i + 1].hook), address(uint160(100 + i)), "user spec position correct");
             assertEq(specs[i + 1].amount, (i + 1) * 0.1 ether);
         }
@@ -348,11 +349,18 @@ contract Tiered721HookComposition is Test {
         assertEq(totalSupply, 5000, "buyback hook's totalSupply");
     }
 
-    function test_beforeCashOut_no721_forwardsToUserHook() public {
+    function test_beforeCashOut_zeroTiers_forwardsToUserHook() public {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(customHookAddr, true, true);
         deployer.launchProjectFor(
-            projectOwner, "test", _empty721Config(), configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
+            projectOwner,
+            "test",
+            _empty721Config(),
+            configs,
+            new JBTerminalConfig[](0),
+            "",
+            _emptySuckerConfig(),
+            controller
         );
         JBCashOutHookSpecification[] memory cashOutSpecs = new JBCashOutHookSpecification[](0);
         vm.mockCall(
@@ -367,11 +375,18 @@ contract Tiered721HookComposition is Test {
         assertEq(totalSupply, 1000, "user hook's totalSupply");
     }
 
-    function test_beforeCashOut_no721_noUserHook_returnsOriginal() public {
+    function test_beforeCashOut_zeroTiers_noUserHook_returnsOriginal() public {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(0), false, false);
         deployer.launchProjectFor(
-            projectOwner, "test", _empty721Config(), configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
+            projectOwner,
+            "test",
+            _empty721Config(),
+            configs,
+            new JBTerminalConfig[](0),
+            "",
+            _emptySuckerConfig(),
+            controller
         );
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
         (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(context);
@@ -455,7 +470,9 @@ contract Tiered721HookComposition is Test {
         vm.prank(projectOwner);
         (, IJB721TiersHook hook) = deployer.launchRulesetsFor({
             projectId: projectId,
-            deploy721Config: JBOmnichain721Config({deployTiersHookConfig: _emptyHookConfig(), useDataHookForCashOut: false, salt: bytes32(0)}),
+            deploy721Config: JBOmnichain721Config({
+                deployTiersHookConfig: _emptyHookConfig(), useDataHookForCashOut: false, salt: bytes32(0)
+            }),
             rulesetConfigurations: _make721RulesetConfigs(buybackHookAddr, true, false),
             terminalConfigurations: new JBTerminalConfig[](0),
             memo: "",
@@ -479,7 +496,9 @@ contract Tiered721HookComposition is Test {
         vm.prank(projectOwner);
         (, IJB721TiersHook hook) = deployer.queueRulesetsOf({
             projectId: projectId,
-            deploy721Config: JBOmnichain721Config({deployTiersHookConfig: _emptyHookConfig(), useDataHookForCashOut: false, salt: bytes32(0)}),
+            deploy721Config: JBOmnichain721Config({
+                deployTiersHookConfig: _emptyHookConfig(), useDataHookForCashOut: false, salt: bytes32(0)
+            }),
             rulesetConfigurations: _make721RulesetConfigs(buybackHookAddr, true, false),
             memo: "",
             controller: controller
@@ -493,24 +512,38 @@ contract Tiered721HookComposition is Test {
     // non-721 functions: unchanged behavior
     // ---------------------------------------------------------------
 
-    function test_launchProjectFor_noTiered721Hook() public {
+    function test_launchProjectFor_zeroTiers_still721Hook() public {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(buybackHookAddr, true, false);
         deployer.launchProjectFor(
-            projectOwner, "test", _empty721Config(), configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
+            projectOwner,
+            "test",
+            _empty721Config(),
+            configs,
+            new JBTerminalConfig[](0),
+            "",
+            _emptySuckerConfig(),
+            controller
         );
         (IJB721TiersHook stored721,) = deployer.tiered721HookOf(projectId, block.timestamp);
-        assertEq(address(stored721), address(0), "no 721 hook for non-721 project");
+        assertEq(address(stored721), hookAddr, "721 hook always deployed even with 0 tiers");
         JBDeployerHookConfig memory storedHook = deployer.extraDataHookOf(projectId, block.timestamp);
         assertEq(address(storedHook.dataHook), buybackHookAddr, "user hook stored");
         assertTrue(storedHook.useDataHookForPay);
     }
 
-    function test_beforePay_non721_buybackOnly_forwardsCorrectly() public {
+    function test_beforePay_zeroTiers_buybackComposesWith721() public {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(buybackHookAddr, true, false);
         deployer.launchProjectFor(
-            projectOwner, "test", _empty721Config(), configs, new JBTerminalConfig[](0), "", _emptySuckerConfig(), controller
+            projectOwner,
+            "test",
+            _empty721Config(),
+            configs,
+            new JBTerminalConfig[](0),
+            "",
+            _emptySuckerConfig(),
+            controller
         );
         JBPayHookSpecification[] memory buybackSpecs = new JBPayHookSpecification[](1);
         buybackSpecs[0] =
@@ -523,8 +556,10 @@ contract Tiered721HookComposition is Test {
         JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
         (uint256 weight, JBPayHookSpecification[] memory specs) = deployer.beforePayRecordedWith(context);
         assertEq(weight, 888, "buyback weight");
-        assertEq(specs.length, 1, "only buyback spec");
-        assertEq(address(specs[0].hook), buybackHookAddr);
+        assertEq(specs.length, 2, "721 spec + buyback spec");
+        assertEq(address(specs[0].hook), hookAddr, "first = 721 hook");
+        assertEq(specs[0].amount, 0, "721 hook amount = 0");
+        assertEq(address(specs[1].hook), buybackHookAddr, "second = buyback");
     }
 
     // ---------------------------------------------------------------
@@ -682,9 +717,7 @@ contract Tiered721HookComposition is Test {
             owner: projectOwner,
             projectUri: "test",
             deploy721Config: JBOmnichain721Config({
-                deployTiersHookConfig: _emptyHookConfig(),
-                useDataHookForCashOut: use721ForCashOut,
-                salt: bytes32(0)
+                deployTiersHookConfig: _emptyHookConfig(), useDataHookForCashOut: use721ForCashOut, salt: bytes32(0)
             }),
             rulesetConfigurations: _make721RulesetConfigs(dataHook, useForPay, useForCashOut),
             terminalConfigurations: new JBTerminalConfig[](0),

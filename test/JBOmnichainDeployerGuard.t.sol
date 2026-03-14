@@ -1,27 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import "forge-std/Test.sol";
-
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
-import {IJBRulesets} from "@bananapus/core-v6/src/interfaces/IJBRulesets.sol";
-import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
+import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetApprovalHook.sol";
+import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
+import {JBFundAccessLimitGroup} from "@bananapus/core-v6/src/structs/JBFundAccessLimitGroup.sol";
+import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsData.sol";
+import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
+import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
+import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
+import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
+import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookProjectDeployer.sol";
+import {IJBOwnable} from "@bananapus/ownable-v6/src/interfaces/IJBOwnable.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckersPair} from "@bananapus/suckers-v6/src/structs/JBSuckersPair.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
-import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsData.sol";
-import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
-import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
-import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
-import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
-import {JBFundAccessLimitGroup} from "@bananapus/core-v6/src/structs/JBFundAccessLimitGroup.sol";
-import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
-import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetApprovalHook.sol";
 
 import {JBOmnichainDeployer} from "../src/JBOmnichainDeployer.sol";
 import {JBDeployerHookConfig} from "../src/structs/JBDeployerHookConfig.sol";
@@ -32,10 +30,12 @@ import {TestBaseWorkflow} from "@bananapus/core-v6/test/helpers/TestBaseWorkflow
 
 /// @notice Minimal mock implementing IJBSuckerRegistry — all calls return defaults.
 contract MockSuckerRegistry is IJBSuckerRegistry {
+    // forge-lint: disable-next-line(mixed-case-function)
     function DIRECTORY() external pure override returns (IJBDirectory) {
         return IJBDirectory(address(0));
     }
 
+    // forge-lint: disable-next-line(mixed-case-function)
     function PROJECTS() external pure override returns (IJBProjects) {
         return IJBProjects(address(0));
     }
@@ -80,6 +80,9 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
     JBOmnichainDeployer deployer;
     MockSuckerRegistry suckerRegistry;
 
+    address mockHookDeployerAddr = makeAddr("hookDeployer");
+    address mockHookAddr = makeAddr("mockHook");
+
     address owner;
 
     function setUp() public override {
@@ -88,9 +91,17 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         owner = multisig();
         suckerRegistry = new MockSuckerRegistry();
 
+        // Mock hook deployer and deployed hook.
+        vm.mockCall(
+            mockHookDeployerAddr,
+            abi.encodeWithSelector(IJB721TiersHookDeployer.deployHookFor.selector),
+            abi.encode(IJB721TiersHook(mockHookAddr))
+        );
+        vm.mockCall(mockHookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector), abi.encode());
+
         deployer = new JBOmnichainDeployer(
             IJBSuckerRegistry(address(suckerRegistry)),
-            IJB721TiersHookDeployer(address(0)),
+            IJB721TiersHookDeployer(mockHookDeployerAddr),
             IJBPermissions(address(jbPermissions())),
             IJBProjects(address(jbProjects())),
             trustedForwarder()
@@ -108,6 +119,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         return JBRulesetMetadata({
             reservedPercent: 0,
             cashOutTaxRate: 0,
+            // forge-lint: disable-next-line(unsafe-typecast)
             baseCurrency: uint32(uint160(address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE))), // native
             pausePay: false,
             pauseCreditTransfers: false,
@@ -165,6 +177,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         contexts[0] = JBAccountingContext({
             token: address(0x000000000000000000000000000000000000EEEe), // JBConstants.NATIVE_TOKEN
             decimals: 18,
+            // forge-lint: disable-next-line(unsafe-typecast)
             currency: uint32(uint160(address(0x000000000000000000000000000000000000EEEe)))
         });
         configs[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: contexts});
@@ -217,6 +230,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         jbPermissions()
             .setPermissionsFor(
                 owner,
+                // forge-lint: disable-next-line(unsafe-typecast)
                 JBPermissionsData({operator: address(this), projectId: uint64(projectId), permissionIds: permissionIds})
             );
 
@@ -226,7 +240,10 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
             .setPermissionsFor(
                 owner,
                 JBPermissionsData({
-                    operator: address(deployer), projectId: uint64(projectId), permissionIds: permissionIds
+                    operator: address(deployer),
+                    // forge-lint: disable-next-line(unsafe-typecast)
+                    projectId: uint64(projectId),
+                    permissionIds: permissionIds
                 })
             );
     }
@@ -301,7 +318,9 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         JBRulesetConfig[] memory deployerRulesets = _makeRulesetConfigs(1);
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector);
         JBOmnichain721Config memory empty721;
-        deployer.queueRulesetsOf(projectId, empty721, deployerRulesets, "deployer-queue", IJBController(address(jbController())));
+        deployer.queueRulesetsOf(
+            projectId, empty721, deployerRulesets, "deployer-queue", IJBController(address(jbController()))
+        );
     }
 
     /// @notice Queue succeeds after warping past the latestRulesetIdOf from a multi-ruleset launch.

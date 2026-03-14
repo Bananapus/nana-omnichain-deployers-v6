@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import "../fork/OmnichainForkTestBase.sol";
-import "./handlers/OmnichainDeployerHandler.sol";
+import {OmnichainForkTestBase} from "../fork/OmnichainForkTestBase.sol";
+import {OmnichainDeployerHandler} from "./handlers/OmnichainDeployerHandler.sol";
+
+import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
+import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
+import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 
 /// @title OmnichainDeployerInvariant
 /// @notice Invariant test suite for the omnichain deployer. Uses a stateful fuzzing handler
@@ -34,7 +39,7 @@ contract OmnichainDeployerInvariant is OmnichainForkTestBase {
 
         // Mock sucker registry for the sucker address.
         vm.mockCall(
-            address(SUCKER_REGISTRY),
+            address(suckerRegistry),
             abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector, pid, suckerAddr),
             abi.encode(true)
         );
@@ -51,12 +56,12 @@ contract OmnichainDeployerInvariant is OmnichainForkTestBase {
         actors[2] = actor3;
 
         handler = new OmnichainDeployerHandler(
-            DEPLOYER,
+            omnichainDeployer,
             jbMultiTerminal(),
             IJBController(address(jbController())),
             jbTokens(),
             jbTerminalStore(),
-            SUCKER_REGISTRY,
+            suckerRegistry,
             pid,
             hook,
             actors,
@@ -83,7 +88,7 @@ contract OmnichainDeployerInvariant is OmnichainForkTestBase {
 
     /// @notice Suckers should always receive full pro-rata reclaim (0% tax).
     function invariant_SuckerAlwaysZeroTax() public view {
-        assertTrue(handler.ghost_suckerCashOutTaxAlwaysZero(), "Sucker should always get 0% tax on cashout");
+        assertTrue(handler.ghostSuckerCashOutTaxAlwaysZero(), "Sucker should always get 0% tax on cashout");
     }
 
     // ───────────────────────── Invariant 2: 721 spec always first
@@ -92,7 +97,7 @@ contract OmnichainDeployerInvariant is OmnichainForkTestBase {
     // but the ghost variable confirms it was never violated during operations.
 
     function invariant_721SpecAlwaysFirst() public view {
-        assertTrue(handler.ghost_721SpecAlwaysFirst(), "721 hook spec should always be first in merged array");
+        assertTrue(handler.ghost721SpecAlwaysFirst(), "721 hook spec should always be first in merged array");
     }
 
     // ───────────────────────── Invariant 3: Fund conservation
@@ -104,11 +109,9 @@ contract OmnichainDeployerInvariant is OmnichainForkTestBase {
         uint256 terminalBalance =
             jbTerminalStore().balanceOf(address(jbMultiTerminal()), projectId, JBConstants.NATIVE_TOKEN);
         // Total inflows >= terminal balance + total outflows (some goes to fees).
-        assertGe(
-            handler.ghost_totalPaidIn(), handler.ghost_totalCashedOut(), "Total paid in must be >= total cashed out"
-        );
+        assertGe(handler.ghostTotalPaidIn(), handler.ghostTotalCashedOut(), "Total paid in must be >= total cashed out");
         // Terminal balance can't exceed total paid in.
-        assertGe(handler.ghost_totalPaidIn(), terminalBalance, "Total paid in must be >= terminal balance");
+        assertGe(handler.ghostTotalPaidIn(), terminalBalance, "Total paid in must be >= terminal balance");
     }
 
     // ───────────────────────── Invariant 4: Token supply consistency
@@ -117,8 +120,8 @@ contract OmnichainDeployerInvariant is OmnichainForkTestBase {
     function invariant_TokenSupplyConsistency() public view {
         uint256 projectId = handler.projectId();
         uint256 totalSupply = jbTokens().totalSupplyOf(projectId);
-        uint256 minted = handler.ghost_totalTokensMinted();
-        uint256 burned = handler.ghost_totalTokensBurned();
+        uint256 minted = handler.ghostTotalTokensMinted();
+        uint256 burned = handler.ghostTotalTokensBurned();
 
         // Allow for reserved tokens that may have been distributed outside the handler.
         assertGe(minted, burned, "Minted should be >= burned");
@@ -135,7 +138,7 @@ contract OmnichainDeployerInvariant is OmnichainForkTestBase {
 
     /// @notice The deployer contract should never hold ETH — it's a pass-through.
     function invariant_DeployerNeverHoldsETH() public view {
-        assertEq(address(DEPLOYER).balance, 0, "Deployer should never hold ETH");
+        assertEq(address(omnichainDeployer).balance, 0, "Deployer should never hold ETH");
     }
 
     // ───────────────────────── Invariant 6: Hook storage consistency
@@ -143,7 +146,7 @@ contract OmnichainDeployerInvariant is OmnichainForkTestBase {
     /// @notice After deployment, tiered721HookOf should be set for the launch ruleset.
     function invariant_HookStorageConsistency() public view {
         uint256 projectId = handler.projectId();
-        (IJB721TiersHook hook,) = DEPLOYER.tiered721HookOf(projectId, launchRulesetId);
+        (IJB721TiersHook hook,) = omnichainDeployer.tiered721HookOf(projectId, launchRulesetId);
         assertTrue(address(hook) != address(0), "721 hook should be stored after deployment");
     }
 }
