@@ -228,7 +228,7 @@ contract JBOmnichainDeployer is
         if (projectAmount == 0) {
             weight = 0;
         } else if (projectAmount < context.amount.value) {
-            weight = mulDiv(weight, projectAmount, context.amount.value);
+            weight = mulDiv({x: weight, y: projectAmount, denominator: context.amount.value});
         }
 
         // Merge specifications: 721 hook spec first, then data hook specs.
@@ -381,16 +381,16 @@ contract JBOmnichainDeployer is
         override
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers)
     {
-        return _launchProjectFor(
-            owner,
-            projectUri,
-            deploy721Config,
-            rulesetConfigurations,
-            terminalConfigurations,
-            memo,
-            suckerDeploymentConfiguration,
-            controller
-        );
+        return _launchProjectFor({
+            owner: owner,
+            projectUri: projectUri,
+            deploy721Config: deploy721Config,
+            rulesetConfigurations: rulesetConfigurations,
+            terminalConfigurations: terminalConfigurations,
+            memo: memo,
+            suckerDeploymentConfiguration: suckerDeploymentConfiguration,
+            controller: controller
+        });
     }
 
     /// @notice Creates a project with a default (empty-tier) 721 hook and with suckers.
@@ -418,16 +418,16 @@ contract JBOmnichainDeployer is
         override
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers)
     {
-        return _launchProjectFor(
-            owner,
-            projectUri,
-            _default721Config(rulesetConfigurations),
-            rulesetConfigurations,
-            terminalConfigurations,
-            memo,
-            suckerDeploymentConfiguration,
-            controller
-        );
+        return _launchProjectFor({
+            owner: owner,
+            projectUri: projectUri,
+            deploy721Config: _default721Config(rulesetConfigurations),
+            rulesetConfigurations: rulesetConfigurations,
+            terminalConfigurations: terminalConfigurations,
+            memo: memo,
+            suckerDeploymentConfiguration: suckerDeploymentConfiguration,
+            controller: controller
+        });
     }
 
     /// @notice Launches new rulesets for a project with a 721 tiers hook attached, using this contract as the data
@@ -452,10 +452,14 @@ contract JBOmnichainDeployer is
         override
         returns (uint256 rulesetId, IJB721TiersHook hook)
     {
-        return
-            _launchRulesetsFor(
-                projectId, deploy721Config, rulesetConfigurations, terminalConfigurations, memo, controller
-            );
+        return _launchRulesetsFor({
+            projectId: projectId,
+            deploy721Config: deploy721Config,
+            rulesetConfigurations: rulesetConfigurations,
+            terminalConfigurations: terminalConfigurations,
+            memo: memo,
+            controller: controller
+        });
     }
 
     /// @notice Launches new rulesets for a project with a default (empty-tier) 721 hook.
@@ -478,14 +482,14 @@ contract JBOmnichainDeployer is
         override
         returns (uint256 rulesetId, IJB721TiersHook hook)
     {
-        return _launchRulesetsFor(
-            projectId,
-            _default721Config(rulesetConfigurations),
-            rulesetConfigurations,
-            terminalConfigurations,
-            memo,
-            controller
-        );
+        return _launchRulesetsFor({
+            projectId: projectId,
+            deploy721Config: _default721Config(rulesetConfigurations),
+            rulesetConfigurations: rulesetConfigurations,
+            terminalConfigurations: terminalConfigurations,
+            memo: memo,
+            controller: controller
+        });
     }
 
     /// @dev Make sure this contract can only receive project NFTs from `JBProjects`.
@@ -517,7 +521,13 @@ contract JBOmnichainDeployer is
         override
         returns (uint256 rulesetId, IJB721TiersHook hook)
     {
-        return _queueRulesetsOf(projectId, deploy721Config, rulesetConfigurations, memo, controller);
+        return _queueRulesetsOf({
+            projectId: projectId,
+            deploy721Config: deploy721Config,
+            rulesetConfigurations: rulesetConfigurations,
+            memo: memo,
+            controller: controller
+        });
     }
 
     /// @notice Queues new rulesets for a project with a default (empty-tier) 721 hook, carrying forward the existing
@@ -540,10 +550,13 @@ contract JBOmnichainDeployer is
         override
         returns (uint256 rulesetId, IJB721TiersHook hook)
     {
-        return
-            _queueRulesetsOf(
-                projectId, _default721Config(rulesetConfigurations), rulesetConfigurations, memo, controller
-            );
+        return _queueRulesetsOf({
+            projectId: projectId,
+            deploy721Config: _default721Config(rulesetConfigurations),
+            rulesetConfigurations: rulesetConfigurations,
+            memo: memo,
+            controller: controller
+        });
     }
 
     //*********************************************************************//
@@ -598,7 +611,7 @@ contract JBOmnichainDeployer is
         projectId = PROJECTS.count() + 1;
 
         // Deploy a 721 hook and set up rulesets.
-        hook = _deploy721Hook(projectId, deploy721Config);
+        hook = _deploy721Hook({projectId: projectId, config: deploy721Config});
         rulesetConfigurations = _setup721({
             projectId: projectId,
             rulesetConfigurations: rulesetConfigurations,
@@ -633,7 +646,7 @@ contract JBOmnichainDeployer is
         }
 
         // Transfer ownership of the project to the owner.
-        PROJECTS.transferFrom(address(this), owner, projectId);
+        PROJECTS.transferFrom({from: address(this), to: owner, tokenId: projectId});
     }
 
     /// @notice Internal implementation of `launchRulesetsFor`.
@@ -661,7 +674,7 @@ contract JBOmnichainDeployer is
         _validateController({projectId: projectId, controller: controller});
 
         // Deploy a 721 hook, transfer its ownership to the project, and set up rulesets.
-        hook = _deploy721Hook(projectId, deploy721Config);
+        hook = _deploy721Hook({projectId: projectId, config: deploy721Config});
         JBOwnable(address(hook)).transferOwnershipToProject(projectId);
         // slither-disable-next-line reentrancy-benign
         rulesetConfigurations = _setup721({
@@ -708,7 +721,7 @@ contract JBOmnichainDeployer is
 
         // Deploy a new 721 hook if tiers are provided, otherwise carry forward the existing hook.
         if (deploy721Config.deployTiersHookConfig.tiersConfig.tiers.length > 0) {
-            hook = _deploy721Hook(projectId, deploy721Config);
+            hook = _deploy721Hook({projectId: projectId, config: deploy721Config});
             JBOwnable(address(hook)).transferOwnershipToProject(projectId);
         } else {
             hook = _tiered721HookOf[projectId][latestRulesetId].hook;

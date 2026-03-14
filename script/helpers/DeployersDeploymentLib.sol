@@ -27,7 +27,7 @@ library SuckerDeploymentLib {
 
         for (uint256 _i; _i < networks.length; _i++) {
             if (networks[_i].chainId == chainId) {
-                return getDeployment(path, networks[_i].name);
+                return getDeployment({path: path, network_name: networks[_i].name});
             }
         }
 
@@ -44,7 +44,12 @@ library SuckerDeploymentLib {
     {
         // Is deployed on all (supported) chains.
         deployment.deployer = JBOmnichainDeployer(
-            _getDeploymentAddress(path, "nana-omnichain-deployers-v6", network_name, "JBOmnichainDeployer")
+            _getDeploymentAddress({
+                path: path,
+                project_name: "nana-omnichain-deployers-v6",
+                network_name: network_name,
+                contractName: "JBOmnichainDeployer"
+            })
         );
     }
 
@@ -65,6 +70,6 @@ library SuckerDeploymentLib {
     {
         string memory deploymentJson =
             vm.readFile(string.concat(path, project_name, "/", network_name, "/", contractName, ".json"));
-        return stdJson.readAddress(deploymentJson, ".address");
+        return stdJson.readAddress({json: deploymentJson, key: ".address"});
     }
 }

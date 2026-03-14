@@ -46,7 +46,7 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 // Buyback hook
 import {JBBuybackHook} from "@bananapus/buyback-hook-v6/src/JBBuybackHook.sol";
 import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
-import {IWETH9} from "@bananapus/buyback-hook-v6/src/interfaces/external/IWETH9.sol";
+import {IWETH9} from "@uniswap/v4-periphery/src/interfaces/external/IWETH9.sol";
 import {IGeomeanOracle} from "@bananapus/buyback-hook-v6/src/interfaces/IGeomeanOracle.sol";
 
 // Uniswap V4
@@ -159,7 +159,6 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
     IJBAddressRegistry ADDRESS_REGISTRY;
     IJBSuckerRegistry SUCKER_REGISTRY;
     IPoolManager poolManager;
-    IWETH9 weth;
     OmnichainLiquidityHelper liqHelper;
 
     address PAYER = makeAddr("payer");
@@ -179,20 +178,27 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         super.setUp();
 
         poolManager = IPoolManager(POOL_MANAGER_ADDR);
-        weth = IWETH9(WETH_ADDR);
+
         liqHelper = new OmnichainLiquidityHelper(poolManager);
 
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
         EXAMPLE_HOOK = new JB721TiersHook(
-            jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), address(0)
+            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), address(0)
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
 
-        BUYBACK_HOOK = new JBBuybackHook(
-            jbDirectory(), jbPermissions(), jbPrices(), jbProjects(), jbTokens(), weth, poolManager, address(0)
-        );
+        BUYBACK_HOOK = new JBBuybackHook({
+            directory: jbDirectory(),
+            permissions: jbPermissions(),
+            prices: jbPrices(),
+            projects: jbProjects(),
+            tokens: jbTokens(),
+            poolManager: poolManager,
+            oracleHook: IHooks(address(0)),
+            trustedForwarder: address(0)
+        });
 
         DEPLOYER = new JBOmnichainDeployer(SUCKER_REGISTRY, HOOK_DEPLOYER, jbPermissions(), jbProjects(), address(0));
 
@@ -244,10 +250,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
             tokenUriResolver: IJB721TokenUriResolver(address(0)),
             contractUri: "ipfs://contract",
             tiersConfig: JB721InitTiersConfig({
-                tiers: tiers,
-                currency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                decimals: 18,
-                prices: IJBPrices(address(0))
+                tiers: tiers, currency: uint32(uint160(JBConstants.NATIVE_TOKEN)), decimals: 18
             }),
             reserveBeneficiary: address(0),
             flags: JB721TiersHookFlags({
