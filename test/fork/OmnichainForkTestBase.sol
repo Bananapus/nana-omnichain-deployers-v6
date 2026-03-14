@@ -404,11 +404,9 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         JBSuckerDeploymentConfig memory suckerConfig =
             JBSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32(0)});
 
-        JBOmnichain721Config memory empty721Config;
         (projectId,,) = omnichainDeployer.launchProjectFor({
             owner: multisig(),
             projectUri: "ipfs://plain",
-            deploy721Config: empty721Config,
             rulesetConfigurations: rulesets,
             terminalConfigurations: tc,
             memo: "plain",
