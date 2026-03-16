@@ -1,37 +1,41 @@
-# nana-omnichain-deployers-v6 — Risks
+# RISKS.md -- nana-omnichain-deployers-v6
 
-## Trust Assumptions
+## 1. Trust Assumptions
 
-1. **JBOmnichainDeployer as Data Hook** — Acts as data hook for all projects it deploys. A bug in the deployer affects every omnichain project's cash-out behavior.
-2. **Sucker Registry** — Trusts JBSuckerRegistry to correctly track registered suckers. The deployer grants 0% cash-out tax to any address the registry identifies as a sucker.
-3. **Project Owner** — Can queue new rulesets, deploy additional suckers, and manage project configuration through the deployer.
-4. **Core Protocol** — Relies on JBController, JBDirectory, and JBMultiTerminal for correct operation.
-5. **Bridge Infrastructure** — Inherits all sucker trust assumptions (bridge liveness, remote peer authentication).
+- **Trusted forwarder.** ERC-2771 `_msgSender()` is trusted to append the real sender. A compromised forwarder can impersonate any address for `deploySuckersFor`, `launchProjectFor`, `queueRulesetsOf`, and `launchRulesetsFor`.
+- **Sucker registry.** `SUCKER_REGISTRY.isSuckerOf()` is the sole gatekeeper for 0% cashout tax and mint permission. A compromised or malicious registry lets any address bypass cashout taxes and mint tokens freely.
+- **Controller trust.** The deployer passes an arbitrary `IJBController controller` parameter. `_validateController` checks `DIRECTORY.controllerOf(projectId)`, but during `launchProjectFor` the project does not yet exist -- validation is skipped, relying on the controller returning the correct project ID.
+- **Extra data hooks.** Arbitrary `IJBRulesetDataHook` addresses from ruleset metadata are stored and delegated to with `staticcall`. A malicious hook can return arbitrary weight, cashout tax rate, or hook specifications.
 
-## Known Risks
+## 2. Economic / Manipulation Risks
 
-| Risk | Description | Mitigation |
-|------|-------------|------------|
-| Sucker privilege abuse | Any registered sucker gets 0% cashout tax | Sucker registration requires DEPLOY_SUCKERS permission |
-| Data hook centralization | Deployer is the data hook for all omnichain projects | Simple pass-through logic minimizes attack surface. The 721 hook (in `_tiered721HookOf`) and custom hook (in `_extraDataHookOf`) each have their own `useDataHookForCashOut` flag — set to `false` on the 721 config to skip it for fungible cashouts. Suckers always get the early return regardless of hook configuration. |
-| Controller mismatch | Reverts if provided controller doesn't match project's actual controller | Explicit validation via `JBOmnichainDeployer_ControllerMismatch` |
-| Invalid self-hook | Reverts if someone tries to set deployer as hook for deployer itself | `JBOmnichainDeployer_InvalidHook` check in `_setup721()` |
-| Ownership transfer timing | 721 hook is deployed before project exists in `launchProjectFor` | Ownership transfer deferred until after `controller.launchProjectFor` returns; if controller reverts, entire tx reverts |
-| Ruleset ID prediction | `_setup721()` stores hooks keyed by predicted `block.timestamp + i` | `queueRulesetsOf` guards with `latestRulesetIdOf >= block.timestamp` check; `launchProjectFor` predicts from `PROJECTS.count()` |
-| Carry-forward stale hook | `queueRulesetsOf` with 0 tiers carries forward from latest ruleset | Only carries forward from `_tiered721HookOf[projectId][latestRulesetId]` — if no hook stored for latest ruleset, returns zero-address hook |
+- **Sucker cashout bypass.** Any address registered as a sucker for a project gets 0% cashout tax rate and full reclaim. If a malicious sucker is registered (via compromised `SUCKER_REGISTRY`), it can drain the project's surplus.
+- **Weight manipulation via extra data hook.** `beforePayRecordedWith` forwards to the extra data hook, which can return any `weight`. A malicious hook can inflate token minting or set weight=0 to block minting.
+- **721 hook amount splitting.** The deployer computes `projectAmount = context.amount.value - totalSplitAmount` and scales weight proportionally. If the 721 hook returns a `totalSplitAmount >= context.amount.value`, `projectAmount` is set to 0 and weight becomes 0 -- no tokens are minted for the payment.
 
-## Privileged Roles
+## 3. Access Control
 
-| Role | Capabilities | Scope |
-|------|-------------|-------|
-| Project owner | Queue rulesets, deploy suckers, manage configuration | Per-project |
-| Registered suckers | 0% cash-out tax on token bridging | Per-project |
-| JBSuckerRegistry | Determines which addresses are valid suckers | Protocol-wide |
+- **Wildcard MAP_SUCKER_TOKEN permission.** Constructor grants `SUCKER_REGISTRY` the `MAP_SUCKER_TOKEN` permission with `projectId=0` (wildcard). This grants the registry token-mapping rights across all projects ever deployed through this deployer.
+- **Permission checks on `launchRulesetsFor`.** Requires both `QUEUE_RULESETS` and `SET_TERMINALS` from the project owner. If an operator has one but not the other, the call reverts. No combined permission ID exists.
+- **No permission check on `launchProjectFor`.** Anyone can call it because a new project is being created. The `owner` parameter receives the project NFT -- verify frontends do not allow this to be set to unexpected addresses.
 
-## Reentrancy Considerations
+## 4. DoS Vectors
 
-| Function | Protection | Risk |
-|----------|-----------|------|
-| `launchProjectFor` | Ownership transferred after all setup complete | LOW |
-| `beforeCashOutRecordedWith` | View-like function, returns data only | NONE |
-| `beforePayRecordedWith` | View-like function, returns data only | NONE |
+- **Ruleset ID collision.** `_setup721` stores hook configs at `block.timestamp + i`. If `latestRulesetIdOf >= block.timestamp` (rulesets already queued this block), `queueRulesetsOf` reverts with `RulesetIdsUnpredictable`. An attacker who queues rulesets in the same block as the legitimate owner can front-run and block their queue attempt.
+- **External hook revert.** `beforePayRecordedWith` and `beforeCashOutRecordedWith` call external hooks without try-catch. A reverting hook blocks all payments or cashouts for that project/ruleset.
+- **721 hook deployment revert.** `HOOK_DEPLOYER.deployHookFor` is called without try-catch. A failing deployment blocks the entire project launch.
+
+## 5. Integration Risks
+
+- **Hook config keyed by predicted rulesetId.** Configs stored at `block.timestamp + i` must match the actual rulesetId assigned by the controller. If the controller assigns different IDs (e.g., due to approval hook delays), the stored configs become unreachable -- payments/cashouts fall through to default behavior (no 721 handling, no extra hook).
+- **Carried-forward 721 hook on queue.** When `tiers.length == 0`, `queueRulesetsOf` carries forward the hook from `_tiered721HookOf[projectId][latestRulesetId]`. If the latest ruleset was not deployed through this deployer, the mapping is empty and `hook` is `address(0)`.
+- **ERC721Receiver restriction.** `onERC721Received` only accepts from `PROJECTS`. Any other NFTs sent to this contract are permanently lost.
+
+## 6. Invariants to Verify
+
+- For any project launched through this deployer, `DIRECTORY.controllerOf(projectId)` matches the controller used during launch.
+- `_tiered721HookOf[projectId][rulesetId]` is non-zero for every rulesetId created through this deployer.
+- Sucker cashouts always receive 0% tax rate (no path where `isSuckerOf` returns true but tax > 0).
+- `beforePayRecordedWith` weight scaling: `weight * projectAmount / context.amount.value` never exceeds the original hook-returned weight.
+- Self-reference prevention: `rulesetConfigurations[i].metadata.dataHook` cannot be `address(this)` after `_setup721`.
+- Project NFT ownership: after `_launchProjectFor`, the project NFT is owned by `owner`, not the deployer.
