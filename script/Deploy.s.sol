@@ -62,7 +62,8 @@ contract Deploy is Script, Sphinx {
                 creationCode: type(JBOmnichainDeployer).creationCode,
                 arguments: abi.encode(
                     suckers.registry, hook.hook_deployer, core.permissions, core.projects, core.trustedForwarder
-                )
+                ),
+                deployer: safeAddress()
             })) {
             new JBOmnichainDeployer{salt: NANA_OMNICHAIN_DEPLOYER_SALT}({
                 suckerRegistry: suckers.registry,
@@ -74,12 +75,18 @@ contract Deploy is Script, Sphinx {
         }
     }
 
-    function _isDeployed(bytes32 salt, bytes memory creationCode, bytes memory arguments) internal view returns (bool) {
+    function _isDeployed(
+        bytes32 salt,
+        bytes memory creationCode,
+        bytes memory arguments,
+        address deployer
+    )
+        internal
+        view
+        returns (bool)
+    {
         address _deployedTo = vm.computeCreate2Address({
-            salt: salt,
-            initCodeHash: keccak256(abi.encodePacked(creationCode, arguments)),
-            // Arachnid/deterministic-deployment-proxy address.
-            deployer: address(0x4e59b44847b379578588920cA78FbF26c0B4956C)
+            salt: salt, initCodeHash: keccak256(abi.encodePacked(creationCode, arguments)), deployer: deployer
         });
 
         // Return if code is already present at this address.

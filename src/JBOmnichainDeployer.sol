@@ -33,6 +33,10 @@ import {JBSuckerDeploymentConfig} from "./structs/JBSuckerDeploymentConfig.sol";
 import {JBTiered721HookConfig} from "./structs/JBTiered721HookConfig.sol";
 
 /// @notice Deploys, manages, and operates Juicebox projects with suckers.
+// Project NFTs sent to this contract are not recoverable. The deployer does not
+// implement any NFT rescue mechanism beyond onERC721Received for JBProjects. This is acceptable
+// because the deployer should never own project NFTs — it creates projects and transfers ownership
+// in the same transaction.
 contract JBOmnichainDeployer is
     ERC2771Context,
     JBPermissioned,
@@ -57,9 +61,6 @@ contract JBOmnichainDeployer is
     /// @dev Ruleset IDs are predicted as `block.timestamp + i`. This prediction fails if
     /// `latestRulesetIdOf >= block.timestamp`, which can only happen if rulesets were already queued in the same block.
     error JBOmnichainDeployer_RulesetIdsUnpredictable();
-
-    /// @notice Thrown when the contract receives an NFT that is not from the `JBProjects` contract.
-    error JBOmnichainDeployer_UnexpectedNFT();
 
     error JBOmnichainDeployer_UnexpectedNFTReceived();
 
