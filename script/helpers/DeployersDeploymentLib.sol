@@ -11,7 +11,7 @@ struct DeployersDeployment {
     JBOmnichainDeployer deployer;
 }
 
-library SuckerDeploymentLib {
+library DeployersDeploymentLib {
     // Cheat code address, 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D.
     address internal constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
     // forge-lint: disable-next-line(screaming-snake-case-const)
