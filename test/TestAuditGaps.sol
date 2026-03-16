@@ -178,9 +178,7 @@ contract ManySpecsHook is IJBRulesetDataHook {
         for (uint256 i; i < specCount; i++) {
             // forge-lint: disable-next-line(unsafe-typecast)
             specs[i] = JBPayHookSpecification({
-                hook: IJBPayHook(address(uint160(200 + i))),
-                amount: 0.001 ether,
-                metadata: ""
+                hook: IJBPayHook(address(uint160(200 + i))), amount: 0.001 ether, metadata: ""
             });
         }
         return (context.weight, specs);
