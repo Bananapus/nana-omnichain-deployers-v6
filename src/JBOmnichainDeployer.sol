@@ -257,24 +257,6 @@ contract JBOmnichainDeployer is
         return _extraDataHookOf[projectId][rulesetId];
     }
 
-    /// @notice Get the tiered 721 hook config for a project and ruleset.
-    /// @param projectId The ID of the project to get the 721 hook for.
-    /// @param rulesetId The ID of the ruleset to get the 721 hook for.
-    /// @return hook The 721 tiers hook.
-    /// @return useDataHookForCashOut Whether the 721 hook is used for cash outs.
-    function tiered721HookOf(
-        uint256 projectId,
-        uint256 rulesetId
-    )
-        external
-        view
-        override
-        returns (IJB721TiersHook hook, bool useDataHookForCashOut)
-    {
-        JBTiered721HookConfig memory config = _tiered721HookOf[projectId][rulesetId];
-        return (config.hook, config.useDataHookForCashOut);
-    }
-
     /// @notice A flag indicating whether an address has permission to mint a project's tokens on-demand.
     /// @dev A project's data hook can allow any address to mint its tokens.
     /// @param projectId The ID of the project whose token can be minted.
@@ -303,6 +285,24 @@ contract JBOmnichainDeployer is
         }
 
         return false;
+    }
+
+    /// @notice Get the tiered 721 hook config for a project and ruleset.
+    /// @param projectId The ID of the project to get the 721 hook for.
+    /// @param rulesetId The ID of the ruleset to get the 721 hook for.
+    /// @return hook The 721 tiers hook.
+    /// @return useDataHookForCashOut Whether the 721 hook is used for cash outs.
+    function tiered721HookOf(
+        uint256 projectId,
+        uint256 rulesetId
+    )
+        external
+        view
+        override
+        returns (IJB721TiersHook hook, bool useDataHookForCashOut)
+    {
+        JBTiered721HookConfig memory config = _tiered721HookOf[projectId][rulesetId];
+        return (config.hook, config.useDataHookForCashOut);
     }
 
     //*********************************************************************//
@@ -565,18 +565,6 @@ contract JBOmnichainDeployer is
         return ERC2771Context._contextSuffixLength();
     }
 
-    /// @notice The calldata. Preferred to use over `msg.data`.
-    /// @return calldata The `msg.data` of this call.
-    function _msgData() internal view override(ERC2771Context, Context) returns (bytes calldata) {
-        return ERC2771Context._msgData();
-    }
-
-    /// @notice The message's sender. Preferred to use over `msg.sender`.
-    /// @return sender The address which sent this call.
-    function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
-        return ERC2771Context._msgSender();
-    }
-
     /// @notice Returns a default `JBOmnichain721Config` with `currency` from the first ruleset's `baseCurrency`,
     /// `decimals = 18`, empty tiers, no cash-out handling, and no salt.
     /// @param rulesetConfigurations The ruleset configurations to derive defaults from.
@@ -588,6 +576,29 @@ contract JBOmnichainDeployer is
     {
         config.deployTiersHookConfig.tiersConfig.currency = rulesetConfigurations[0].metadata.baseCurrency;
         config.deployTiersHookConfig.tiersConfig.decimals = 18;
+    }
+
+    /// @notice Deploys a 721 tiers hook for a project.
+    /// @dev The caller is responsible for transferring ownership to the project via
+    /// `JBOwnable(address(hook)).transferOwnershipToProject(projectId)` after the project NFT has been minted.
+    /// @param projectId The ID of the project to deploy the hook for.
+    /// @param config The 721 hook deployment config (hook config + cash-out flag + salt).
+    /// @return hook The deployed 721 tiers hook.
+    function _deploy721Hook(
+        uint256 projectId,
+        JBOmnichain721Config memory config
+    )
+        internal
+        returns (IJB721TiersHook hook)
+    {
+        // Deploy the hook.
+        // Note: the salt includes `_msgSender()` for replay protection. Cross-chain deterministic
+        // address matching requires using the same sender address on each chain.
+        hook = HOOK_DEPLOYER.deployHookFor({
+            projectId: projectId,
+            deployTiersHookConfig: config.deployTiersHookConfig,
+            salt: config.salt == bytes32(0) ? bytes32(0) : keccak256(abi.encode(_msgSender(), config.salt))
+        });
     }
 
     /// @notice Internal implementation of `launchProjectFor`.
@@ -690,6 +701,18 @@ contract JBOmnichainDeployer is
         });
     }
 
+    /// @notice The calldata. Preferred to use over `msg.data`.
+    /// @return calldata The `msg.data` of this call.
+    function _msgData() internal view override(ERC2771Context, Context) returns (bytes calldata) {
+        return ERC2771Context._msgData();
+    }
+
+    /// @notice The message's sender. Preferred to use over `msg.sender`.
+    /// @return sender The address which sent this call.
+    function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
+        return ERC2771Context._msgSender();
+    }
+
     /// @notice Internal implementation of `queueRulesetsOf`.
     function _queueRulesetsOf(
         uint256 projectId,
@@ -735,29 +758,6 @@ contract JBOmnichainDeployer is
         // Configure the rulesets.
         rulesetId = controller.queueRulesetsOf({
             projectId: projectId, rulesetConfigurations: rulesetConfigurations, memo: memo
-        });
-    }
-
-    /// @notice Deploys a 721 tiers hook for a project.
-    /// @dev The caller is responsible for transferring ownership to the project via
-    /// `JBOwnable(address(hook)).transferOwnershipToProject(projectId)` after the project NFT has been minted.
-    /// @param projectId The ID of the project to deploy the hook for.
-    /// @param config The 721 hook deployment config (hook config + cash-out flag + salt).
-    /// @return hook The deployed 721 tiers hook.
-    function _deploy721Hook(
-        uint256 projectId,
-        JBOmnichain721Config memory config
-    )
-        internal
-        returns (IJB721TiersHook hook)
-    {
-        // Deploy the hook.
-        // Note: the salt includes `_msgSender()` for replay protection. Cross-chain deterministic
-        // address matching requires using the same sender address on each chain.
-        hook = HOOK_DEPLOYER.deployHookFor({
-            projectId: projectId,
-            deployTiersHookConfig: config.deployTiersHookConfig,
-            salt: config.salt == bytes32(0) ? bytes32(0) : keccak256(abi.encode(_msgSender(), config.salt))
         });
     }
 
