@@ -18,7 +18,7 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 |----------|-------------|
 | `launchProjectFor(owner, projectUri, deploy721Config, rulesetConfigs, terminalConfigs, memo, suckerConfig, controller)` | Creates a new project with a 721 tiers hook, rulesets, terminals, and suckers in one tx. Always deploys a 721 hook (even with 0 tiers). Temporarily holds the project NFT. Returns `(projectId, hook, suckers)`. |
 | `launchProjectFor(owner, projectUri, rulesetConfigs, terminalConfigs, memo, suckerConfig, controller)` | Simplified overload — omits `deploy721Config`, uses `_default721Config` (empty tiers, baseCurrency from first ruleset, decimals=18). |
-| `launchRulesetsFor(projectId, deploy721Config, rulesetConfigs, terminalConfigs, memo, controller)` | Launches new rulesets + terminals with a new 721 tiers hook for an existing project. Requires `QUEUE_RULESETS` + `SET_TERMINALS`. Returns `(rulesetId, hook)`. |
+| `launchRulesetsFor(projectId, deploy721Config, rulesetConfigs, terminalConfigs, memo, controller)` | Launches new rulesets + terminals with a new 721 tiers hook for an existing project. Requires `LAUNCH_RULESETS` + `SET_TERMINALS`. Returns `(rulesetId, hook)`. |
 | `launchRulesetsFor(projectId, rulesetConfigs, terminalConfigs, memo, controller)` | Simplified overload — omits `deploy721Config`, uses `_default721Config`. |
 | `queueRulesetsOf(projectId, deploy721Config, rulesetConfigs, memo, controller)` | Queues future rulesets. If tiers provided, deploys a new 721 hook. Otherwise, carries forward the 721 hook from the latest ruleset. Requires `QUEUE_RULESETS`. Reverts if rulesets were already queued in the same block. Returns `(rulesetId, hook)`. |
 | `queueRulesetsOf(projectId, rulesetConfigs, memo, controller)` | Simplified overload — omits `deploy721Config`, uses `_default721Config`. With 0 tiers, always carries forward the existing hook. |
@@ -67,7 +67,8 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 | Permission | Used By |
 |------------|---------|
 | `DEPLOY_SUCKERS` | `deploySuckersFor` -- deploy new suckers for a project |
-| `QUEUE_RULESETS` | `launchRulesetsFor`, `queueRulesetsOf` -- modify project rulesets |
+| `LAUNCH_RULESETS` | `launchRulesetsFor` -- launch rulesets with terminal configuration |
+| `QUEUE_RULESETS` | `queueRulesetsOf` -- queue future rulesets |
 | `SET_TERMINALS` | `launchRulesetsFor` -- set terminal configurations |
 | `MAP_SUCKER_TOKEN` | Granted to `SUCKER_REGISTRY` at construction with `projectId=0` (all projects) |
 
@@ -75,7 +76,7 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 
 | Error | When |
 |-------|------|
-| `JBOmnichainDeployer_InvalidHook` | `_setup721()` detects the hook is `address(this)` -- prevents infinite forwarding loops |
+| `JBOmnichainDeployer_InvalidHook` | `_setup721()` detects the hook is `address(this)` (prevents infinite forwarding loops), OR `queueRulesetsOf` tries to carry forward a null hook (no tiers provided and no previous hook deployed through this contract) |
 | `JBOmnichainDeployer_UnexpectedNFTReceived` | `onERC721Received` called by a contract other than `PROJECTS` |
 | `JBOmnichainDeployer_RulesetIdsUnpredictable` | `queueRulesetsOf` called when `latestRulesetIdOf(projectId) >= block.timestamp` -- ruleset ID prediction would fail |
 | `JBOmnichainDeployer_ProjectIdMismatch` | `launchProjectFor` -- the project ID returned by the controller does not match the predicted `PROJECTS.count() + 1` |

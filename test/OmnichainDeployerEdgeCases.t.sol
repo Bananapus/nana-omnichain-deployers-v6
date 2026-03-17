@@ -4,10 +4,12 @@ pragma solidity 0.8.26;
 import {Test} from "forge-std/Test.sol";
 
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
+import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
+import {IJBRulesets} from "@bananapus/core-v6/src/interfaces/IJBRulesets.sol";
 import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
@@ -469,6 +471,80 @@ contract OmnichainDeployerEdgeCases is Test {
         ruleset.id = uint48(rulesetId);
 
         assertFalse(deployer.hasMintPermissionFor(projectId, ruleset, attacker), "No hook should return false");
+    }
+
+    // =========================================================================
+    // Permission: launchRulesetsFor requires LAUNCH_RULESETS (not QUEUE_RULESETS)
+    // =========================================================================
+    function test_launchRulesetsFor_requiresLaunchRulesetsPermission() public {
+        IJBController controller = IJBController(makeAddr("controller"));
+        IJBDirectory directory = IJBDirectory(makeAddr("directory"));
+
+        // Mock controller validation chain.
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory));
+        vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
+            abi.encode(address(controller))
+        );
+
+        // Deny ALL permissions — this ensures the first permission check (LAUNCH_RULESETS) fails.
+        vm.mockCall(
+            address(permissions), abi.encodeWithSelector(IJBPermissions.hasPermission.selector), abi.encode(false)
+        );
+
+        JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
+        configs[0] = _makeRulesetConfig(address(0), true, false);
+
+        JBOmnichain721Config memory empty721Config;
+        vm.prank(projectOwner);
+        vm.expectRevert();
+        deployer.launchRulesetsFor(
+            projectId, empty721Config, configs, new JBTerminalConfig[](0), "", controller
+        );
+    }
+
+    // =========================================================================
+    // Error path: InvalidHook — queueRulesetsOf with no tiers and no prior hook
+    // =========================================================================
+    function test_queueRulesetsOf_revert_InvalidHook_noTiersNoPriorHook() public {
+        // First launch a project (so it exists).
+        _launchProjectWithHook(address(0));
+
+        IJBController controller = IJBController(makeAddr("controller"));
+        IJBDirectory directory = IJBDirectory(makeAddr("directory"));
+        IJBRulesets rulesets = IJBRulesets(makeAddr("rulesets"));
+
+        // Mock controller validation chain.
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory));
+        vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
+            abi.encode(address(controller))
+        );
+
+        // Warp forward so block.timestamp > latestRulesetId (avoids RulesetIdsUnpredictable).
+        vm.warp(100);
+
+        // Mock latestRulesetIdOf to return a past timestamp.
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.RULESETS.selector), abi.encode(rulesets)
+        );
+        vm.mockCall(
+            address(rulesets),
+            abi.encodeWithSelector(IJBRulesets.latestRulesetIdOf.selector, projectId),
+            abi.encode(uint256(50)) // A past ruleset ID — no hook stored at this ID
+        );
+
+        JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
+        configs[0] = _makeRulesetConfig(address(0), true, false);
+
+        // Empty 721 config — no tiers, so it tries to carry forward an existing hook.
+        // But no hook was stored for rulesetId=1 via this deployer.
+        JBOmnichain721Config memory empty721Config;
+        vm.prank(projectOwner);
+        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_InvalidHook.selector);
+        deployer.queueRulesetsOf(projectId, empty721Config, configs, "", controller);
     }
 
     // =========================================================================

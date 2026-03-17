@@ -16,7 +16,7 @@
 ## 3. Access Control
 
 - **Wildcard MAP_SUCKER_TOKEN permission.** Constructor grants `SUCKER_REGISTRY` the `MAP_SUCKER_TOKEN` permission with `projectId=0` (wildcard). This grants the registry token-mapping rights across all projects ever deployed through this deployer.
-- **Permission checks on `launchRulesetsFor`.** Requires both `QUEUE_RULESETS` and `SET_TERMINALS` from the project owner. If an operator has one but not the other, the call reverts. No combined permission ID exists.
+- **Permission checks on `launchRulesetsFor`.** Requires both `LAUNCH_RULESETS` and `SET_TERMINALS` from the project owner. If an operator has one but not the other, the call reverts. No combined permission ID exists.
 - **No permission check on `launchProjectFor`.** Anyone can call it because a new project is being created. The `owner` parameter receives the project NFT -- verify frontends do not allow this to be set to unexpected addresses.
 
 ## 4. DoS Vectors
@@ -28,7 +28,7 @@
 ## 5. Integration Risks
 
 - **Hook config keyed by predicted rulesetId.** Configs stored at `block.timestamp + i` must match the actual rulesetId assigned by the controller. If the controller assigns different IDs (e.g., due to approval hook delays), the stored configs become unreachable -- payments/cashouts fall through to default behavior (no 721 handling, no extra hook).
-- **Carried-forward 721 hook on queue.** When `tiers.length == 0`, `queueRulesetsOf` carries forward the hook from `_tiered721HookOf[projectId][latestRulesetId]`. If the latest ruleset was not deployed through this deployer, the mapping is empty and `hook` is `address(0)`.
+- **Carried-forward 721 hook on queue.** When `tiers.length == 0`, `queueRulesetsOf` carries forward the hook from `_tiered721HookOf[projectId][latestRulesetId]`. If the latest ruleset was not deployed through this deployer, the mapping is empty and the call reverts with `JBOmnichainDeployer_InvalidHook`.
 - **ERC721Receiver restriction.** `onERC721Received` only accepts from `PROJECTS`. Any other NFTs sent to this contract are permanently lost.
 
 ## 6. Invariants to Verify
