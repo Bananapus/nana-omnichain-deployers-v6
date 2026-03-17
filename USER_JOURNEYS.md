@@ -64,7 +64,7 @@ There is a simplified overload that omits `deploy721Config` and derives a defaul
 ## Journey 2: Launch Rulesets for an Existing Project
 
 ### Actor
-Project owner or address with `QUEUE_RULESETS` + `SET_TERMINALS` permission.
+Project owner or address with `LAUNCH_RULESETS` + `SET_TERMINALS` permission.
 
 ### Entry Point
 ```solidity
@@ -84,7 +84,7 @@ Same as `launchProjectFor` except: no `owner`, no `suckerDeploymentConfiguration
 
 ### State Changes
 
-1. **Permission checks**: `QUEUE_RULESETS` and `SET_TERMINALS` required.
+1. **Permission checks**: `LAUNCH_RULESETS` and `SET_TERMINALS` required.
 2. **Controller validation**: `controller.DIRECTORY().controllerOf(projectId) == controller`. Reverts with `ControllerMismatch` if not.
 3. **New 721 hook deployed**: Always deploys a new hook (no carry-forward option).
 4. **Hook ownership transferred immediately**: Unlike `launchProjectFor`, the project already exists so ownership can be transferred right away.
@@ -95,7 +95,7 @@ Same as `launchProjectFor` except: no `owner`, no `suckerDeploymentConfiguration
 
 - **No ruleset ID prediction guard**: Unlike `queueRulesetsOf`, there is no check for `latestRulesetId >= block.timestamp`. If another ruleset operation happened in the same block, the predicted IDs may be wrong and the stored hooks will be keyed incorrectly.
 - **Controller mismatch**: Reverts immediately before any state changes.
-- **Insufficient permissions**: Reverts on the first failed permission check. Note: both `QUEUE_RULESETS` AND `SET_TERMINALS` are required -- having only one is not enough.
+- **Insufficient permissions**: Reverts on the first failed permission check. Note: both `LAUNCH_RULESETS` AND `SET_TERMINALS` are required -- having only one is not enough.
 
 ---
 
@@ -138,7 +138,7 @@ Same as `launchRulesetsFor` but without `terminalConfigurations`. Only requires 
   - The project was launched in the same block.
   - Another `queueRulesetsOf` was called in the same block (via deployer or directly on controller).
   - Multiple rulesets were launched causing `latestRulesetId = block.timestamp + N` where `N >= 0`.
-- **Carry-forward with no previous hook**: If `_tiered721HookOf[projectId][latestRulesetId]` was never set (project created outside the deployer), `hook` will be `address(0)`. The new rulesets will have a zero-address 721 hook stored, which means `beforePayRecordedWith` will skip the 721 path entirely.
+- **Carry-forward with no previous hook**: If `_tiered721HookOf[projectId][latestRulesetId]` was never set (project created outside the deployer), the call reverts with `JBOmnichainDeployer_InvalidHook`. This prevents storing a zero-address 721 hook.
 - **Carry-forward with stale hook**: If the project owner previously queued rulesets with a different 721 hook via the deployer, the carry-forward uses the hook from the LATEST ruleset, not the currently active one. Verify `latestRulesetIdOf` returns the most recently queued (not necessarily active) ruleset.
 - **Simplified overload**: The default config has 0 tiers, so the hook is always carried forward.
 

@@ -192,6 +192,7 @@ contract JBOmnichainDeployer is
             // slither-disable-next-line unused-return
             (, tiered721HookSpecs) = IJBRulesetDataHook(address(tiered721Config.hook)).beforePayRecordedWith(context);
             // The 721 hook returns a single spec (itself) whose amount is the total split amount.
+            // Only the first spec is used by design — JB721TiersHook always returns exactly one spec.
             if (tiered721HookSpecs.length > 0) {
                 hasTiered721Spec = true;
                 tiered721HookSpec = tiered721HookSpecs[0];
@@ -669,9 +670,10 @@ contract JBOmnichainDeployer is
         internal
         returns (uint256 rulesetId, IJB721TiersHook hook)
     {
-        // Enforce permissions.
+        // Enforce permissions. Use LAUNCH_RULESETS (not QUEUE_RULESETS) because this function calls
+        // controller.launchRulesetsFor, which sets terminals and requires the broader launch permission.
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.QUEUE_RULESETS
+            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.LAUNCH_RULESETS
         });
 
         _requirePermissionFrom({
@@ -745,6 +747,9 @@ contract JBOmnichainDeployer is
             JBOwnable(address(hook)).transferOwnershipToProject(projectId);
         } else {
             hook = _tiered721HookOf[projectId][latestRulesetId].hook;
+            // Revert if no hook exists to carry forward — this means no tiers were provided and
+            // no previous ruleset had a 721 hook deployed through this contract.
+            if (address(hook) == address(0)) revert JBOmnichainDeployer_InvalidHook();
         }
 
         // slither-disable-next-line reentrancy-benign
@@ -806,6 +811,9 @@ contract JBOmnichainDeployer is
     }
 
     /// @notice Validates that the provided controller matches the project's controller in the directory.
+    /// @dev The reflexive lookup (controller.DIRECTORY().controllerOf()) is intentional — it confirms the
+    /// caller-provided controller is the one the directory recognizes for this project, preventing a
+    /// malicious controller from being passed in.
     /// @param projectId The ID of the project to validate the controller for.
     /// @param controller The controller to validate.
     function _validateController(uint256 projectId, IJBController controller) internal view {

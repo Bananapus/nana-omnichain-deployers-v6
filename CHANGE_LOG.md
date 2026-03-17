@@ -87,7 +87,7 @@ v6 introduces overloads of `launchProjectFor`, `launchRulesetsFor`, and `queueRu
 
 ### 2.2 721 hook carry-forward on queue
 
-When queueing rulesets via `queueRulesetsOf`, if `deploy721Config.deployTiersHookConfig.tiersConfig.tiers.length == 0`, the 721 hook from the latest ruleset is carried forward instead of deploying a new one. This avoids unnecessary hook deployments when tiers haven't changed.
+When queueing rulesets via `queueRulesetsOf`, if `deploy721Config.deployTiersHookConfig.tiersConfig.tiers.length == 0`, the 721 hook from the latest ruleset is carried forward instead of deploying a new one. This avoids unnecessary hook deployments when tiers haven't changed. If no previous hook exists (project was not launched through this deployer), the call reverts with `JBOmnichainDeployer_InvalidHook`.
 
 ### 2.3 Controller validation
 
@@ -140,7 +140,7 @@ No events are defined directly in this contract or its interface in either v5 or
 
 | Error | Notes |
 |---|---|
-| `JBOmnichainDeployer_InvalidHook()` | Unchanged. Thrown when a data hook is set to this contract (self-reference prevention). |
+| `JBOmnichainDeployer_InvalidHook()` | Expanded. Also thrown when `queueRulesetsOf` tries to carry forward a null hook (no tiers provided and no previous hook deployed through this contract). |
 
 ### 4.3 Removed patterns
 
