@@ -481,7 +481,9 @@ contract OmnichainDeployerEdgeCases is Test {
         IJBDirectory directory = IJBDirectory(makeAddr("directory"));
 
         // Mock controller validation chain.
-        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
@@ -499,9 +501,7 @@ contract OmnichainDeployerEdgeCases is Test {
         JBOmnichain721Config memory empty721Config;
         vm.prank(projectOwner);
         vm.expectRevert();
-        deployer.launchRulesetsFor(
-            projectId, empty721Config, configs, new JBTerminalConfig[](0), "", controller
-        );
+        deployer.launchRulesetsFor(projectId, empty721Config, configs, new JBTerminalConfig[](0), "", controller);
     }
 
     // =========================================================================
@@ -516,7 +516,9 @@ contract OmnichainDeployerEdgeCases is Test {
         IJBRulesets rulesets = IJBRulesets(makeAddr("rulesets"));
 
         // Mock controller validation chain.
-        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
@@ -527,9 +529,7 @@ contract OmnichainDeployerEdgeCases is Test {
         vm.warp(100);
 
         // Mock latestRulesetIdOf to return a past timestamp.
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.RULESETS.selector), abi.encode(rulesets)
-        );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.RULESETS.selector), abi.encode(rulesets));
         vm.mockCall(
             address(rulesets),
             abi.encodeWithSelector(IJBRulesets.latestRulesetIdOf.selector, projectId),
