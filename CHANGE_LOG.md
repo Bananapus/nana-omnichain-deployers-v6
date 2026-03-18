@@ -32,6 +32,8 @@ Replaced by the `launchProjectFor(... JBOmnichain721Config ...)` overload descri
 
 Both v6 overloads now return `IJB721TiersHook hook` alongside `rulesetId`.
 
+v6 also corrects the permission boundary: `_launchRulesetsFor` now requires `JBPermissionIds.LAUNCH_RULESETS` instead of `QUEUE_RULESETS`. This is because the function calls `controller.launchRulesetsFor` (which sets terminals), requiring the broader launch permission. v5 incorrectly used `QUEUE_RULESETS` for this operation.
+
 ### 1.4 `launch721RulesetsFor` removed
 
 Replaced by the `launchRulesetsFor(... JBOmnichain721Config ...)` overload described above.
