@@ -369,6 +369,7 @@ contract OmnichainDeployerAttacks is Test {
             }),
             useTotalSurplus: false,
             cashOutTaxRate: 5000,
+            beneficiaryIsFeeless: false,
             metadata: ""
         });
     }

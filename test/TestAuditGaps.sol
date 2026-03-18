@@ -177,9 +177,8 @@ contract ManySpecsHook is IJBRulesetDataHook {
         specs = new JBPayHookSpecification[](specCount);
         for (uint256 i; i < specCount; i++) {
             // forge-lint: disable-next-line(unsafe-typecast)
-            specs[i] = JBPayHookSpecification({
-                hook: IJBPayHook(address(uint160(200 + i))), amount: 0.001 ether, metadata: ""
-            });
+            address hookAddr = address(uint160(200 + i));
+            specs[i] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0.001 ether, metadata: ""});
         }
         return (context.weight, specs);
     }
@@ -907,6 +906,7 @@ contract TestAuditGaps is Test {
             }),
             useTotalSurplus: false,
             cashOutTaxRate: 5000,
+            beneficiaryIsFeeless: false,
             metadata: ""
         });
     }
