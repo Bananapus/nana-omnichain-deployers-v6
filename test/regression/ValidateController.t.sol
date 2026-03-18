@@ -14,6 +14,7 @@ import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadat
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookProjectDeployer.sol";
+import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 import {IJBOwnable} from "@bananapus/ownable-v6/src/interfaces/IJBOwnable.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -113,7 +114,15 @@ contract ValidateController is Test {
     function test_queueRulesetsOf_succeedsWithLegitimateController() public {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig();
-        JBOmnichain721Config memory empty721Config;
+
+        // Provide a 721 config with one tier so the deployer deploys a new hook
+        // instead of trying to carry forward a non-existent one.
+        JBOmnichain721Config memory config721;
+        config721.deployTiersHookConfig.tiersConfig.tiers = new JB721TierConfig[](1);
+        config721.deployTiersHookConfig.tiersConfig.tiers[0].price = 1 ether;
+        config721.deployTiersHookConfig.tiersConfig.tiers[0].initialSupply = 100;
+        config721.deployTiersHookConfig.tiersConfig.currency = uint32(uint160(JBConstants.NATIVE_TOKEN));
+        config721.deployTiersHookConfig.tiersConfig.decimals = 18;
 
         // Mock the controller.queueRulesetsOf to succeed.
         vm.mockCall(
@@ -123,7 +132,7 @@ contract ValidateController is Test {
         );
 
         // Should not revert.
-        deployer.queueRulesetsOf(projectId, empty721Config, configs, "memo", legitimateController);
+        deployer.queueRulesetsOf(projectId, config721, configs, "memo", legitimateController);
     }
 
     // ──────────────────── launchRulesetsFor
