@@ -32,7 +32,7 @@ Replaced by the `launchProjectFor(... JBOmnichain721Config ...)` overload descri
 
 Both v6 overloads now return `IJB721TiersHook hook` alongside `rulesetId`.
 
-v6 also corrects the permission boundary: `_launchRulesetsFor` now requires `JBPermissionIds.LAUNCH_RULESETS` instead of `QUEUE_RULESETS`. This is because the function calls `controller.launchRulesetsFor` (which sets terminals), requiring the broader launch permission. v5 incorrectly used `QUEUE_RULESETS` for this operation.
+v6 also uses the newly separated `LAUNCH_RULESETS` permission for `_launchRulesetsFor`. In v5, both `launchRulesetsFor` and `queueRulesetsOf` shared the same `QUEUE_RULESETS` permission ID. v6 splits these into two distinct permission IDs (`LAUNCH_RULESETS` and `QUEUE_RULESETS`), so `_launchRulesetsFor` now correctly requires `LAUNCH_RULESETS` since it calls `controller.launchRulesetsFor` (which sets terminals).
 
 ### 1.4 `launch721RulesetsFor` removed
 
@@ -48,6 +48,8 @@ Replaced by the `launchRulesetsFor(... JBOmnichain721Config ...)` overload descr
 - **v6 `queueRulesetsOf` (default 721)**: Accepts `JBRulesetConfig[]`, `string memo`, `IJBController`. Returns `(uint256 rulesetId, IJB721TiersHook hook)`.
 
 Both v6 overloads now return `IJB721TiersHook hook` alongside `rulesetId`.
+
+v6 also fixes a bug (H-20) in v5's `queue721RulesetsOf`: the v5 implementation deployed the 721 hook but never called `JBOwnable(hook).transferOwnershipToProject(projectId)`, leaving the hook owned by the deployer contract rather than the project. In v6, all paths that deploy a 721 hook — including `_queueRulesetsOf` — properly transfer hook ownership to the project.
 
 ### 1.6 `queue721RulesetsOf` removed
 
@@ -77,7 +79,7 @@ The `dataHook` field moved from last to first. This changes ABI encoding and is 
 
 **v5** used `JBDeploy721TiersHookConfig`, `JBLaunchProjectConfig`, `JBLaunchRulesetsConfig`, `JBQueueRulesetsConfig`, and `JBPayDataHookRulesetConfig` from `@bananapus/721-hook-v5`.
 
-**v6** replaces all of these with the new `JBOmnichain721Config` struct (see Section 5). The deployer now accepts standard `JBRulesetConfig[]` directly instead of the 721-specific config wrappers.
+**v6** removes `JBLaunchProjectConfig`, `JBLaunchRulesetsConfig`, `JBQueueRulesetsConfig`, and `JBPayDataHookRulesetConfig` — the deployer now accepts standard `JBRulesetConfig[]` directly instead of those 721-specific config wrappers. `JBDeploy721TiersHookConfig` is still used but is now wrapped inside the new `JBOmnichain721Config` struct (see Section 5) rather than passed as a standalone parameter.
 
 ---
 
