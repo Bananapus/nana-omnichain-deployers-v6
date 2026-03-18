@@ -49,7 +49,7 @@ Replaced by the `launchRulesetsFor(... JBOmnichain721Config ...)` overload descr
 
 Both v6 overloads now return `IJB721TiersHook hook` alongside `rulesetId`.
 
-v6 also fixes a bug (H-20) in v5's `queue721RulesetsOf`: the v5 implementation deployed the 721 hook but never called `JBOwnable(hook).transferOwnershipToProject(projectId)`, leaving the hook owned by the deployer contract rather than the project. In v6, all paths that deploy a 721 hook — including `_queueRulesetsOf` — properly transfer hook ownership to the project.
+v6 also fixes v5's `queue721RulesetsOf` which deployed the 721 hook but never called `JBOwnable(hook).transferOwnershipToProject(projectId)`, leaving the hook owned by the deployer contract rather than the project. In v6, all paths that deploy a 721 hook — including `_queueRulesetsOf` — properly transfer hook ownership to the project.
 
 ### 1.6 `queue721RulesetsOf` removed
 
