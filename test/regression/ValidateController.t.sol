@@ -121,8 +121,7 @@ contract ValidateController is Test {
         config721.deployTiersHookConfig.tiersConfig.tiers = new JB721TierConfig[](1);
         config721.deployTiersHookConfig.tiersConfig.tiers[0].price = 1 ether;
         config721.deployTiersHookConfig.tiersConfig.tiers[0].initialSupply = 100;
-        config721.deployTiersHookConfig.tiersConfig.currency =
-            uint32(uint160(JBConstants.NATIVE_TOKEN));
+        config721.deployTiersHookConfig.tiersConfig.currency = uint32(uint160(JBConstants.NATIVE_TOKEN));
         config721.deployTiersHookConfig.tiersConfig.decimals = 18;
 
         // Mock the controller.queueRulesetsOf to succeed.
