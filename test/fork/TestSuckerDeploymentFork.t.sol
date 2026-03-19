@@ -18,6 +18,9 @@ import {JBOptimismSucker} from "@bananapus/suckers-v6/src/JBOptimismSucker.sol";
 import {IOPMessenger} from "@bananapus/suckers-v6/src/interfaces/IOPMessenger.sol";
 import {IOPStandardBridge} from "@bananapus/suckers-v6/src/interfaces/IOPStandardBridge.sol";
 
+import {IJBSucker} from "@bananapus/suckers-v6/src/interfaces/IJBSucker.sol";
+import {JBRemoteToken} from "@bananapus/suckers-v6/src/structs/JBRemoteToken.sol";
+
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 
 /// @notice Fork tests verifying real sucker deployment through JBOmnichainDeployer.
@@ -183,6 +186,25 @@ contract TestSuckerDeploymentFork is OmnichainForkTestBase {
         assertEq(returnedTaxRate, 0, "sucker should get 0% cashout tax rate");
         assertEq(returnedCashOutCount, context.cashOutCount, "cashOutCount should be passed through");
         assertEq(returnedTotalSupply, context.totalSupply, "totalSupply should be passed through");
+    }
+
+    /// @notice After deploying with real suckers, verify the token mapping was applied to the deployed sucker.
+    function testFork_SuckerTokenMappingApplied() public {
+        (, address[] memory suckers) = _deployWithSuckers(5000);
+        address suckerAddr = suckers[0];
+
+        // Verify the NATIVE_TOKEN mapping was applied.
+        assertTrue(IJBSucker(suckerAddr).isMapped(JBConstants.NATIVE_TOKEN), "sucker should have NATIVE_TOKEN mapped");
+
+        // Verify the remote token details match the configured mapping.
+        JBRemoteToken memory remote = IJBSucker(suckerAddr).remoteTokenFor(JBConstants.NATIVE_TOKEN);
+        assertEq(
+            remote.addr,
+            bytes32(uint256(uint160(JBConstants.NATIVE_TOKEN))),
+            "remote token address should match configured mapping"
+        );
+        assertEq(remote.minGas, 200_000, "remote token minGas should match configured value");
+        assertTrue(remote.enabled, "remote token mapping should be enabled");
     }
 
     /// @notice After deploying with real suckers, the omnichain deployer grants mint permission to the sucker.
