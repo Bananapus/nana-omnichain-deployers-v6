@@ -73,7 +73,8 @@ contract TestSuckerDeploymentFork is OmnichainForkTestBase {
         });
 
         JBSuckerDeployerConfig[] memory deployerConfigs = new JBSuckerDeployerConfig[](1);
-        deployerConfigs[0] = JBSuckerDeployerConfig({deployer: IJBSuckerDeployer(address(opSuckerDeployer)), mappings: mappings});
+        deployerConfigs[0] =
+            JBSuckerDeployerConfig({deployer: IJBSuckerDeployer(address(opSuckerDeployer)), mappings: mappings});
 
         return JBSuckerDeploymentConfig({
             deployerConfigurations: deployerConfigs,
@@ -118,7 +119,9 @@ contract TestSuckerDeploymentFork is OmnichainForkTestBase {
         assertEq(registeredSuckers[0], suckerAddr, "registered sucker should match deployed sucker");
 
         // Verify isSuckerOf returns true.
-        assertTrue(suckerRegistry.isSuckerOf(projectId, suckerAddr), "isSuckerOf should return true for deployed sucker");
+        assertTrue(
+            suckerRegistry.isSuckerOf(projectId, suckerAddr), "isSuckerOf should return true for deployed sucker"
+        );
 
         // Sanity: isSuckerOf should return false for a random address.
         assertFalse(
@@ -192,8 +195,7 @@ contract TestSuckerDeploymentFork is OmnichainForkTestBase {
 
         // Verify the sucker has mint permission.
         assertTrue(
-            omnichainDeployer.hasMintPermissionFor(projectId, ruleset, suckerAddr),
-            "sucker should have mint permission"
+            omnichainDeployer.hasMintPermissionFor(projectId, ruleset, suckerAddr), "sucker should have mint permission"
         );
 
         // Sanity: a random address should NOT have mint permission.
