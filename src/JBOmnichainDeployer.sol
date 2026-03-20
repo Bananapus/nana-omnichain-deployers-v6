@@ -142,29 +142,68 @@ contract JBOmnichainDeployer is
         external
         view
         override
-        returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory hookSpecifications)
+        returns (
+            uint256 cashOutTaxRate,
+            uint256 cashOutCount,
+            uint256 totalSupply,
+            JBCashOutHookSpecification[] memory hookSpecifications
+        )
     {
         // If the cash out is from a sucker, return the full cash out amount without taxes or fees.
         if (SUCKER_REGISTRY.isSuckerOf({projectId: context.projectId, addr: context.holder})) {
             return (0, context.cashOutCount, context.totalSupply, hookSpecifications);
         }
 
+        cashOutTaxRate = context.cashOutTaxRate;
+        cashOutCount = context.cashOutCount;
+        totalSupply = context.totalSupply;
+
+        JBCashOutHookSpecification[] memory tiered721HookSpecifications;
+
         // Check the 721 hook first.
         JBTiered721HookConfig memory tiered721Config = _tiered721HookOf[context.projectId][context.rulesetId];
         if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
-            // slither-disable-next-line unused-return
-            return IJBRulesetDataHook(address(tiered721Config.hook)).beforeCashOutRecordedWith(context);
+            JBBeforeCashOutRecordedContext memory hookContext = context;
+            hookContext.cashOutTaxRate = cashOutTaxRate;
+            hookContext.cashOutCount = cashOutCount;
+            hookContext.totalSupply = totalSupply;
+
+            (cashOutTaxRate, cashOutCount, totalSupply, tiered721HookSpecifications) =
+                IJBRulesetDataHook(address(tiered721Config.hook)).beforeCashOutRecordedWith(hookContext);
         }
+
+        JBCashOutHookSpecification[] memory extraHookSpecifications;
 
         // Check the extra data hook.
         JBDeployerHookConfig memory extraHook = _extraDataHookOf[context.projectId][context.rulesetId];
         if (address(extraHook.dataHook) != address(0) && extraHook.useDataHookForCashOut) {
-            // slither-disable-next-line unused-return
-            return extraHook.dataHook.beforeCashOutRecordedWith(context);
+            JBBeforeCashOutRecordedContext memory hookContext = context;
+            hookContext.cashOutTaxRate = cashOutTaxRate;
+            hookContext.cashOutCount = cashOutCount;
+            hookContext.totalSupply = totalSupply;
+
+            (cashOutTaxRate, cashOutCount, totalSupply, extraHookSpecifications) =
+                extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
         }
 
-        // No hooks handled it — return original values.
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, hookSpecifications);
+        if (tiered721HookSpecifications.length == 0 && extraHookSpecifications.length == 0) {
+            return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
+        }
+
+        hookSpecifications = new JBCashOutHookSpecification[](
+            tiered721HookSpecifications.length + extraHookSpecifications.length
+        );
+
+        uint256 hookSpecificationIndex;
+        for (uint256 i; i < tiered721HookSpecifications.length; i++) {
+            hookSpecifications[hookSpecificationIndex++] = tiered721HookSpecifications[i];
+        }
+
+        for (uint256 i; i < extraHookSpecifications.length; i++) {
+            hookSpecifications[hookSpecificationIndex++] = extraHookSpecifications[i];
+        }
+
+        return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
     }
 
     /// @notice Forward the call to the original data hook.
