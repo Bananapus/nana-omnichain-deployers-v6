@@ -85,6 +85,7 @@ contract CustomCashOutHook is IJBRulesetDataHook {
             hookSpecifications = new JBCashOutHookSpecification[](1);
             hookSpecifications[0] = JBCashOutHookSpecification({
                 hook: IJBCashOutHook(address(this)),
+                noop: false,
                 amount: cashOutHookAmountReturn,
                 metadata: cashOutHookMetadataReturn
             });
@@ -236,7 +237,7 @@ contract OmnichainDeployerEdgeCases is Test {
         _storeTiered721Hook(mock721);
 
         JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](1);
-        specs[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), amount: 1 ether, metadata: ""});
+        specs[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 1 ether, metadata: ""});
 
         vm.mockCall(
             mock721,
@@ -286,7 +287,7 @@ contract OmnichainDeployerEdgeCases is Test {
         _storeTiered721Hook(mock721);
 
         JBPayHookSpecification[] memory specs721 = new JBPayHookSpecification[](1);
-        specs721[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), amount: 0.5 ether, metadata: ""});
+        specs721[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 0.5 ether, metadata: ""});
 
         vm.mockCall(
             mock721,
@@ -425,9 +426,7 @@ contract OmnichainDeployerEdgeCases is Test {
 
         JBCashOutHookSpecification[] memory specs = new JBCashOutHookSpecification[](1);
         specs[0] = JBCashOutHookSpecification({
-            hook: IJBCashOutHook(mock721),
-            amount: 11,
-            metadata: abi.encode(uint256(1))
+            hook: IJBCashOutHook(mock721), noop: false, amount: 11, metadata: abi.encode(uint256(1))
         });
 
         vm.mockCall(
@@ -454,11 +453,7 @@ contract OmnichainDeployerEdgeCases is Test {
         assertEq(hookSpecifications[0].metadata, abi.encode(uint256(1)), "721 hook metadata should be preserved");
         assertEq(address(hookSpecifications[1].hook), address(customHook), "Custom hook spec should come second");
         assertEq(hookSpecifications[1].amount, 22, "Custom hook spec amount should be preserved");
-        assertEq(
-            hookSpecifications[1].metadata,
-            abi.encode(uint256(2)),
-            "Custom hook metadata should be preserved"
-        );
+        assertEq(hookSpecifications[1].metadata, abi.encode(uint256(2)), "Custom hook metadata should be preserved");
     }
 
     // =========================================================================

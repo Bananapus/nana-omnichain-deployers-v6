@@ -190,9 +190,8 @@ contract JBOmnichainDeployer is
             return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
         }
 
-        hookSpecifications = new JBCashOutHookSpecification[](
-            tiered721HookSpecifications.length + extraHookSpecifications.length
-        );
+        hookSpecifications =
+            new JBCashOutHookSpecification[](tiered721HookSpecifications.length + extraHookSpecifications.length);
 
         uint256 hookSpecificationIndex;
         for (uint256 i; i < tiered721HookSpecifications.length; i++) {

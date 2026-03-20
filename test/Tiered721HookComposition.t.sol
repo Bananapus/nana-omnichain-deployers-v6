@@ -107,7 +107,8 @@ contract Tiered721HookComposition is Test {
             address(suckerRegistry), abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false)
         );
         JBPayHookSpecification[] memory default721Specs = new JBPayHookSpecification[](1);
-        default721Specs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0, metadata: bytes("")});
+        default721Specs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(hookAddr), noop: false, amount: 0, metadata: bytes("")});
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -171,8 +172,9 @@ contract Tiered721HookComposition is Test {
         _launch721({dataHook: buybackHookAddr, useForPay: true, useForCashOut: false, use721ForCashOut: false});
         uint256 buybackWeight = 555;
         JBPayHookSpecification[] memory buybackSpecs = new JBPayHookSpecification[](1);
-        buybackSpecs[0] =
-            JBPayHookSpecification({hook: IJBPayHook(buybackHookAddr), amount: 0.5 ether, metadata: bytes("buyback")});
+        buybackSpecs[0] = JBPayHookSpecification({
+            hook: IJBPayHook(buybackHookAddr), noop: false, amount: 0.5 ether, metadata: bytes("buyback")
+        });
         vm.mockCall(
             buybackHookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -211,6 +213,7 @@ contract Tiered721HookComposition is Test {
             userSpecs[i] = JBPayHookSpecification({
                 // forge-lint: disable-next-line(unsafe-typecast)
                 hook: IJBPayHook(address(uint160(100 + i))),
+                noop: false,
                 amount: (i + 1) * 0.1 ether,
                 metadata: bytes("")
             });
@@ -248,8 +251,9 @@ contract Tiered721HookComposition is Test {
         uint256 splitAmount = 0.3 ether;
         bytes memory splitMetadata = abi.encode(uint256(1), uint256(2));
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
-        hookSpecs[0] =
-            JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: splitAmount, metadata: splitMetadata});
+        hookSpecs[0] = JBPayHookSpecification({
+            hook: IJBPayHook(hookAddr), noop: false, amount: splitAmount, metadata: splitMetadata
+        });
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -268,8 +272,9 @@ contract Tiered721HookComposition is Test {
         _launch721({dataHook: buybackHookAddr, useForPay: true, useForCashOut: false, use721ForCashOut: false});
         uint256 splitAmount = 0.25 ether;
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
-        hookSpecs[0] =
-            JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: splitAmount, metadata: abi.encode(uint256(5))});
+        hookSpecs[0] = JBPayHookSpecification({
+            hook: IJBPayHook(hookAddr), noop: false, amount: splitAmount, metadata: abi.encode(uint256(5))
+        });
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -277,8 +282,9 @@ contract Tiered721HookComposition is Test {
         );
         uint256 buybackWeight = 555;
         JBPayHookSpecification[] memory buybackSpecs = new JBPayHookSpecification[](1);
-        buybackSpecs[0] =
-            JBPayHookSpecification({hook: IJBPayHook(buybackHookAddr), amount: 0.5 ether, metadata: bytes("buyback")});
+        buybackSpecs[0] = JBPayHookSpecification({
+            hook: IJBPayHook(buybackHookAddr), noop: false, amount: 0.5 ether, metadata: bytes("buyback")
+        });
         vm.mockCall(
             buybackHookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -297,7 +303,8 @@ contract Tiered721HookComposition is Test {
     function test_beforePay_721HookReturnsSingleSpec() public {
         _launch721({dataHook: address(0), useForPay: false, useForCashOut: false, use721ForCashOut: false});
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
-        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0.3 ether, metadata: bytes("")});
+        hookSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(hookAddr), noop: false, amount: 0.3 ether, metadata: bytes("")});
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -546,8 +553,9 @@ contract Tiered721HookComposition is Test {
             controller
         );
         JBPayHookSpecification[] memory buybackSpecs = new JBPayHookSpecification[](1);
-        buybackSpecs[0] =
-            JBPayHookSpecification({hook: IJBPayHook(buybackHookAddr), amount: 0.5 ether, metadata: bytes("")});
+        buybackSpecs[0] = JBPayHookSpecification({
+            hook: IJBPayHook(buybackHookAddr), noop: false, amount: 0.5 ether, metadata: bytes("")
+        });
         vm.mockCall(
             buybackHookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -569,7 +577,8 @@ contract Tiered721HookComposition is Test {
     function test_beforePay_weightAdjustedForSplits() public {
         _launch721({dataHook: address(0), useForPay: false, useForCashOut: false, use721ForCashOut: false});
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
-        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0.5 ether, metadata: bytes("")});
+        hookSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(hookAddr), noop: false, amount: 0.5 ether, metadata: bytes("")});
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -583,7 +592,8 @@ contract Tiered721HookComposition is Test {
     function test_beforePay_buybackSeesReducedAmount() public {
         _launch721({dataHook: customHookAddr, useForPay: true, useForCashOut: false, use721ForCashOut: false});
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
-        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0.4 ether, metadata: bytes("")});
+        hookSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(hookAddr), noop: false, amount: 0.4 ether, metadata: bytes("")});
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -603,7 +613,8 @@ contract Tiered721HookComposition is Test {
     function test_beforePay_fullSplit_weightZero() public {
         _launch721({dataHook: address(0), useForPay: false, useForCashOut: false, use721ForCashOut: false});
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
-        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 1 ether, metadata: bytes("")});
+        hookSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(hookAddr), noop: false, amount: 1 ether, metadata: bytes("")});
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -617,14 +628,15 @@ contract Tiered721HookComposition is Test {
     function test_beforePay_noSplit_noAdjustment() public {
         _launch721({dataHook: buybackHookAddr, useForPay: true, useForCashOut: false, use721ForCashOut: false});
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
-        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0, metadata: bytes("")});
+        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), noop: false, amount: 0, metadata: bytes("")});
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
             abi.encode(uint256(1000), hookSpecs)
         );
         JBPayHookSpecification[] memory buybackSpecs = new JBPayHookSpecification[](1);
-        buybackSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(buybackHookAddr), amount: 0, metadata: bytes("")});
+        buybackSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(buybackHookAddr), noop: false, amount: 0, metadata: bytes("")});
         vm.mockCall(
             buybackHookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -642,7 +654,8 @@ contract Tiered721HookComposition is Test {
     function test_beforePay_splitPlusBuybackAMM_correctWeight() public {
         _launch721({dataHook: buybackHookAddr, useForPay: true, useForCashOut: false, use721ForCashOut: false});
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
-        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0.4 ether, metadata: bytes("")});
+        hookSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(hookAddr), noop: false, amount: 0.4 ether, metadata: bytes("")});
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -650,8 +663,9 @@ contract Tiered721HookComposition is Test {
         );
         uint256 buybackWeight = 2000;
         JBPayHookSpecification[] memory buybackSpecs = new JBPayHookSpecification[](1);
-        buybackSpecs[0] =
-            JBPayHookSpecification({hook: IJBPayHook(buybackHookAddr), amount: 0.6 ether, metadata: bytes("swap")});
+        buybackSpecs[0] = JBPayHookSpecification({
+            hook: IJBPayHook(buybackHookAddr), noop: false, amount: 0.6 ether, metadata: bytes("swap")
+        });
         vm.mockCall(
             buybackHookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -670,7 +684,8 @@ contract Tiered721HookComposition is Test {
     function test_beforePay_splitPlusBuybackMintPath_correctWeight() public {
         _launch721({dataHook: buybackHookAddr, useForPay: true, useForCashOut: false, use721ForCashOut: false});
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
-        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(hookAddr), amount: 0.2 ether, metadata: bytes("")});
+        hookSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(hookAddr), noop: false, amount: 0.2 ether, metadata: bytes("")});
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
