@@ -193,13 +193,15 @@ contract JBOmnichainDeployer is
         hookSpecifications =
             new JBCashOutHookSpecification[](tiered721HookSpecifications.length + extraHookSpecifications.length);
 
-        uint256 hookSpecificationIndex;
-        for (uint256 i; i < tiered721HookSpecifications.length; i++) {
-            hookSpecifications[hookSpecificationIndex++] = tiered721HookSpecifications[i];
+        // tiered721HookSpecifications is always 0 or 1 element.
+        uint256 offset;
+        if (tiered721HookSpecifications.length != 0) {
+            hookSpecifications[0] = tiered721HookSpecifications[0];
+            offset = 1;
         }
 
         for (uint256 i; i < extraHookSpecifications.length; i++) {
-            hookSpecifications[hookSpecificationIndex++] = extraHookSpecifications[i];
+            hookSpecifications[offset + i] = extraHookSpecifications[i];
         }
 
         return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
