@@ -12,7 +12,7 @@ It works by inserting itself as the data hook on every ruleset it touches, stori
 
 - **Checks if the holder is a sucker** -- if so, returns 0% cash out tax and grants mint permission. This early return means suckers can always bridge tokens without interference, even if the project's hooks would revert.
 - **Composes the 721 hook and custom data hook** for payments -- the 721 hook is called first (via `tiered721HookOf`) to get its specs (including split fund amounts), then the custom hook from `_extraDataHookOf` (if `useDataHookForPay: true`) is called with a reduced amount context (payment minus split amount) so it only considers the available funds. The deployer adjusts the returned weight proportionally for splits, ensuring the terminal only mints tokens for the amount that actually enters the project treasury. If the 721 hook returns no specs (0 tiers), it is skipped in the merged output.
-- **Checks hooks for cash outs** -- the 721 hook is checked first (if `useDataHookForCashOut: true`), then the custom hook. The first with the flag set handles the cash out. If the 721 hook has `useDataHookForCashOut: true` and reverts (e.g., for fungible-only cashouts), that revert propagates. Set `useDataHookForCashOut: false` on the 721 config to skip it and let the custom hook handle cashouts instead.
+- **Composes hooks for cash outs** -- the 721 hook is called first (if `useDataHookForCashOut: true`), updating the cash out parameters (tax rate, count, supply). Then the custom hook is called (if `useDataHookForCashOut: true`) with the already-updated values from the 721 hook. Both hooks' specifications are merged into a single array (721 specs first, then custom hook specs). If the 721 hook has `useDataHookForCashOut: true` and reverts (e.g., for fungible-only cashouts), that revert propagates. Set `useDataHookForCashOut: false` on the 721 config to skip it.
 - **Returns default values** if neither hook has the relevant flag set.
 
 This wrapping is invisible to the project and its users. The project's hooks (buyback hook, 721 hook, etc.) work exactly as configured, and can be composed together.
@@ -46,16 +46,23 @@ sequenceDiagram
     participant Terminal
     participant Deployer as JBOmnichainDeployer
     participant Registry as JBSuckerRegistry
-    participant Hook as 721 / Custom Hook
+    participant Hook721 as 721 Hook
+    participant HookExtra as Custom Hook
 
     Terminal->>Deployer: beforeCashOutRecordedWith(context)
     Deployer->>Registry: isSuckerOf(projectId, holder)?
     alt Holder is a sucker
         Deployer-->>Terminal: 0% tax (early return)
-    else 721 or custom hook with useDataHookForCashOut=true
-        Deployer->>Hook: beforeCashOutRecordedWith(context)
-        Hook-->>Deployer: taxRate, count, supply, specs
-        Deployer-->>Terminal: forward hook response
+    else Hooks configured
+        opt 721 hook with useDataHookForCashOut=true
+            Deployer->>Hook721: beforeCashOutRecordedWith(context)
+            Hook721-->>Deployer: updated taxRate, count, supply, specs
+        end
+        opt Custom hook with useDataHookForCashOut=true
+            Deployer->>HookExtra: beforeCashOutRecordedWith(updated context)
+            HookExtra-->>Deployer: further updated values + specs
+        end
+        Deployer-->>Terminal: merged specs from both hooks
     else Neither hook has useDataHookForCashOut=true
         Deployer-->>Terminal: original values (default)
     end
@@ -73,7 +80,7 @@ Every project deployed through `JBOmnichainDeployer` gets a 721 tiers hook, even
 
 For `queueRulesetsOf`, if no new tiers are provided, the 721 hook from the latest ruleset is carried forward instead of deploying a new one.
 
-This means a project can have both a 721 hook (for NFT minting on payments) and a custom data hook (for buyback, custom weight logic, etc.) running simultaneously. During payments, both hooks' specifications are merged. During cash outs, the 721 hook is checked first (if `useDataHookForCashOut: true`), then the custom hook.
+This means a project can have both a 721 hook (for NFT minting on payments) and a custom data hook (for buyback, custom weight logic, etc.) running simultaneously. During both payments and cash outs, the hooks are called sequentially (721 hook first, then custom hook) and their specifications are merged.
 
 ### Simplified Overloads
 

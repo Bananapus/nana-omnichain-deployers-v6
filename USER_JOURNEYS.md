@@ -224,18 +224,20 @@ JBOmnichainDeployer.beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext cal
     external view returns (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply, JBCashOutHookSpecification[] memory)
 ```
 
-### Flow (priority chain -- first match wins)
+### Flow (sequential composition)
 
 1. **Sucker check**: `SUCKER_REGISTRY.isSuckerOf(context.projectId, context.holder)`. If true: return `(0, context.cashOutCount, context.totalSupply, [])`. Sucker gets full pro-rata reclaim, 0% tax.
-2. **721 hook**: If stored and `useDataHookForCashOut == true`, forward entirely to `tiered721Config.hook.beforeCashOutRecordedWith(context)`. Whatever the 721 hook returns is the final answer.
-3. **Custom hook**: If stored and `useDataHookForCashOut == true`, forward entirely to `extraHook.dataHook.beforeCashOutRecordedWith(context)`.
-4. **Fallback**: Return `(context.cashOutTaxRate, context.cashOutCount, context.totalSupply, [])`.
+2. **Initialize values** from `context`: `cashOutTaxRate`, `cashOutCount`, `totalSupply`.
+3. **721 hook**: If stored and `useDataHookForCashOut == true`, call `tiered721Config.hook.beforeCashOutRecordedWith(context)`. Updates `cashOutTaxRate`, `cashOutCount`, `totalSupply`, and stores any returned hook specifications (always 0 or 1).
+4. **Custom hook**: If stored and `useDataHookForCashOut == true`, call `extraHook.dataHook.beforeCashOutRecordedWith(context)` with the already-updated values from the 721 hook. Further updates `cashOutTaxRate`, `cashOutCount`, `totalSupply`, and stores any returned hook specifications.
+5. **Merge specs**: If either hook returned specifications, merge them (721 specs first, then custom hook specs) and return.
+6. **Fallback**: If neither hook returned specs, return the adjusted values with no hook specs.
 
 ### Edge Cases
 
 - **Sucker with reverting 721 hook**: The sucker check is first, so the 721 hook is never called. The sucker always gets 0% tax even if the 721 hook would revert.
 - **Non-sucker with 721 `useDataHookForCashOut = true`**: The 721 hook is called. For fungible cash-outs, the 721 hook typically reverts with `JB721Hook_UnexpectedTokenCashedOut()`. This revert propagates -- the non-sucker cannot cash out fungible tokens. Set `useDataHookForCashOut = false` in the `deploy721Config` to avoid this.
-- **Both 721 and custom hooks have `useDataHookForCashOut = true`**: Only the 721 hook is consulted. The custom hook is never reached for cash-outs when the 721 hook is configured.
+- **Both 721 and custom hooks have `useDataHookForCashOut = true`**: Both hooks are called sequentially. The 721 hook is called first, and the custom hook receives the already-updated values. Their specifications are merged.
 - **Neither hook has `useDataHookForCashOut = true`**: Falls through to the original values. The ruleset's `cashOutTaxRate` applies as normal.
 
 ---
@@ -281,7 +283,7 @@ If the custom hook has `useDataHookForCashOut = true` and the 721 hook does not 
 - Suckers: Unaffected. The sucker check returns before the hook is consulted.
 - Non-suckers: Cash-outs revert. Tokens are locked until new rulesets are queued.
 
-If the 721 hook has `useDataHookForCashOut = true`: The 721 hook is consulted first. If IT reverts, cash-outs fail regardless of the custom hook.
+If the 721 hook has `useDataHookForCashOut = true`: The 721 hook is called first. If IT reverts, cash-outs fail regardless of the custom hook (the revert propagates before the custom hook is reached).
 
 ### Impact on Mint Permission
 If the custom hook reverts on `hasMintPermissionFor`, the call propagates the revert. Suckers are unaffected (checked first). Non-suckers cannot get mint permission.

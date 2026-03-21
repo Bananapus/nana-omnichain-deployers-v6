@@ -178,13 +178,15 @@ function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata conte
     external view returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
 ```
 
-**Priority chain**:
+**Sequential composition**:
 1. **Sucker check** (early return): If `SUCKER_REGISTRY.isSuckerOf(projectId, holder)` returns true, return `(0, cashOutCount, totalSupply, empty)`.
-2. **721 hook**: If stored and `useDataHookForCashOut == true`, forward entirely to 721 hook.
-3. **Custom hook**: If stored and `useDataHookForCashOut == true`, forward entirely to custom hook.
-4. **Fallback**: Return original `(cashOutTaxRate, cashOutCount, totalSupply, empty)`.
+2. **Initialize**: Set `cashOutTaxRate`, `cashOutCount`, `totalSupply` from context.
+3. **721 hook**: If stored and `useDataHookForCashOut == true`, call its `beforeCashOutRecordedWith` with current values. Updates `cashOutTaxRate`, `cashOutCount`, `totalSupply`, and stores returned specs (always 0 or 1).
+4. **Custom hook**: If stored and `useDataHookForCashOut == true`, call its `beforeCashOutRecordedWith` with the already-updated values from the 721 hook. Further updates values and stores returned specs.
+5. **Merge specs**: If either hook returned specs, merge them (721 first, then custom) into a single array.
+6. **Fallback**: If neither returned specs, return adjusted `(cashOutTaxRate, cashOutCount, totalSupply, empty)`.
 
-Note: Cash-out hooks are mutually exclusive -- if the 721 hook handles it, the custom hook is never reached. The sucker check always takes priority.
+Note: Both hooks are called if both have the flag set. The 721 hook's output feeds into the custom hook's input. The sucker check always takes priority.
 
 ### 7. `hasMintPermissionFor` (data hook proxy -- view)
 
@@ -228,7 +230,7 @@ For each ruleset config at index `i`:
 
 3. **721 hook always deployed**: Even with 0 tiers, a 721 hook is deployed for every project/ruleset launch. This is intentional -- it ensures the hook exists for future tier additions.
 
-4. **Cash-out hooks are not composed**: Unlike pay hooks (which merge 721 + custom specs), cash-out handling is first-match-wins. If the 721 hook's `useDataHookForCashOut` is true, the custom hook is never consulted for cash-outs.
+4. **Cash-out hooks are now composed**: Like pay hooks, cash-out handling calls both hooks sequentially (721 hook first, then custom hook) and merges their specifications. The 721 hook's output values feed into the custom hook's input context.
 
 5. **Carry-forward can yield zero-address hook**: In `queueRulesetsOf` with 0 tiers, the hook is carried from `_tiered721HookOf[projectId][latestRulesetId]`. If no hook was stored for that ruleset (e.g. the project was created outside the deployer), this returns `address(0)`.
 

@@ -43,8 +43,12 @@ Payment → JBOmnichainDeployer.beforePayRecordedWith()
 
 Cash Out → JBOmnichainDeployer.beforeCashOutRecordedWith()
   → If caller is a registered sucker: return 0% cash-out tax (early return)
-  → Checks 721 hook (from _tiered721HookOf, if useDataHookForCashOut=true)
-  → Then checks custom hook (from _extraDataHookOf, if useDataHookForCashOut=true)
+  → Calls 721 hook (from _tiered721HookOf, if useDataHookForCashOut=true)
+    → Updates cashOutTaxRate, cashOutCount, totalSupply from 721 hook response
+  → Calls custom hook (from _extraDataHookOf, if useDataHookForCashOut=true)
+    → Receives already-updated values from 721 hook
+    → Further updates cashOutTaxRate, cashOutCount, totalSupply
+  → Merges both hooks' specifications (721 specs first, then custom hook specs)
   → If 721 hook has flag=true and reverts (fungible cashout): revert propagates
   → If neither hook has the flag set: return original values
 ```

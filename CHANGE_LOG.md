@@ -260,11 +260,12 @@ v5 had an internal `_from721Config` function that converted `JBPayDataHookRulese
 
 **v5**: Checked for sucker (tax-free), then forwarded to the single data hook.
 
-**v6**: Checks in order:
+**v6**: Composes both hooks sequentially:
 1. Sucker check (tax-free, unchanged).
-2. 721 hook (if configured and `useDataHookForCashOut` is true).
-3. Extra data hook (if configured and `useDataHookForCashOut` is true).
-4. Falls back to original context values.
+2. 721 hook (if configured and `useDataHookForCashOut` is true) — updates cash out parameters.
+3. Extra data hook (if configured and `useDataHookForCashOut` is true) — called with the already-updated values from the 721 hook.
+4. Both hooks' specifications are merged (721 first, then extra).
+5. Falls back to original context values if neither hook has the flag set.
 
 ### 6.6 `hasMintPermissionFor` simplified
 
