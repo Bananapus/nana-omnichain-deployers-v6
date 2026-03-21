@@ -167,15 +167,9 @@ contract JBOmnichainDeployer is
 
         // If a 721 hook is set and opted into cash out handling, let it adjust the cash out parameters.
         if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
-            // Build a mutable copy of the context with possibly-updated values from prior hooks.
-            JBBeforeCashOutRecordedContext memory hookContext = context;
-            hookContext.cashOutTaxRate = cashOutTaxRate;
-            hookContext.cashOutCount = cashOutCount;
-            hookContext.totalSupply = totalSupply;
-
             // Forward to the 721 hook. It may change the tax rate, count, supply, and return hook specs.
             (cashOutTaxRate, cashOutCount, totalSupply, tiered721HookSpecifications) =
-                IJBRulesetDataHook(address(tiered721Config.hook)).beforeCashOutRecordedWith(hookContext);
+                IJBRulesetDataHook(address(tiered721Config.hook)).beforeCashOutRecordedWith(context);
         }
 
         // Will hold the extra data hook's cash out specifications.
@@ -202,20 +196,20 @@ contract JBOmnichainDeployer is
             return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
         }
 
-        // Allocate room for all hook specifications from both hooks.
-        hookSpecifications =
-            new JBCashOutHookSpecification[](tiered721HookSpecifications.length + extraHookSpecifications.length);
-
-        // Copy the 721 hook's specification if it returned one (always 0 or 1).
-        uint256 offset;
-        if (tiered721HookSpecifications.length != 0) {
+        // Merge both hooks' specifications: 721 spec (if any) first, then extra hook specs.
+        if (tiered721HookSpecifications.length != 0 && extraHookSpecifications.length != 0) {
+            // Both hooks returned specs — combine them.
+            hookSpecifications = new JBCashOutHookSpecification[](1 + extraHookSpecifications.length);
             hookSpecifications[0] = tiered721HookSpecifications[0];
-            offset = 1;
-        }
-
-        // Append any extra hook specifications after the 721 hook's.
-        for (uint256 i; i < extraHookSpecifications.length; i++) {
-            hookSpecifications[offset + i] = extraHookSpecifications[i];
+            for (uint256 i; i < extraHookSpecifications.length; i++) {
+                hookSpecifications[1 + i] = extraHookSpecifications[i];
+            }
+        } else if (tiered721HookSpecifications.length != 0) {
+            // Only the 721 hook returned a spec.
+            hookSpecifications = tiered721HookSpecifications;
+        } else {
+            // Only the extra hook returned specs.
+            hookSpecifications = extraHookSpecifications;
         }
 
         return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
