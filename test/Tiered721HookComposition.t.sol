@@ -458,7 +458,7 @@ contract Tiered721HookComposition is Test {
         assertFalse(deployer.hasMintPermissionFor(projectId, ruleset, randomAddr));
     }
 
-    function test_hasMintPermission_noHooksAtAll_returnsFalse() public {
+    function test_hasMintPermission_noHooksAtAll_returnsFalse() public view {
         JBRuleset memory ruleset;
         ruleset.id = 999;
         assertFalse(deployer.hasMintPermissionFor(projectId, ruleset, randomAddr));
