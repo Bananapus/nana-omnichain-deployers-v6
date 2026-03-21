@@ -149,57 +149,71 @@ contract JBOmnichainDeployer is
             JBCashOutHookSpecification[] memory hookSpecifications
         )
     {
-        // If the cash out is from a sucker, return the full cash out amount without taxes or fees.
+        // If the cash out is from a sucker, bypass all taxes and fees.
         if (SUCKER_REGISTRY.isSuckerOf({projectId: context.projectId, addr: context.holder})) {
             return (0, context.cashOutCount, context.totalSupply, hookSpecifications);
         }
 
+        // Start with the values from the context. Hooks below may override these.
         cashOutTaxRate = context.cashOutTaxRate;
         cashOutCount = context.cashOutCount;
         totalSupply = context.totalSupply;
 
+        // Will hold the 721 hook's cash out specifications (always 0 or 1 element).
         JBCashOutHookSpecification[] memory tiered721HookSpecifications;
 
-        // Check the 721 hook first.
+        // Look up the 721 hook configured for this project's ruleset.
         JBTiered721HookConfig memory tiered721Config = _tiered721HookOf[context.projectId][context.rulesetId];
+
+        // If a 721 hook is set and opted into cash out handling, let it adjust the cash out parameters.
         if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
+            // Build a mutable copy of the context with possibly-updated values from prior hooks.
             JBBeforeCashOutRecordedContext memory hookContext = context;
             hookContext.cashOutTaxRate = cashOutTaxRate;
             hookContext.cashOutCount = cashOutCount;
             hookContext.totalSupply = totalSupply;
 
+            // Forward to the 721 hook. It may change the tax rate, count, supply, and return hook specs.
             (cashOutTaxRate, cashOutCount, totalSupply, tiered721HookSpecifications) =
                 IJBRulesetDataHook(address(tiered721Config.hook)).beforeCashOutRecordedWith(hookContext);
         }
 
+        // Will hold the extra data hook's cash out specifications.
         JBCashOutHookSpecification[] memory extraHookSpecifications;
 
-        // Check the extra data hook.
+        // Look up any extra data hook configured for this project's ruleset.
         JBDeployerHookConfig memory extraHook = _extraDataHookOf[context.projectId][context.rulesetId];
+
+        // If an extra hook is set and opted into cash out handling, let it adjust the cash out parameters.
         if (address(extraHook.dataHook) != address(0) && extraHook.useDataHookForCashOut) {
+            // Build a mutable copy of the context with the latest values (possibly updated by the 721 hook).
             JBBeforeCashOutRecordedContext memory hookContext = context;
             hookContext.cashOutTaxRate = cashOutTaxRate;
             hookContext.cashOutCount = cashOutCount;
             hookContext.totalSupply = totalSupply;
 
+            // Forward to the extra hook. It may further change the tax rate, count, supply, and return hook specs.
             (cashOutTaxRate, cashOutCount, totalSupply, extraHookSpecifications) =
                 extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
         }
 
+        // If neither hook returned any specifications, return the adjusted values with no hook specs.
         if (tiered721HookSpecifications.length == 0 && extraHookSpecifications.length == 0) {
             return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
         }
 
+        // Allocate room for all hook specifications from both hooks.
         hookSpecifications =
             new JBCashOutHookSpecification[](tiered721HookSpecifications.length + extraHookSpecifications.length);
 
-        // tiered721HookSpecifications is always 0 or 1 element.
+        // Copy the 721 hook's specification if it returned one (always 0 or 1).
         uint256 offset;
         if (tiered721HookSpecifications.length != 0) {
             hookSpecifications[0] = tiered721HookSpecifications[0];
             offset = 1;
         }
 
+        // Append any extra hook specifications after the 721 hook's.
         for (uint256 i; i < extraHookSpecifications.length; i++) {
             hookSpecifications[offset + i] = extraHookSpecifications[i];
         }
