@@ -142,29 +142,77 @@ contract JBOmnichainDeployer is
         external
         view
         override
-        returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory hookSpecifications)
+        returns (
+            uint256 cashOutTaxRate,
+            uint256 cashOutCount,
+            uint256 totalSupply,
+            JBCashOutHookSpecification[] memory hookSpecifications
+        )
     {
-        // If the cash out is from a sucker, return the full cash out amount without taxes or fees.
+        // If the cash out is from a sucker, bypass all taxes and fees.
         if (SUCKER_REGISTRY.isSuckerOf({projectId: context.projectId, addr: context.holder})) {
             return (0, context.cashOutCount, context.totalSupply, hookSpecifications);
         }
 
-        // Check the 721 hook first.
+        // Start with the values from the context. Hooks below may override these.
+        cashOutTaxRate = context.cashOutTaxRate;
+        cashOutCount = context.cashOutCount;
+        totalSupply = context.totalSupply;
+
+        // Will hold the 721 hook's cash out specifications (always 0 or 1 element).
+        JBCashOutHookSpecification[] memory tiered721HookSpecifications;
+
+        // Look up the 721 hook configured for this project's ruleset.
         JBTiered721HookConfig memory tiered721Config = _tiered721HookOf[context.projectId][context.rulesetId];
+
+        // If a 721 hook is set and opted into cash out handling, let it adjust the cash out parameters.
         if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
-            // slither-disable-next-line unused-return
-            return IJBRulesetDataHook(address(tiered721Config.hook)).beforeCashOutRecordedWith(context);
+            // Forward to the 721 hook. It may change the tax rate, count, supply, and return hook specs.
+            (cashOutTaxRate, cashOutCount, totalSupply, tiered721HookSpecifications) =
+                IJBRulesetDataHook(address(tiered721Config.hook)).beforeCashOutRecordedWith(context);
         }
 
-        // Check the extra data hook.
+        // Will hold the extra data hook's cash out specifications.
+        JBCashOutHookSpecification[] memory extraHookSpecifications;
+
+        // Look up any extra data hook configured for this project's ruleset.
         JBDeployerHookConfig memory extraHook = _extraDataHookOf[context.projectId][context.rulesetId];
+
+        // If an extra hook is set and opted into cash out handling, let it adjust the cash out parameters.
         if (address(extraHook.dataHook) != address(0) && extraHook.useDataHookForCashOut) {
-            // slither-disable-next-line unused-return
-            return extraHook.dataHook.beforeCashOutRecordedWith(context);
+            // Build a mutable copy of the context with the latest values (possibly updated by the 721 hook).
+            JBBeforeCashOutRecordedContext memory hookContext = context;
+            hookContext.cashOutTaxRate = cashOutTaxRate;
+            hookContext.cashOutCount = cashOutCount;
+            hookContext.totalSupply = totalSupply;
+
+            // Forward to the extra hook. It may further change the tax rate, count, supply, and return hook specs.
+            (cashOutTaxRate, cashOutCount, totalSupply, extraHookSpecifications) =
+                extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
         }
 
-        // No hooks handled it — return original values.
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, hookSpecifications);
+        // If neither hook returned any specifications, return the adjusted values with no hook specs.
+        if (tiered721HookSpecifications.length == 0 && extraHookSpecifications.length == 0) {
+            return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
+        }
+
+        // Merge both hooks' specifications: 721 spec (if any) first, then extra hook specs.
+        if (tiered721HookSpecifications.length != 0 && extraHookSpecifications.length != 0) {
+            // Both hooks returned specs — combine them.
+            hookSpecifications = new JBCashOutHookSpecification[](1 + extraHookSpecifications.length);
+            hookSpecifications[0] = tiered721HookSpecifications[0];
+            for (uint256 i; i < extraHookSpecifications.length; i++) {
+                hookSpecifications[1 + i] = extraHookSpecifications[i];
+            }
+        } else if (tiered721HookSpecifications.length != 0) {
+            // Only the 721 hook returned a spec.
+            hookSpecifications = tiered721HookSpecifications;
+        } else {
+            // Only the extra hook returned specs.
+            hookSpecifications = extraHookSpecifications;
+        }
+
+        return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
     }
 
     /// @notice Forward the call to the original data hook.

@@ -22,7 +22,7 @@
 ## 4. DoS Vectors
 
 - **Ruleset ID collision.** `_setup721` stores hook configs at `block.timestamp + i`. If `latestRulesetIdOf >= block.timestamp` (rulesets already queued this block), `queueRulesetsOf` reverts with `RulesetIdsUnpredictable`. An attacker who queues rulesets in the same block as the legitimate owner can front-run and block their queue attempt.
-- **External hook revert.** `beforePayRecordedWith` and `beforeCashOutRecordedWith` call external hooks without try-catch. A reverting hook blocks all payments or cashouts for that project/ruleset.
+- **External hook revert.** `beforePayRecordedWith` and `beforeCashOutRecordedWith` call external hooks without try-catch. A reverting hook blocks all payments or cashouts for that project/ruleset. For cash-outs, if the 721 hook reverts, the custom hook is never reached (the revert propagates before it).
 - **721 hook deployment revert.** `HOOK_DEPLOYER.deployHookFor` is called without try-catch. A failing deployment blocks the entire project launch.
 
 ## 5. Integration Risks

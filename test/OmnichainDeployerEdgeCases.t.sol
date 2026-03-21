@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
+import {IJBCashOutHook} from "@bananapus/core-v6/src/interfaces/IJBCashOutHook.sol";
 import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
@@ -37,6 +38,9 @@ contract CustomCashOutHook is IJBRulesetDataHook {
     uint256 public cashOutCountReturn;
     uint256 public totalSupplyReturn;
     bool public mintPermission;
+    bool public shouldReturnCashOutHookSpecification;
+    uint256 public cashOutHookAmountReturn;
+    bytes public cashOutHookMetadataReturn;
 
     function setReturns(uint256 taxRate, uint256 count, uint256 supply) external {
         cashOutTaxRateReturn = taxRate;
@@ -46,6 +50,18 @@ contract CustomCashOutHook is IJBRulesetDataHook {
 
     function setMintPermission(bool granted) external {
         mintPermission = granted;
+    }
+
+    function setCashOutHookSpecification(uint256 amount, bytes calldata metadata) external {
+        shouldReturnCashOutHookSpecification = true;
+        cashOutHookAmountReturn = amount;
+        cashOutHookMetadataReturn = metadata;
+    }
+
+    function clearCashOutHookSpecification() external {
+        shouldReturnCashOutHookSpecification = false;
+        cashOutHookAmountReturn = 0;
+        cashOutHookMetadataReturn = "";
     }
 
     function beforePayRecordedWith(JBBeforePayRecordedContext calldata context)
@@ -63,7 +79,19 @@ contract CustomCashOutHook is IJBRulesetDataHook {
         override
         returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (cashOutTaxRateReturn, cashOutCountReturn, totalSupplyReturn, new JBCashOutHookSpecification[](0));
+        JBCashOutHookSpecification[] memory hookSpecifications;
+
+        if (shouldReturnCashOutHookSpecification) {
+            hookSpecifications = new JBCashOutHookSpecification[](1);
+            hookSpecifications[0] = JBCashOutHookSpecification({
+                hook: IJBCashOutHook(address(this)),
+                noop: false,
+                amount: cashOutHookAmountReturn,
+                metadata: cashOutHookMetadataReturn
+            });
+        }
+
+        return (cashOutTaxRateReturn, cashOutCountReturn, totalSupplyReturn, hookSpecifications);
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external view override returns (bool) {
@@ -209,7 +237,7 @@ contract OmnichainDeployerEdgeCases is Test {
         _storeTiered721Hook(mock721);
 
         JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](1);
-        specs[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), amount: 1 ether, metadata: ""});
+        specs[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 1 ether, metadata: ""});
 
         vm.mockCall(
             mock721,
@@ -259,7 +287,7 @@ contract OmnichainDeployerEdgeCases is Test {
         _storeTiered721Hook(mock721);
 
         JBPayHookSpecification[] memory specs721 = new JBPayHookSpecification[](1);
-        specs721[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), amount: 0.5 ether, metadata: ""});
+        specs721[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 0.5 ether, metadata: ""});
 
         vm.mockCall(
             mock721,
@@ -384,6 +412,48 @@ contract OmnichainDeployerEdgeCases is Test {
         assertEq(cashOutTaxRate, 9999, "Should return custom hook's tax rate");
         assertEq(cashOutCount, 1, "Should return custom hook's cashOutCount");
         assertEq(totalSupply, 1, "Should return custom hook's totalSupply");
+    }
+
+    function test_beforeCashOut_merges721AndCustomHookSpecifications() public {
+        customHook.setReturns(2000, 500, 8000);
+        customHook.setCashOutHookSpecification(22, abi.encode(uint256(2)));
+
+        _launchProjectWithCustomCashOutHook(address(customHook));
+        rulesetId = block.timestamp;
+
+        address mock721 = makeAddr("mock721CashOutMerge");
+        _storeTiered721Hook(mock721, true);
+
+        JBCashOutHookSpecification[] memory specs = new JBCashOutHookSpecification[](1);
+        specs[0] = JBCashOutHookSpecification({
+            hook: IJBCashOutHook(mock721), noop: false, amount: 11, metadata: abi.encode(uint256(1))
+        });
+
+        vm.mockCall(
+            mock721,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
+            abi.encode(uint256(4000), uint256(700), uint256(9000), specs)
+        );
+
+        JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
+
+        (
+            uint256 cashOutTaxRate,
+            uint256 cashOutCount,
+            uint256 totalSupply,
+            JBCashOutHookSpecification[] memory hookSpecifications
+        ) = deployer.beforeCashOutRecordedWith(ctx);
+
+        assertEq(cashOutTaxRate, 2000, "Custom hook should receive and override 721-adjusted tax rate");
+        assertEq(cashOutCount, 500, "Custom hook should receive and override 721-adjusted cashOutCount");
+        assertEq(totalSupply, 8000, "Custom hook should receive and override 721-adjusted totalSupply");
+        assertEq(hookSpecifications.length, 2, "721 and custom cash out specs should both be returned");
+        assertEq(address(hookSpecifications[0].hook), mock721, "721 hook spec should come first");
+        assertEq(hookSpecifications[0].amount, 11, "721 hook spec amount should be preserved");
+        assertEq(hookSpecifications[0].metadata, abi.encode(uint256(1)), "721 hook metadata should be preserved");
+        assertEq(address(hookSpecifications[1].hook), address(customHook), "Custom hook spec should come second");
+        assertEq(hookSpecifications[1].amount, 22, "Custom hook spec amount should be preserved");
+        assertEq(hookSpecifications[1].metadata, abi.encode(uint256(2)), "Custom hook metadata should be preserved");
     }
 
     // =========================================================================

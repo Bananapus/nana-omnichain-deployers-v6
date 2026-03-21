@@ -27,7 +27,7 @@ Admin privileges and their scope in nana-omnichain-deployers-v6.
 |----------|-------------|--------------|
 | `launchProjectFor` | Anyone | Creates a new project with a 721 tiers hook (even with 0 tiers) and suckers. The ERC-721 is minted to the specified `owner`. Returns `(projectId, hook, suckers)`. Has a simplified overload without `deploy721Config` that uses a default empty-tier 721 config. |
 | `beforePayRecordedWith` | JBMultiTerminal (via controller) | View function: calls 721 hook for specs, then custom hook (if configured) with reduced amount. Merges results. |
-| `beforeCashOutRecordedWith` | JBMultiTerminal (via controller) | View function: returns 0% cash-out tax for registered suckers. Checks 721 hook (from `_tiered721HookOf`) then custom hook (from `_extraDataHookOf`) — the first with `useDataHookForCashOut: true` handles it. If neither has the flag set, returns original values. |
+| `beforeCashOutRecordedWith` | JBMultiTerminal (via controller) | View function: returns 0% cash-out tax for registered suckers. Calls 721 hook first (from `_tiered721HookOf`, if `useDataHookForCashOut: true`), then calls custom hook (from `_extraDataHookOf`, if `useDataHookForCashOut: true`) with the updated values from the 721 hook. Both hooks' specifications are merged. If neither has the flag set, returns original values. |
 | `hasMintPermissionFor` | JBController | View function: returns true for registered suckers, otherwise checks the custom hook in `_extraDataHookOf`. |
 | `extraDataHookOf` | Anyone | View function: returns the stored `JBDeployerHookConfig` for a project/ruleset pair (the custom data hook). |
 | `tiered721HookOf` | Anyone | View function: returns the stored 721 hook and `useDataHookForCashOut` flag for a project/ruleset pair. |
