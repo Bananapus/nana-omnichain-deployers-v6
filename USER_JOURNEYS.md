@@ -94,7 +94,7 @@ JBOmnichainDeployer.launchRulesetsFor(
 
 There is a simplified overload that omits `deploy721Config` and derives a default.
 
-**Who can call**: Project owner or address with both `LAUNCH_RULESETS` (permission ID 3) and `SET_TERMINALS` (permission ID 17) for the project.
+**Who can call**: Project owner or address with both `LAUNCH_RULESETS` (permission ID 3) and `SET_TERMINALS` (permission ID 15) for the project.
 
 **Parameters**:
 
@@ -200,7 +200,7 @@ JBOmnichainDeployer.deploySuckersFor(
 ) external returns (address[] memory suckers)
 ```
 
-**Who can call**: Project owner or address with `DEPLOY_SUCKERS` (permission ID 21) for the project.
+**Who can call**: Project owner or address with `DEPLOY_SUCKERS` (permission ID 31) for the project.
 
 **Parameters**:
 
