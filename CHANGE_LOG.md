@@ -2,6 +2,14 @@
 
 This document describes all changes between `nana-omnichain-deployers` (v5) and `nana-omnichain-deployers-v6` (v6).
 
+## Summary
+
+- **Every project gets a 721 hook**: All projects launched through the omnichain deployer now receive a 721 hook (even without tiers), unifying the deployment model.
+- **Dual-hook architecture**: Separate tracking of 721 hooks (`_tiered721HookOf`) and extra data hooks (`_extraDataHookOf`) enables composing both in `beforePayRecordedWith` with proportional weight scaling.
+- **v5 ownership bug fixed**: `queue721RulesetsOf` in v5 deployed 721 hooks but never transferred ownership to the project — v6 properly calls `transferOwnershipToProject` on all paths.
+- **Function consolidation**: `launch721ProjectFor`, `launch721RulesetsFor`, and `queue721RulesetsOf` merged into overloads of their non-721 counterparts using `JBOmnichain721Config`.
+- **New safety checks**: Controller validation, ruleset ID collision protection, and explicit reverts replace `assert()`.
+
 ---
 
 ## 1. Breaking Changes
@@ -50,6 +58,8 @@ Replaced by the `launchRulesetsFor(... JBOmnichain721Config ...)` overload descr
 Both v6 overloads now return `IJB721TiersHook hook` alongside `rulesetId`.
 
 v6 also fixes v5's `queue721RulesetsOf` which deployed the 721 hook but never called `JBOwnable(hook).transferOwnershipToProject(projectId)`, leaving the hook owned by the deployer contract rather than the project. In v6, all paths that deploy a 721 hook — including `_queueRulesetsOf` — properly transfer hook ownership to the project.
+
+> **⚠️ This was a v5 bug**: Any project that used v5's `queue721RulesetsOf` to deploy a 721 hook has that hook owned by the deployer contract, not the project. Projects affected should manually transfer hook ownership.
 
 ### 1.6 `queue721RulesetsOf` removed
 
@@ -311,3 +321,5 @@ v6: `if (msg.sender != address(PROJECTS)) revert JBOmnichainDeployer_UnexpectedN
 | `queue721RulesetsOf(projectId, deployTiersHookConfig, queueRulesetsConfig, controller, salt)` | `queueRulesetsOf(projectId, deploy721Config, rulesetConfigs, memo, controller)` | 721 config bundled into `JBOmnichain721Config`. Standard `JBRulesetConfig[]` replaces `JBQueueRulesetsConfig`. |
 | `dataHookOf(projectId, rulesetId)` | `extraDataHookOf(projectId, rulesetId)` + `tiered721HookOf(projectId, rulesetId)` | Split into two views. `extraDataHookOf` returns `JBDeployerHookConfig memory`. `tiered721HookOf` returns `(IJB721TiersHook, bool)`. |
 | `deploySuckersFor(projectId, suckerConfig)` | `deploySuckersFor(projectId, suckerConfig)` | Unchanged. |
+
+> **Cross-repo impact**: Uses `LAUNCH_RULESETS` from `nana-permission-ids-v6` (split from `QUEUE_RULESETS`). The dual-hook composition pattern in `beforePayRecordedWith` uses `mulDiv` from `@prb/math` to scale weight proportionally — `revnet-core-v6` implements a similar pattern for its buyback hook + 721 hook composition.
