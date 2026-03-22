@@ -18,7 +18,7 @@ Admin privileges and their scope in nana-omnichain-deployers-v6.
 | Function | Required Role | Permission ID | Scope | What It Does |
 |----------|--------------|---------------|-------|--------------|
 | `deploySuckersFor` | Project owner or operator | `DEPLOY_SUCKERS` | Per-project | Deploys new cross-chain suckers for an existing project via the sucker registry. |
-| `launchRulesetsFor` | Project owner or operator | `QUEUE_RULESETS` + `SET_TERMINALS` | Per-project | Deploys a 721 tiers hook, launches new rulesets with terminal configuration for an existing project. Has a simplified overload without `deploy721Config`. |
+| `launchRulesetsFor` | Project owner or operator | `LAUNCH_RULESETS` + `SET_TERMINALS` | Per-project | Deploys a 721 tiers hook, launches new rulesets with terminal configuration for an existing project. Has a simplified overload without `deploy721Config`. |
 | `queueRulesetsOf` | Project owner or operator | `QUEUE_RULESETS` | Per-project | Queues new rulesets for an existing project. If tiers provided, deploys a new 721 hook. Otherwise, carries forward the 721 hook from the latest ruleset. Has a simplified overload without `deploy721Config`. |
 
 ### Permissionless Functions
@@ -26,7 +26,7 @@ Admin privileges and their scope in nana-omnichain-deployers-v6.
 | Function | Who Can Call | What It Does |
 |----------|-------------|--------------|
 | `launchProjectFor` | Anyone | Creates a new project with a 721 tiers hook (even with 0 tiers) and suckers. The ERC-721 is minted to the specified `owner`. Returns `(projectId, hook, suckers)`. Has a simplified overload without `deploy721Config` that uses a default empty-tier 721 config. |
-| `beforePayRecordedWith` | JBMultiTerminal (via controller) | View function: calls 721 hook for specs, then custom hook (if configured) with reduced amount. Merges results. |
+| `beforePayRecordedWith` | JBMultiTerminal (via controller) | View function: always calls the 721 hook (when its address is non-zero) for specs, then calls the custom hook (if configured and `useDataHookForPay` is set) with the reduced amount. Merges results. |
 | `beforeCashOutRecordedWith` | JBMultiTerminal (via controller) | View function: returns 0% cash-out tax for registered suckers. Calls 721 hook first (from `_tiered721HookOf`, if `useDataHookForCashOut: true`), then calls custom hook (from `_extraDataHookOf`, if `useDataHookForCashOut: true`) with the updated values from the 721 hook. Both hooks' specifications are merged. If neither has the flag set, returns original values. |
 | `hasMintPermissionFor` | JBController | View function: returns true for registered suckers, otherwise checks the custom hook in `_extraDataHookOf`. |
 | `extraDataHookOf` | Anyone | View function: returns the stored `JBDeployerHookConfig` for a project/ruleset pair (the custom data hook). |
@@ -74,11 +74,12 @@ Admin privileges and their scope in nana-omnichain-deployers-v6.
 
 ```
 Terminal -> Controller -> JBOmnichainDeployer.beforePayRecordedWith()
-  1. Call 721 hook's beforePayRecordedWith (if useDataHookForPay is set)
-     -> Get pay hook specifications and adjusted weight
+  1. Call 721 hook's beforePayRecordedWith (always, when its address is non-zero)
+     -> Get pay hook specifications and the total split amount
   2. Call extra hook's beforePayRecordedWith (if useDataHookForPay is set on extra hook config)
      -> Amount is reduced by what the 721 hook already allocated
-  3. Merge both hooks' specifications and return
+  3. Scale the extra hook's weight proportionally to the project's share of the payment
+  4. Merge both hooks' specifications and return
 ```
 
 ### Call flow for `beforeCashOutRecordedWith`:
@@ -93,7 +94,7 @@ Terminal -> Controller -> JBOmnichainDeployer.beforeCashOutRecordedWith()
   4. Merge both hooks' specifications and return
 ```
 
-**`useDataHookForCashOut` / `useDataHookForPay` flags:** These flags are stored per-hook per-ruleset in the `JBDeployerHookConfig` struct. If the flag is `false` for a hook, that hook is skipped entirely during the corresponding operation. The deployer does not call hooks with disabled flags -- it returns the original values unchanged for that hook's portion.
+**`useDataHookForCashOut` / `useDataHookForPay` flags:** These flags control whether each hook participates in a given operation. For the **extra data hook**, the flags are stored per-ruleset in the `JBDeployerHookConfig` struct -- if the flag is `false`, that hook is skipped entirely and the original values are returned unchanged for that hook's portion. The **721 hook** behaves differently: it is **always** called during `beforePayRecordedWith` when its address is non-zero (no `useDataHookForPay` check), but for `beforeCashOutRecordedWith` it respects the `useDataHookForCashOut` flag stored in `JBTiered721HookConfig`.
 
 **Write-once storage:** Both `_tiered721HookOf` and `_extraDataHookOf` mappings are written once during `_setup721()` and never updated. New rulesets can reference different hooks, but existing ruleset-to-hook mappings are permanent.
 
