@@ -1,16 +1,19 @@
 # nana-omnichain-deployers-v6 -- User Journeys
 
+All user paths through the JBOmnichainDeployer. For each journey: entry point, who can call, key parameters, state changes, events, and edge cases.
+
+Note: `JBOmnichainDeployer` itself emits no events. All events listed are emitted by downstream contracts it calls (controller, projects, hook deployer, sucker registry, etc.).
+
+---
+
 ## Journey 1: Deploy an Omnichain Project
 
-### Actor
-Any address (no permission required).
-
-### Entry Point
+**Entry point**:
 ```solidity
 JBOmnichainDeployer.launchProjectFor(
     address owner,
     string calldata projectUri,
-    JBOmnichain721Config calldata deploy721Config,    // or omit for default
+    JBOmnichain721Config calldata deploy721Config,
     JBRulesetConfig[] memory rulesetConfigurations,
     JBTerminalConfig[] calldata terminalConfigurations,
     string calldata memo,
@@ -21,7 +24,9 @@ JBOmnichainDeployer.launchProjectFor(
 
 There is a simplified overload that omits `deploy721Config` and derives a default (empty tiers, `baseCurrency` from first ruleset, 18 decimals).
 
-### Parameters
+**Who can call**: Anyone. No permission required. The project ERC-721 is minted to the specified `owner`.
+
+**Parameters**:
 
 | Parameter | Notes |
 |-----------|-------|
@@ -39,19 +44,31 @@ There is a simplified overload that omits `deploy721Config` and derives a defaul
 | `suckerDeploymentConfiguration.deployerConfigurations` | Array of `JBSuckerDeployerConfig` -- bridge-specific configs for each target chain. |
 | `controller` | The JBController to use. Not validated (project doesn't exist yet). Must be a legitimate controller that is `isAllowedToSetFirstController` in the directory. |
 
-### State Changes
+**State changes**:
 
-1. **721 hook deployed** via `HOOK_DEPLOYER.deployHookFor()`. The deployer is the initial owner.
-2. **Hook mappings stored**: For each ruleset `i`:
+1. `HOOK_DEPLOYER.deployHookFor(projectId, config, salt)` -- 721 hook deployed; deployer is initial owner.
+2. For each ruleset `i`:
    - `_tiered721HookOf[projectId][block.timestamp + i]` = 721 hook + cashout flag.
-   - `_extraDataHookOf[projectId][block.timestamp + i]` = custom hook + flags (if specified).
-3. **Ruleset metadata rewritten**: Every ruleset's `dataHook` becomes `address(deployer)`, `useDataHookForPay` and `useDataHookForCashOut` forced to `true`.
-4. **Project created**: `controller.launchProjectFor()` mints the project NFT to the deployer.
-5. **721 hook ownership transferred**: `JBOwnable(hook).transferOwnershipToProject(projectId)`.
-6. **Suckers deployed** (if salt non-zero): `SUCKER_REGISTRY.deploySuckersFor()`.
-7. **Project NFT transferred**: `PROJECTS.transferFrom(deployer, owner, projectId)`.
+   - `_extraDataHookOf[projectId][block.timestamp + i]` = custom hook + flags (if `metadata.dataHook != address(0)`).
+   - `rulesetConfigurations[i].metadata.dataHook` rewritten to `address(deployer)`, `useDataHookForPay` and `useDataHookForCashOut` forced to `true`.
+3. `controller.launchProjectFor(address(this), projectUri, rulesetConfigurations, terminalConfigurations, memo)` -- project NFT minted to deployer; rulesets queued; terminals set.
+4. `JBOwnable(hook).transferOwnershipToProject(projectId)` -- hook now owned by project.
+5. `SUCKER_REGISTRY.deploySuckersFor(projectId, salt, configurations)` -- suckers deployed (if `suckerDeploymentConfiguration.salt != bytes32(0)`).
+6. `PROJECTS.transferFrom(address(this), owner, projectId)` -- project NFT transferred to intended owner.
 
-### Edge Cases
+**Events** (emitted by downstream contracts):
+
+- `IJB721TiersHookDeployer.HookDeployed(projectId, hook, caller)` -- from step 1
+- `IJBProjects.Create(projectId, owner, caller)` -- from step 3 (project NFT mint)
+- `IJBDirectory.SetController(projectId, controller, caller)` -- from step 3
+- `IJBDirectory.SetTerminals(projectId, terminals, caller)` -- from step 3
+- `IJBRulesets.RulesetQueued(rulesetId, projectId, duration, weight, weightCutPercent, approvalHook, metadata, mustStartAtOrAfter, caller)` -- one per ruleset, from step 3
+- `IJBController.LaunchProject(rulesetId, projectId, projectUri, memo, caller)` -- from step 3
+- `IJBOwnable.OwnershipTransferred(previousOwner, newOwner, caller)` -- from step 4
+- `IJBSuckerRegistry.SuckerDeployedFor(projectId, sucker, configuration, caller)` -- one per sucker, from step 5 (if salt non-zero)
+- `IERC721.Transfer(from, to, tokenId)` -- from step 6 (project NFT transfer to owner)
+
+**Edge cases**:
 
 - **Simplified overload with zero rulesets**: Will revert because `_default721Config` accesses `rulesetConfigurations[0]` -- array index out of bounds.
 - **Custom hook set to `address(this)`**: Reverts with `JBOmnichainDeployer_InvalidHook`.
@@ -63,14 +80,11 @@ There is a simplified overload that omits `deploy721Config` and derives a defaul
 
 ## Journey 2: Launch Rulesets for an Existing Project
 
-### Actor
-Project owner or address with `LAUNCH_RULESETS` + `SET_TERMINALS` permission.
-
-### Entry Point
+**Entry point**:
 ```solidity
 JBOmnichainDeployer.launchRulesetsFor(
     uint256 projectId,
-    JBOmnichain721Config memory deploy721Config,    // or omit for default
+    JBOmnichain721Config memory deploy721Config,
     JBRulesetConfig[] memory rulesetConfigurations,
     JBTerminalConfig[] calldata terminalConfigurations,
     string calldata memo,
@@ -78,61 +92,93 @@ JBOmnichainDeployer.launchRulesetsFor(
 ) external returns (uint256 rulesetId, IJB721TiersHook hook)
 ```
 
-### Parameters
+There is a simplified overload that omits `deploy721Config` and derives a default.
+
+**Who can call**: Project owner or address with both `LAUNCH_RULESETS` (permission ID 3) and `SET_TERMINALS` (permission ID 17) for the project.
+
+**Parameters**:
 
 Same as `launchProjectFor` except: no `owner`, no `suckerDeploymentConfiguration`, no `projectUri`. The `controller` IS validated against the directory.
 
-### State Changes
+**State changes**:
 
-1. **Permission checks**: `LAUNCH_RULESETS` and `SET_TERMINALS` required.
-2. **Controller validation**: `controller.DIRECTORY().controllerOf(projectId) == controller`. Reverts with `ControllerMismatch` if not.
-3. **New 721 hook deployed**: Always deploys a new hook (no carry-forward option).
-4. **Hook ownership transferred immediately**: Unlike `launchProjectFor`, the project already exists so ownership can be transferred right away.
-5. **Hook mappings stored**: Same `_setup721` pattern.
-6. **Rulesets launched**: `controller.launchRulesetsFor()`.
+1. `_requirePermissionFrom(owner, projectId, LAUNCH_RULESETS)` -- permission check.
+2. `_requirePermissionFrom(owner, projectId, SET_TERMINALS)` -- permission check.
+3. `_validateController(projectId, controller)` -- confirms `controller.DIRECTORY().controllerOf(projectId) == controller`.
+4. `HOOK_DEPLOYER.deployHookFor(projectId, config, salt)` -- new 721 hook deployed.
+5. `JBOwnable(hook).transferOwnershipToProject(projectId)` -- hook ownership transferred immediately (project already exists).
+6. For each ruleset `i`:
+   - `_tiered721HookOf[projectId][block.timestamp + i]` = 721 hook + cashout flag.
+   - `_extraDataHookOf[projectId][block.timestamp + i]` = custom hook + flags (if specified).
+   - `rulesetConfigurations[i].metadata.dataHook` rewritten to `address(deployer)`.
+7. `controller.launchRulesetsFor(projectId, rulesetConfigurations, terminalConfigurations, memo)` -- rulesets launched; terminals set.
 
-### Edge Cases
+**Events** (emitted by downstream contracts):
+
+- `IJB721TiersHookDeployer.HookDeployed(projectId, hook, caller)` -- from step 4
+- `IJBOwnable.OwnershipTransferred(previousOwner, newOwner, caller)` -- from step 5
+- `IJBDirectory.SetTerminals(projectId, terminals, caller)` -- from step 7
+- `IJBRulesets.RulesetQueued(rulesetId, projectId, duration, weight, weightCutPercent, approvalHook, metadata, mustStartAtOrAfter, caller)` -- one per ruleset, from step 7
+- `IJBController.LaunchRulesets(rulesetId, projectId, memo, caller)` -- from step 7
+
+**Edge cases**:
 
 - **No ruleset ID prediction guard**: Unlike `queueRulesetsOf`, there is no check for `latestRulesetId >= block.timestamp`. If another ruleset operation happened in the same block, the predicted IDs may be wrong and the stored hooks will be keyed incorrectly.
-- **Controller mismatch**: Reverts immediately before any state changes.
+- **Controller mismatch**: Reverts with `JBOmnichainDeployer_ControllerMismatch` immediately before any state changes.
 - **Insufficient permissions**: Reverts on the first failed permission check. Note: both `LAUNCH_RULESETS` AND `SET_TERMINALS` are required -- having only one is not enough.
 
 ---
 
 ## Journey 3: Queue Rulesets for an Existing Project
 
-### Actor
-Project owner or address with `QUEUE_RULESETS` permission.
-
-### Entry Point
+**Entry point**:
 ```solidity
 JBOmnichainDeployer.queueRulesetsOf(
     uint256 projectId,
-    JBOmnichain721Config memory deploy721Config,    // or omit for default
+    JBOmnichain721Config memory deploy721Config,
     JBRulesetConfig[] memory rulesetConfigurations,
     string calldata memo,
     IJBController controller
 ) external returns (uint256 rulesetId, IJB721TiersHook hook)
 ```
 
-### Parameters
+There is a simplified overload that omits `deploy721Config` and derives a default.
+
+**Who can call**: Project owner or address with `QUEUE_RULESETS` (permission ID 2) for the project.
+
+**Parameters**:
 
 Same as `launchRulesetsFor` but without `terminalConfigurations`. Only requires `QUEUE_RULESETS` (not `SET_TERMINALS`).
 
-### State Changes
+**State changes**:
 
-1. **Permission check**: `QUEUE_RULESETS` required.
-2. **Controller validation**: Same as `launchRulesetsFor`.
-3. **Ruleset ID prediction guard**:
+1. `_requirePermissionFrom(owner, projectId, QUEUE_RULESETS)` -- permission check.
+2. `_validateController(projectId, controller)` -- confirms controller matches directory.
+3. Ruleset ID prediction guard:
    ```solidity
    uint256 latestRulesetId = controller.RULESETS().latestRulesetIdOf(projectId);
    if (latestRulesetId >= block.timestamp) revert JBOmnichainDeployer_RulesetIdsUnpredictable();
    ```
-4. **721 hook**: If `deploy721Config.deployTiersHookConfig.tiersConfig.tiers.length > 0`, deploys new hook and transfers ownership. Otherwise, carries forward: `hook = _tiered721HookOf[projectId][latestRulesetId].hook`.
-5. **Hook mappings stored**: Same `_setup721` pattern.
-6. **Rulesets queued**: `controller.queueRulesetsOf()`.
+4. If `deploy721Config.deployTiersHookConfig.tiersConfig.tiers.length > 0`:
+   - `HOOK_DEPLOYER.deployHookFor(projectId, config, salt)` -- new hook deployed.
+   - `JBOwnable(hook).transferOwnershipToProject(projectId)` -- hook ownership transferred.
+   Otherwise:
+   - `hook = _tiered721HookOf[projectId][latestRulesetId].hook` -- carry forward existing hook.
+   - Reverts with `JBOmnichainDeployer_InvalidHook` if `address(hook) == address(0)`.
+5. For each ruleset `i`:
+   - `_tiered721HookOf[projectId][block.timestamp + i]` = hook + cashout flag.
+   - `_extraDataHookOf[projectId][block.timestamp + i]` = custom hook + flags (if specified).
+   - `rulesetConfigurations[i].metadata.dataHook` rewritten to `address(deployer)`.
+6. `controller.queueRulesetsOf(projectId, rulesetConfigurations, memo)` -- rulesets queued.
 
-### Edge Cases
+**Events** (emitted by downstream contracts):
+
+- `IJB721TiersHookDeployer.HookDeployed(projectId, hook, caller)` -- from step 4 (only if new tiers deployed)
+- `IJBOwnable.OwnershipTransferred(previousOwner, newOwner, caller)` -- from step 4 (only if new tiers deployed)
+- `IJBRulesets.RulesetQueued(rulesetId, projectId, duration, weight, weightCutPercent, approvalHook, metadata, mustStartAtOrAfter, caller)` -- one per ruleset, from step 6
+- `IJBController.QueueRulesets(rulesetId, projectId, memo, caller)` -- from step 6
+
+**Edge cases**:
 
 - **Same-block queue**: Reverts with `JBOmnichainDeployer_RulesetIdsUnpredictable`. This happens if:
   - The project was launched in the same block.
@@ -146,10 +192,7 @@ Same as `launchRulesetsFor` but without `terminalConfigurations`. Only requires 
 
 ## Journey 4: Deploy Suckers for an Existing Project
 
-### Actor
-Project owner or address with `DEPLOY_SUCKERS` permission.
-
-### Entry Point
+**Entry point**:
 ```solidity
 JBOmnichainDeployer.deploySuckersFor(
     uint256 projectId,
@@ -157,20 +200,26 @@ JBOmnichainDeployer.deploySuckersFor(
 ) external returns (address[] memory suckers)
 ```
 
-### Parameters
+**Who can call**: Project owner or address with `DEPLOY_SUCKERS` (permission ID 21) for the project.
+
+**Parameters**:
 
 | Parameter | Notes |
 |-----------|-------|
 | `projectId` | Must be an existing project. |
 | `suckerDeploymentConfiguration.salt` | Combined with `_msgSender()` for deterministic deployment. |
-| `suckerDeploymentConfiguration.deployerConfigurations` | Bridge-specific sucker configs. |
+| `suckerDeploymentConfiguration.deployerConfigurations` | Array of `JBSuckerDeployerConfig` -- bridge-specific sucker configs. |
 
-### State Changes
+**State changes**:
 
-1. **Permission check**: `DEPLOY_SUCKERS` required from project owner.
-2. **Suckers deployed**: `SUCKER_REGISTRY.deploySuckersFor()` with salted hash.
+1. `_requirePermissionFrom(owner, projectId, DEPLOY_SUCKERS)` -- permission check.
+2. `SUCKER_REGISTRY.deploySuckersFor(projectId, keccak256(abi.encode(salt, _msgSender())), configurations)` -- suckers deployed.
 
-### Edge Cases
+**Events** (emitted by downstream contracts):
+
+- `IJBSuckerRegistry.SuckerDeployedFor(projectId, sucker, configuration, caller)` -- one per sucker, from step 2
+
+**Edge cases**:
 
 - **Salt includes `_msgSender()`**: The same salt from different senders produces different sucker addresses. For cross-chain deterministic addresses, the same sender must deploy on each chain.
 - **Empty deployerConfigurations**: Behavior depends on the sucker registry implementation.
@@ -180,17 +229,18 @@ JBOmnichainDeployer.deploySuckersFor(
 
 ## Journey 5: Payment Through the Data Hook Proxy
 
-### Actor
-Any payer (this is a view function called by the terminal, not directly by users).
-
-### Entry Point
-Called by `JBMultiTerminal` during `pay()`:
+**Entry point** (called by `JBMultiTerminal` during `pay()`, not directly by users):
 ```solidity
 JBOmnichainDeployer.beforePayRecordedWith(JBBeforePayRecordedContext calldata context)
     external view returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
 ```
 
-### Flow
+**Who can call**: Any address. This is a `view` function called by the terminal during payment processing. It does not modify state.
+
+**Parameters**:
+- `context` -- Standard `JBBeforePayRecordedContext` struct populated by the terminal. Includes `projectId`, `rulesetId`, `amount`, `weight`, and payment metadata.
+
+**Flow**:
 
 1. **721 hook check**: Load `_tiered721HookOf[context.projectId][context.rulesetId]`. If non-zero, call its `beforePayRecordedWith(context)`. Extract the first spec as the 721 split amount.
 2. **Compute project amount**: `projectAmount = context.amount.value - totalSplitAmount` (floored at 0).
@@ -201,9 +251,11 @@ JBOmnichainDeployer.beforePayRecordedWith(JBBeforePayRecordedContext calldata co
    - If `projectAmount == 0`: `weight = 0` regardless.
 5. **Spec merging**: 721 spec (if any) first, then custom hook specs.
 
-### Edge Cases
+**Events**: None. This is a `view` function.
 
-- **No hooks stored for this ruleset**: Returns `(context.weight, [])`. This happens when the project wasn't created through the deployer, or the ruleset ID doesn't match any stored mapping.
+**Edge cases**:
+
+- **No hooks stored for this ruleset**: Returns `(context.weight, [])`. This happens when the project was not created through the deployer, or the ruleset ID does not match any stored mapping.
 - **721 hook returns empty specs**: `hasTiered721Spec = false`, `totalSplitAmount = 0`. Custom hook sees full amount.
 - **721 hook returns multiple specs**: Only `tiered721HookSpecs[0]` is used. The 721 hook contract always returns exactly one spec (itself), so this is not a practical concern.
 - **Custom hook returns weight=0**: After scaling, `weight = 0`. This is the buyback hook's "swap path" -- it returns `weight = 0` when routing through the AMM.
@@ -214,17 +266,18 @@ JBOmnichainDeployer.beforePayRecordedWith(JBBeforePayRecordedContext calldata co
 
 ## Journey 6: Cash-Out Through the Data Hook Proxy
 
-### Actor
-Any token holder (view function called by terminal during `cashOutTokensOf`).
-
-### Entry Point
-Called by `JBMultiTerminal` during `cashOutTokensOf()`:
+**Entry point** (called by `JBMultiTerminal` during `cashOutTokensOf()`, not directly by users):
 ```solidity
 JBOmnichainDeployer.beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
     external view returns (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply, JBCashOutHookSpecification[] memory)
 ```
 
-### Flow (sequential composition)
+**Who can call**: Any address. This is a `view` function called by the terminal during cash-out processing. It does not modify state.
+
+**Parameters**:
+- `context` -- Standard `JBBeforeCashOutRecordedContext` struct populated by the terminal. Includes `projectId`, `rulesetId`, `holder`, `cashOutCount`, `totalSupply`, `cashOutTaxRate`, and metadata.
+
+**Flow (sequential composition)**:
 
 1. **Sucker check**: `SUCKER_REGISTRY.isSuckerOf(context.projectId, context.holder)`. If true: return `(0, context.cashOutCount, context.totalSupply, [])`. Sucker gets full pro-rata reclaim, 0% tax.
 2. **Initialize values** from `context`: `cashOutTaxRate`, `cashOutCount`, `totalSupply`.
@@ -233,7 +286,9 @@ JBOmnichainDeployer.beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext cal
 5. **Merge specs**: If either hook returned specifications, merge them (721 specs first, then custom hook specs) and return.
 6. **Fallback**: If neither hook returned specs, return the adjusted values with no hook specs.
 
-### Edge Cases
+**Events**: None. This is a `view` function.
+
+**Edge cases**:
 
 - **Sucker with reverting 721 hook**: The sucker check is first, so the 721 hook is never called. The sucker always gets 0% tax even if the 721 hook would revert.
 - **Non-sucker with 721 `useDataHookForCashOut = true`**: The 721 hook is called. For fungible cash-outs, the 721 hook typically reverts with `JB721Hook_UnexpectedTokenCashedOut()`. This revert propagates -- the non-sucker cannot cash out fungible tokens. Set `useDataHookForCashOut = false` in the `deploy721Config` to avoid this.
@@ -244,23 +299,29 @@ JBOmnichainDeployer.beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext cal
 
 ## Journey 7: Mint Permission Check
 
-### Actor
-Called by `JBController` during token minting.
-
-### Entry Point
+**Entry point** (called by `JBController` during token minting):
 ```solidity
 JBOmnichainDeployer.hasMintPermissionFor(uint256 projectId, JBRuleset memory ruleset, address addr)
     external view returns (bool)
 ```
 
-### Flow
+**Who can call**: Any address. This is a `view` function called by the controller to check if an address has mint permission.
+
+**Parameters**:
+- `projectId` -- The project whose token minting permission is being checked.
+- `ruleset` -- The current ruleset (used to look up stored hook configs by `ruleset.id`).
+- `addr` -- The address being checked for mint permission.
+
+**Flow**:
 
 1. **Sucker check**: If `SUCKER_REGISTRY.isSuckerOf(projectId, addr)` returns true, return `true`.
 2. **Custom hook check**: If `_extraDataHookOf[projectId][ruleset.id]` exists, delegate to its `hasMintPermissionFor`. If it returns true, return `true`.
 3. **721 hook is NOT checked**: The 721 hook does not grant mint permission through this path.
 4. **Default**: Return `false`.
 
-### Edge Cases
+**Events**: None. This is a `view` function.
+
+**Edge cases**:
 
 - **No stored hooks for this ruleset**: Only the sucker check applies. Non-suckers cannot mint.
 - **Custom hook reverts**: The revert propagates. Mint permission check fails.
@@ -325,7 +386,7 @@ If the attacker's controller returns a different directory, or the directory ret
 A sophisticated attacker could deploy a controller that returns a directory where `controllerOf(projectId)` returns the attacker's controller. However, this would require the project to actually be using the attacker's controller in the canonical directory, which would mean the project is already compromised.
 
 For `launchProjectFor`: There is no controller validation because the project doesn't exist yet. A malicious controller could:
-1. Return a fake project ID -- caught by `ProjectIdMismatch`.
+1. Return a fake project ID -- caught by `JBOmnichainDeployer_ProjectIdMismatch`.
 2. Mint the project NFT but configure it maliciously -- the deployer transfers ownership to the intended `owner`, who can reconfigure.
 3. Not mint the project NFT at all -- the `PROJECTS.transferFrom` at the end would revert.
 
@@ -352,10 +413,11 @@ No new hook deployment. The existing hook's ownership is unchanged.
 
 ## Journey 12: Default 721 Config Derivation
 
-### Entry Point
-Any simplified overload that omits `JBOmnichain721Config`.
+**Entry point**: Any simplified overload that omits `JBOmnichain721Config`.
 
-### Logic
+**Who can call**: Same as the parent function being called (see Journeys 1, 2, 3).
+
+**Logic**:
 ```solidity
 function _default721Config(JBRulesetConfig[] memory rulesetConfigurations)
     internal pure returns (JBOmnichain721Config memory config)
@@ -371,7 +433,9 @@ function _default721Config(JBRulesetConfig[] memory rulesetConfigurations)
 - `useDataHookForCashOut = false` (default).
 - `salt = bytes32(0)` (non-deterministic deployment).
 
-### Edge Cases
+**Events**: None. This is an `internal pure` function.
+
+**Edge cases**:
 
 - **Empty rulesets array**: Reverts with array index out of bounds on `rulesetConfigurations[0]`.
 - **Non-18-decimal token**: The 721 hook will use 18 decimals regardless. This affects tier pricing if the project's accounting context uses a different precision.
