@@ -4,17 +4,6 @@
 
 No prior formal audit with finding IDs has been conducted on this repository. Known risks and design trade-offs are documented in [`RISKS.md`](./RISKS.md).
 
-## Known Issues
-
-> **DEAD CODE -- `JBOmnichainDeployer_UnexpectedNFT`**
->
-> The Error Conditions table below lists `JBOmnichainDeployer_UnexpectedNFT` as declared but never used.
-> This error is **not present in the current source code** (`src/JBOmnichainDeployer.sol`). The contract
-> only declares and uses `JBOmnichainDeployer_UnexpectedNFTReceived` (line 64, used at line 544).
-> If `UnexpectedNFT` appears in any generated artifact, interface, or earlier revision, it is dead code
-> that should be cleaned up. Auditors should confirm there is no orphaned declaration in any file
-> within scope.
-
 ## Compiler and Version Info
 
 Settings from `foundry.toml`:
@@ -31,20 +20,20 @@ Settings from `foundry.toml`:
 
 ## Scope
 
-One contract, 816 lines, four structs. This repo wraps Juicebox V6 project deployment to automatically configure cross-chain suckers and a 721 tiers hook. The deployer itself acts as a data hook proxy, composing a 721 hook with an optional custom hook (e.g. buyback) while granting registered suckers 0% cash-out tax and mint permission.
+One contract, 872 lines, four structs. This repo wraps Juicebox V6 project deployment to automatically configure cross-chain suckers and a 721 tiers hook. The deployer itself acts as a data hook proxy, composing a 721 hook with an optional custom hook (e.g. buyback) while granting registered suckers 0% cash-out tax and mint permission.
 
 ## Architecture
 
 | File | Lines | Role |
 |------|------:|------|
-| `src/JBOmnichainDeployer.sol` | 816 | Main contract. Deploys projects, queues rulesets, proxies data hook calls. Implements `IJBRulesetDataHook`, `IERC721Receiver`, `JBPermissioned`, `ERC2771Context`. |
+| `src/JBOmnichainDeployer.sol` | 872 | Main contract. Deploys projects, queues rulesets, proxies data hook calls. Implements `IJBRulesetDataHook`, `IERC721Receiver`, `JBPermissioned`, `ERC2771Context`. |
 | `src/interfaces/IJBOmnichainDeployer.sol` | 171 | Public interface. |
 | `src/structs/JBDeployerHookConfig.sol` | 11 | Stores custom data hook address + pay/cashout flags per ruleset. |
 | `src/structs/JBOmnichain721Config.sol` | 16 | 721 hook deployment config: tiers config + cashout flag + salt. |
 | `src/structs/JBSuckerDeploymentConfig.sol` | 12 | Sucker deployer configs + salt for deterministic addresses. |
 | `src/structs/JBTiered721HookConfig.sol` | 10 | Stores 721 hook address + `useDataHookForCashOut` flag per ruleset. |
 
-**Total source**: ~1,036 lines.
+**Total source**: ~1,092 lines.
 
 ## External Dependencies
 
@@ -140,7 +129,7 @@ function launchRulesetsFor(
 ) external returns (uint256 rulesetId, IJB721TiersHook hook)
 ```
 
-**Permission checks**: Requires both `QUEUE_RULESETS` and `SET_TERMINALS` from project owner.
+**Permission checks**: Requires both `LAUNCH_RULESETS` and `SET_TERMINALS` from project owner.
 
 **Controller validation**: `_validateController(projectId, controller)` checks `controller.DIRECTORY().controllerOf(projectId) == controller`.
 
@@ -281,7 +270,6 @@ For each ruleset config at index `i`:
 | `JBOmnichainDeployer_InvalidHook` | Ruleset's `metadata.dataHook == address(this)` | `_setup721` (called by all launch/queue functions) |
 | `JBOmnichainDeployer_ProjectIdMismatch` | `controller.launchProjectFor` returns unexpected project ID | `_launchProjectFor` |
 | `JBOmnichainDeployer_RulesetIdsUnpredictable` | `latestRulesetIdOf(projectId) >= block.timestamp` | `_queueRulesetsOf` |
-| `JBOmnichainDeployer_UnexpectedNFT` | **Declared but never used** (dead code). | N/A |
 | `JBOmnichainDeployer_UnexpectedNFTReceived` | `onERC721Received` called by non-`PROJECTS` contract | `onERC721Received` |
 
 ## Priority Audit Areas
@@ -340,7 +328,7 @@ For each ruleset config at index `i`:
 
 ## Test Suite Overview
 
-15 test files, ~2,500 lines of test code:
+14 test files, ~5,000 lines of test code:
 
 | Category | Files | Coverage |
 |----------|-------|----------|
@@ -353,7 +341,7 @@ For each ruleset config at index `i`:
 | Invariants | `invariants/OmnichainDeployerInvariant.t.sol` + handler | Sucker 0% tax, 721 spec ordering, fund conservation, token supply consistency, deployer ETH balance, hook storage consistency |
 | Regression | `regression/HookOwnershipTransfer.t.sol` | Hook ownership transfer in `queueRulesetsOf` |
 | Regression | `regression/ValidateController.t.sol` | Controller validation rejects fake controllers |
-| Fork | `fork/TestOmnichain*.t.sol` (4 files) | Real V4 PoolManager + buyback hook integration, 721 queue-and-adjust, cashout fork, stress, weight fork |
+| Fork | `fork/TestOmnichain*.t.sol` (5 files) | Real V4 PoolManager + buyback hook integration, 721 queue-and-adjust, cashout fork, stress, weight fork, sucker deployment fork |
 
 ## Testing Setup
 
