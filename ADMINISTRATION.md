@@ -63,6 +63,40 @@ Admin privileges and their scope in nana-omnichain-deployers-v6.
 
 **Cross-chain determinism:** The salt for sucker deployment is combined with `_msgSender()` (`keccak256(abi.encode(salt, _msgSender()))`). Deploying from the same sender address with the same salt on each chain produces matching sucker addresses.
 
+## Data Hook Proxy Pattern
+
+`JBOmnichainDeployer` acts as a data hook proxy. When set as a project's `dataHook` in ruleset metadata, it wraps up to two inner hooks:
+
+1. **721 tiers hook** (`_tiered721HookOf[projectId][rulesetId]`): Handles NFT-based pay/cashout logic.
+2. **Extra data hook** (`_extraDataHookOf[projectId][rulesetId]`): An optional custom hook for additional pay/cashout logic.
+
+### Call flow for `beforePayRecordedWith`:
+
+```
+Terminal -> Controller -> JBOmnichainDeployer.beforePayRecordedWith()
+  1. Call 721 hook's beforePayRecordedWith (if useDataHookForPay is set)
+     -> Get pay hook specifications and adjusted weight
+  2. Call extra hook's beforePayRecordedWith (if useDataHookForPay is set on extra hook config)
+     -> Amount is reduced by what the 721 hook already allocated
+  3. Merge both hooks' specifications and return
+```
+
+### Call flow for `beforeCashOutRecordedWith`:
+
+```
+Terminal -> Controller -> JBOmnichainDeployer.beforeCashOutRecordedWith()
+  1. Check if caller is a registered sucker -> return 0% cash-out tax (fee-free bridging)
+  2. Call 721 hook's beforeCashOutRecordedWith (if useDataHookForCashOut is set on 721 config)
+     -> Get cashout hook specifications and adjusted values
+  3. Call extra hook's beforeCashOutRecordedWith (if useDataHookForCashOut is set on extra config)
+     -> Receives updated values from 721 hook
+  4. Merge both hooks' specifications and return
+```
+
+**`useDataHookForCashOut` / `useDataHookForPay` flags:** These flags are stored per-hook per-ruleset in the `JBDeployerHookConfig` struct. If the flag is `false` for a hook, that hook is skipped entirely during the corresponding operation. The deployer does not call hooks with disabled flags -- it returns the original values unchanged for that hook's portion.
+
+**Write-once storage:** Both `_tiered721HookOf` and `_extraDataHookOf` mappings are written once during `_setup721()` and never updated. New rulesets can reference different hooks, but existing ruleset-to-hook mappings are permanent.
+
 ## Immutable Configuration
 
 These values are set at deployment and cannot be changed:
