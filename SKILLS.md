@@ -82,30 +82,54 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 | `JBOmnichainDeployer_ProjectIdMismatch` | `launchProjectFor` -- the project ID returned by the controller does not match the predicted `PROJECTS.count() + 1` |
 | `JBOmnichainDeployer_ControllerMismatch` | `launchRulesetsFor`/`queueRulesetsOf` -- the provided controller does not match the project's controller in `JBDirectory` |
 
+## Events
+
+`JBOmnichainDeployer` does not declare any custom events. All observable state changes (project creation, ruleset queuing, sucker deployment) are emitted by the underlying contracts it calls (`IJBController`, `IJBSuckerRegistry`, `IJB721TiersHookDeployer`).
+
+## Constants
+
+| Name | Value | Context |
+|------|-------|---------|
+| `PROJECTS` | Set at construction | `IJBProjects` -- mints project NFTs. Immutable. |
+| `HOOK_DEPLOYER` | Set at construction | `IJB721TiersHookDeployer` -- deploys 721 tiers hooks. Immutable. |
+| `SUCKER_REGISTRY` | Set at construction | `IJBSuckerRegistry` -- deploys/tracks suckers, `isSuckerOf` checks. Immutable. |
+| `projectId = 0` (wildcard) | Used in constructor | `MAP_SUCKER_TOKEN` permission granted to `SUCKER_REGISTRY` with `projectId=0`, giving it token mapping rights for all projects. |
+| `decimals = 18` | Used in `_default721Config` | Default decimal precision when 721 config is omitted (simplified overloads). |
+| `baseCurrency` | From first ruleset | When 721 config is omitted, `baseCurrency` is read from `rulesetConfigurations[0].metadata.baseCurrency`. |
+
 ## Gotchas
 
-1. `launchProjectFor` requires **no permissions** -- anyone can launch a project to any owner address.
-2. `queueRulesetsOf` **reverts if called in the same block** as a previous ruleset queue (whether via deployer or directly). The `launchProjectFor` function doesn't have this guard because it predicts IDs from `PROJECTS.count()`, which is always 0 for a new project.
-3. Ruleset IDs in `_extraDataHookOf` are keyed by `block.timestamp + i`. If the controller assigns different IDs than predicted, the stored hook configs will be orphaned and the deployer will behave as if no hooks were set (returning default values).
-4. Sucker deployment salts are hashed with `_msgSender()`: `keccak256(abi.encode(salt, _msgSender()))`. Cross-chain deterministic addresses require using the **same sender** on each chain. The 721 hook salt uses `keccak256(abi.encode(_msgSender(), salt))` (reversed order).
-5. `salt = bytes32(0)` **skips sucker deployment entirely**. Use a nonzero salt to deploy suckers.
-6. The deployer **always forces `useDataHookForCashOut = true`** at the protocol level so it can intercept cash outs for sucker tax exemption. However, the 721 hook's `useDataHookForCashOut` flag (stored in `_tiered721HookOf`) and the custom hook's flag (stored in `_extraDataHookOf`) each control whether that hook processes cash outs. Set `useDataHookForCashOut: false` on the 721 config to skip it for fungible cashouts (it reverts with `JB721Hook_UnexpectedTokenCashedOut` otherwise).
-7. Suckers get an **early return** in `beforeCashOutRecordedWith` -- they bypass all stored hooks entirely. This means suckers can cash out even if any hook would revert.
-8. If no custom hook is stored or it doesn't grant permission, `hasMintPermissionFor` returns `false` for non-suckers. Only the custom hook in `_extraDataHookOf` is checked — the 721 hook is not consulted.
-9. `_setup721()` sets `metadata.dataHook = address(this)`, `metadata.useDataHookForPay = true`, and `metadata.useDataHookForCashOut = true` on every ruleset. These cannot be overridden.
-10. Hook ownership is transferred to the **project** (not the owner) via `JBOwnable.transferOwnershipToProject(projectId)`. This happens **after** the project NFT is minted — in `launchProjectFor`, the hook is deployed before `controller.launchProjectFor`, and ownership is transferred after the project exists.
-11. The deployer holds the project NFT temporarily during launch. If the controller's `launchProjectFor` reverts, the entire transaction reverts -- no stuck NFTs.
-12. The constructor grants `MAP_SUCKER_TOKEN` permission to `SUCKER_REGISTRY` with `projectId=0`, meaning the registry can map tokens for **any project** deployed through this deployer.
-13. All data hook functions (`beforePayRecordedWith`, `beforeCashOutRecordedWith`, `hasMintPermissionFor`) are `view`. If the project's real hook needs to modify state in these functions, it will fail.
-14. Setting a hook's `dataHook` to `address(this)` (the deployer itself) reverts with `JBOmnichainDeployer_InvalidHook` in `_setup721()`. This prevents infinite forwarding loops.
-15. `onERC721Received` only accepts NFTs from the `PROJECTS` contract. Sending any other ERC-721 to the deployer will revert.
-16. ERC2771 meta-transaction support allows gasless deployments via a trusted forwarder. Salt hashing uses `_msgSender()` (not `msg.sender`), so forwarder-relayed transactions use the original sender's address for deterministic sucker addresses.
-17. Every project always gets a 721 hook, even with an empty tiers array. This wires up the 721 hook from the start, so the project owner can add and sell NFTs later without needing to reconfigure the data hook in a new ruleset.
-18. The 721 hook is stored per-ruleset in `_tiered721HookOf[projectId][rulesetId]` with its `useDataHookForCashOut` flag. The custom data hook (if any) is stored separately in `_extraDataHookOf[projectId][rulesetId]`. They are never in the same array.
-19. For payments, `beforePayRecordedWith` calls the 721 hook first (via `_tiered721HookOf`) to get its specs (including split fund amounts and tier metadata), then calls the custom hook from `_extraDataHookOf` (if `useDataHookForPay: true`) with a reduced amount context (payment minus split amount) so the buyback hook only considers the available amount. The deployer then adjusts the weight proportionally for splits (`weight = mulDiv(weight, amount - splitAmount, amount)`). The 721 hook's specs come first in the merged result, but only if the hook returned specs (0-tier hooks produce no specs).
-20. For cash outs, `beforeCashOutRecordedWith` calls the 721 hook first (from `_tiered721HookOf`, if `useDataHookForCashOut: true`), updating the cash out parameters (tax rate, count, supply). Then calls the custom hook (from `_extraDataHookOf`, if `useDataHookForCashOut: true`) with the already-updated values from the 721 hook. Both hooks' specifications are merged (721 specs first, then custom hook specs). If the 721 hook has the flag set and reverts (e.g., `JB721Hook_UnexpectedTokenCashedOut` for fungible cashouts), the revert propagates. Set `useDataHookForCashOut: false` on the 721 config to skip it.
-21. The `JBOmnichain721Config` parameter bundles the 721 hook deployment config (`deployTiersHookConfig`), the `useDataHookForCashOut` flag, and the `salt`. Custom data hooks are read from each ruleset's `metadata.dataHook` field.
-22. For `queueRulesetsOf`, if no new tiers are provided (`deploy721Config.deployTiersHookConfig.tiersConfig.tiers.length == 0`), the 721 hook from the **latest ruleset** is carried forward instead of deploying a new one. This is looked up from `_tiered721HookOf[projectId][latestRulesetId]`.
+### Deployment
+
+- `launchProjectFor` requires **no permissions** -- anyone can launch a project to any owner address.
+- `queueRulesetsOf` **reverts if called in the same block** as a previous ruleset queue (whether via deployer or directly). The `launchProjectFor` function doesn't have this guard because it predicts IDs from `PROJECTS.count()`, which is always 0 for a new project.
+- Ruleset IDs in `_extraDataHookOf` are keyed by `block.timestamp + i`. If the controller assigns different IDs than predicted, the stored hook configs will be orphaned and the deployer will behave as if no hooks were set (returning default values).
+- Sucker deployment salts are hashed with `_msgSender()`: `keccak256(abi.encode(salt, _msgSender()))`. Cross-chain deterministic addresses require using the **same sender** on each chain. The 721 hook salt uses `keccak256(abi.encode(_msgSender(), salt))` (reversed order).
+- `salt = bytes32(0)` **skips sucker deployment entirely**. Use a nonzero salt to deploy suckers.
+- Hook ownership is transferred to the **project** (not the owner) via `JBOwnable.transferOwnershipToProject(projectId)`. This happens **after** the project NFT is minted.
+- The deployer holds the project NFT temporarily during launch. If the controller's `launchProjectFor` reverts, the entire transaction reverts -- no stuck NFTs.
+- Every project always gets a 721 hook, even with an empty tiers array. This wires up the 721 hook from the start, so tiers can be added later without reconfiguring the data hook.
+- For `queueRulesetsOf`, if no new tiers are provided, the 721 hook from the **latest ruleset** is carried forward instead of deploying a new one. Looked up from `_tiered721HookOf[projectId][latestRulesetId]`.
+
+### Data Hook Behavior
+
+- The deployer **always forces `useDataHookForCashOut = true`** at the protocol level so it can intercept cash outs for sucker tax exemption. However, the 721 hook's `useDataHookForCashOut` flag (stored in `_tiered721HookOf`) and the custom hook's flag (stored in `_extraDataHookOf`) each control whether that hook processes cash outs. Set `useDataHookForCashOut: false` on the 721 config to skip it for fungible cashouts (it reverts with `JB721Hook_UnexpectedTokenCashedOut` otherwise).
+- Suckers get an **early return** in `beforeCashOutRecordedWith` -- they bypass all stored hooks entirely. Suckers can cash out even if any hook would revert.
+- If no custom hook is stored or it doesn't grant permission, `hasMintPermissionFor` returns `false` for non-suckers. Only the custom hook in `_extraDataHookOf` is checked -- the 721 hook is not consulted.
+- `_setup721()` sets `metadata.dataHook = address(this)`, `metadata.useDataHookForPay = true`, and `metadata.useDataHookForCashOut = true` on every ruleset. These cannot be overridden.
+- All data hook functions (`beforePayRecordedWith`, `beforeCashOutRecordedWith`, `hasMintPermissionFor`) are `view`. If the project's real hook needs to modify state in these functions, it will fail.
+- Setting a hook's `dataHook` to `address(this)` (the deployer itself) reverts with `JBOmnichainDeployer_InvalidHook`. This prevents infinite forwarding loops.
+- The 721 hook is stored per-ruleset in `_tiered721HookOf[projectId][rulesetId]` with its `useDataHookForCashOut` flag. The custom data hook (if any) is stored separately in `_extraDataHookOf[projectId][rulesetId]`. They are never in the same mapping.
+- The `JBOmnichain721Config` parameter bundles the 721 hook deployment config, the `useDataHookForCashOut` flag, and the `salt`. Custom data hooks are read from each ruleset's `metadata.dataHook` field.
+
+### Permissions
+
+- The constructor grants `MAP_SUCKER_TOKEN` permission to `SUCKER_REGISTRY` with `projectId=0`, meaning the registry can map tokens for **any project** deployed through this deployer.
+
+### Edge Cases
+
+- `onERC721Received` only accepts NFTs from the `PROJECTS` contract. Sending any other ERC-721 to the deployer will revert.
+- ERC2771 meta-transaction support allows gasless deployments via a trusted forwarder. Salt hashing uses `_msgSender()` (not `msg.sender`), so forwarder-relayed transactions use the original sender's address for deterministic sucker addresses.
 
 ## Example Integration
 
@@ -171,4 +195,59 @@ JBOmnichain721Config memory queue721Config = JBOmnichain721Config({
     memo: "Queue new rulesets",
     controller: controller
 });
+```
+
+## Buyback Hook + 721 Hook Composition
+
+The most complex use case: a project with NFT tiers (721 hook) AND a buyback hook, both running on every payment. The deployer composes them automatically.
+
+```solidity
+import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
+import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
+
+// --- Key concept: the buyback hook goes in metadata.dataHook ---
+// The deployer extracts it, stores it in _extraDataHookOf, and replaces
+// metadata.dataHook with address(this) so it can intercept all calls.
+
+// 1. Configure the buyback hook as the ruleset's custom data hook.
+JBRulesetConfig[] memory rulesetConfigs = new JBRulesetConfig[](1);
+rulesetConfigs[0].metadata = JBRulesetMetadata({
+    // ... other metadata fields ...
+    dataHook: address(buybackHook),   // <-- deployer extracts this
+    useDataHookForPay: true,          // buyback hook processes payments
+    useDataHookForCashOut: false      // buyback hook does NOT process cashouts
+    // ...
+});
+
+// 2. Configure the 721 hook with NFT tiers.
+JBOmnichain721Config memory deploy721Config = JBOmnichain721Config({
+    deployTiersHookConfig: tiersHookConfig,  // your NFT tier config
+    useDataHookForCashOut: false,            // false = skip 721 on fungible cashouts
+    salt: bytes32("my-hook-salt")
+});
+
+// 3. Launch -- both hooks are wired up automatically.
+(uint256 projectId, IJB721TiersHook hook, address[] memory suckers) =
+    omnichainDeployer.launchProjectFor({
+        owner: msg.sender,
+        projectUri: "ipfs://metadata",
+        deploy721Config: deploy721Config,
+        rulesetConfigurations: rulesetConfigs,
+        terminalConfigurations: terminalConfigs,
+        memo: "Buyback + 721 project",
+        suckerDeploymentConfiguration: suckerConfig,
+        controller: controller
+    });
+
+// --- What happens on each payment: ---
+// 1. beforePayRecordedWith calls the 721 hook first (tier matching, NFT minting specs)
+// 2. Reduces the payment amount by the 721 split amount
+// 3. Calls the buyback hook with the reduced amount (so it only buys back with leftover)
+// 4. Adjusts weight proportionally: weight = mulDiv(weight, amount - splitAmount, amount)
+// 5. Merges specs: 721 specs first, then buyback specs
+//
+// --- What happens on cashout: ---
+// With useDataHookForCashOut: false on both hooks:
+//   - Suckers still get 0% tax (the deployer intercepts before any hook)
+//   - Regular users get standard bonding curve cashout (no hook interference)
 ```
