@@ -99,6 +99,15 @@ This means:
 - Different senders can't collide, even with the same salt
 - `salt = bytes32(0)` skips sucker deployment entirely
 
+### Supported Chains
+
+`JBOmnichainDeployer` supports the same chains as the sucker deployers it wraps. Currently supported:
+
+- **Mainnets**: Ethereum, Optimism, Base, Arbitrum
+- **Testnets**: Ethereum Sepolia, Optimism Sepolia, Base Sepolia, Arbitrum Sepolia
+
+To deploy a cross-chain project, call `launchProjectFor` on each chain with the same salt. The sucker deployers use CREATE2 so that matching salts from the same sender produce deterministic addresses across chains.
+
 ### Ruleset ID Prediction
 
 The deployer stores hook configs keyed by predicted ruleset IDs (`block.timestamp + i`). This works because `JBRulesets` assigns IDs as `latestId >= block.timestamp ? latestId + 1 : block.timestamp`. For new projects, `latestId` starts at 0, so the first ID is always `block.timestamp`.
@@ -165,28 +174,40 @@ runs = 4096
 
 ```
 src/
-  JBOmnichainDeployer.sol               # Main contract (~817 lines)
+  JBOmnichainDeployer.sol                       # Main contract (~817 lines)
   interfaces/
-    IJBOmnichainDeployer.sol            # Public interface
+    IJBOmnichainDeployer.sol                    # Public interface
   structs/
-    JBDeployerHookConfig.sol            # Custom hook config (dataHook + flags)
-    JBOmnichain721Config.sol            # 721 hook deployment config
-    JBTiered721HookConfig.sol           # Per-ruleset 721 hook config
-    JBSuckerDeploymentConfig.sol        # Sucker deployment params
+    JBDeployerHookConfig.sol                    # Custom hook config (dataHook + flags)
+    JBOmnichain721Config.sol                    # 721 hook deployment config
+    JBSuckerDeploymentConfig.sol                # Sucker deployment params
+    JBTiered721HookConfig.sol                   # Per-ruleset 721 hook config
 test/
-  JBOmnichainDeployer.t.sol             # Unit tests
-  JBOmnichainDeployerGuard.t.sol        # Ruleset ID prediction tests
-  OmnichainDeployerAttacks.t.sol        # Adversarial security tests
-  OmnichainDeployerEdgeCases.t.sol      # Edge case tests (weight, cashout, mint)
-  OmnichainDeployerReentrancy.t.sol     # Reentrancy tests
-  Tiered721HookComposition.t.sol        # 721 hook + custom hook composition tests
-  fork/                                 # Fork tests against mainnet
+  JBOmnichainDeployer.t.sol                     # Unit tests
+  JBOmnichainDeployerGuard.t.sol                # Ruleset ID prediction tests
+  OmnichainDeployerAttacks.t.sol                # Adversarial security tests
+  OmnichainDeployerEdgeCases.t.sol              # Edge case tests (weight, cashout, mint)
+  OmnichainDeployerReentrancy.t.sol             # Reentrancy tests
+  TestAuditGaps.sol                             # Audit gap coverage tests
+  Tiered721HookComposition.t.sol                # 721 hook + custom hook composition tests
+  fork/
+    OmnichainForkTestBase.sol                   # Shared fork test base
+    TestOmnichain721QueueAndAdjust.t.sol        # Fork: queue and adjust 721 tiers
+    TestOmnichainCashOutFork.t.sol              # Fork: cash out flows
+    TestOmnichainStressFork.t.sol               # Fork: stress / load tests
+    TestOmnichainWeightFork.t.sol               # Fork: weight decay tests
+    TestSuckerDeploymentFork.t.sol              # Fork: sucker deployment
+  invariants/
+    OmnichainDeployerInvariant.t.sol            # Invariant tests
+    handlers/
+      OmnichainDeployerHandler.sol              # Invariant handler
   regression/
-    HookOwnershipTransfer.t.sol         # Hook ownership transfer regression
+    HookOwnershipTransfer.t.sol                 # Hook ownership transfer regression
+    ValidateController.t.sol                    # Controller validation regression
 script/
-  Deploy.s.sol                          # Sphinx deployment script
+  Deploy.s.sol                                  # Sphinx deployment script
   helpers/
-    DeployersDeploymentLib.sol          # Deployment address helper
+    DeployersDeploymentLib.sol                  # Deployment address helper
 ```
 
 ## Permissions
