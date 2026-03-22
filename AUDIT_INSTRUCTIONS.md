@@ -1,5 +1,34 @@
 # nana-omnichain-deployers-v6 -- Audit Instructions
 
+## Previous Audit Findings
+
+No prior formal audit with finding IDs has been conducted on this repository. Known risks and design trade-offs are documented in [`RISKS.md`](./RISKS.md).
+
+## Known Issues
+
+> **DEAD CODE -- `JBOmnichainDeployer_UnexpectedNFT`**
+>
+> The Error Conditions table below lists `JBOmnichainDeployer_UnexpectedNFT` as declared but never used.
+> This error is **not present in the current source code** (`src/JBOmnichainDeployer.sol`). The contract
+> only declares and uses `JBOmnichainDeployer_UnexpectedNFTReceived` (line 64, used at line 544).
+> If `UnexpectedNFT` appears in any generated artifact, interface, or earlier revision, it is dead code
+> that should be cleaned up. Auditors should confirm there is no orphaned declaration in any file
+> within scope.
+
+## Compiler and Version Info
+
+Settings from `foundry.toml`:
+
+| Setting | Value |
+|---------|-------|
+| Solidity version | `0.8.26` |
+| EVM target | `cancun` |
+| Intermediate representation | `via_ir = true` |
+| Optimizer runs | `200` |
+| Dependency paths | `node_modules`, `lib` |
+| Fuzz runs | `4,096` |
+| Invariant runs | `1,024` (depth: `100`, `fail_on_revert: false`) |
+
 ## Scope
 
 One contract, 816 lines, four structs. This repo wraps Juicebox V6 project deployment to automatically configure cross-chain suckers and a 721 tiers hook. The deployer itself acts as a data hook proxy, composing a 721 hook with an optional custom hook (e.g. buyback) while granting registered suckers 0% cash-out tax and mint permission.
@@ -346,3 +375,24 @@ RPC_ETHEREUM_MAINNET=<your_rpc> forge test --match-contract OmnichainDeployerInv
 ```
 
 Foundry config is at `foundry.toml`. Fuzz runs: 4096. Invariant runs: 1024, depth: 100, `fail_on_revert: false`.
+
+## How to Report Findings
+
+Each finding should follow this 7-point structure:
+
+1. **Title** -- A short, descriptive name (e.g. "Ruleset ID prediction fails on same-block queue").
+2. **Affected contract(s)** -- File path(s) and line number(s).
+3. **Description** -- What the issue is and why it matters. Include relevant code snippets.
+4. **Trigger sequence** -- Step-by-step instructions to reproduce the issue (transactions, parameters, state preconditions).
+5. **Impact** -- What can go wrong: fund loss, privilege escalation, denial of service, incorrect accounting, etc.
+6. **Proof** -- A Foundry test, call trace, or formal argument demonstrating the issue. Runnable PoC strongly preferred.
+7. **Fix** -- A concrete recommendation. Code diff preferred; otherwise a description of the required change.
+
+### Severity Guide
+
+| Severity | Criteria |
+|----------|----------|
+| **CRITICAL** | Direct loss or theft of funds, permanent freezing of funds, or unauthorized minting/burning of tokens. Exploitable without unusual preconditions. |
+| **HIGH** | Significant fund loss under specific but realistic conditions, privilege escalation that bypasses access control, or corruption of core protocol state (e.g. wrong hook mappings that silently disable sucker bypass). |
+| **MEDIUM** | Conditional issues requiring atypical state or timing (e.g. same-block race conditions), griefing attacks with bounded cost, or incorrect accounting that does not directly lose funds but violates documented invariants. |
+| **LOW** | Code quality issues, gas inefficiencies, dead code, missing events, deviations from best practices, or edge cases with negligible economic impact. |
