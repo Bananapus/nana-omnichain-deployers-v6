@@ -18,6 +18,16 @@ src/
     └── JBSuckerDeploymentConfig.sol  — Sucker deployment parameters
 ```
 
+## Hook Storage Mappings
+
+The deployer maintains two internal mappings, both keyed by `(projectId, rulesetId)`:
+
+- **`_tiered721HookOf`** — Stores the project's `IJB721TiersHook` reference and a `useDataHookForCashOut` flag. Always populated for every ruleset (every project gets a 721 hook). The hook is always consulted for payments (it controls NFT tier minting), and optionally consulted for cash outs based on the flag.
+
+- **`_extraDataHookOf`** — Stores an optional secondary data hook (e.g., a buyback hook) extracted from the ruleset's original `metadata.dataHook` field before the deployer overwrites it with itself. Includes separate `useDataHookForPay` and `useDataHookForCashOut` flags, preserved from the original ruleset metadata. Only populated when the caller's ruleset config specifies a non-zero `dataHook`.
+
+During `_setup721`, the deployer extracts any user-specified data hook into `_extraDataHookOf`, then replaces `metadata.dataHook` with itself and forces both pay/cashout flags to `true`. At runtime, the deployer delegates to the 721 hook first, then the extra hook (if present), and merges their results.
+
 ## Key Data Flows
 
 ### Omnichain Project Deployment
@@ -75,6 +85,18 @@ Owner → JBOmnichainDeployer.launchRulesetsFor()
 | Data hook (cashout) | `IJBRulesetDataHook.beforeCashOutRecordedWith` | 0% tax for suckers, forward to hooks |
 | Sucker registry | `IJBSuckerRegistry` | Sucker deployment and discovery |
 | 721 hook deployer | `IJB721TiersHookDeployer` | 721 tiers hook deployment (always used) |
+
+## Design Decisions
+
+1. **Always deploy a 721 hook, even with 0 tiers.** Every project gets a 721 hook instance so that NFT tiers can be added later via `queueRulesetsOf` without changing the data hook architecture. The hook is also needed as the pay hook target for tier minting. Deploying with 0 tiers is a no-op at runtime (no specs returned) but keeps the infrastructure in place.
+
+2. **Deployer acts as a data hook wrapper instead of direct hook assignment.** The core protocol only supports a single `dataHook` per ruleset. The deployer inserts itself as that hook so it can compose two hooks (721 + custom) behind a single interface, while also injecting sucker-specific logic (0% cash-out tax for suckers, mint permission for suckers). Without this wrapper, projects would have to choose between NFT tiers, a buyback hook, and sucker privileges.
+
+3. **721 hook specs are merged first, custom hook specs second.** During payments, the 721 hook's split amount is subtracted from the payment before the custom hook sees it. This ordering ensures the 721 hook claims funds for tier mints at full price, and the custom hook (e.g., buyback) operates on the remaining amount. For cash outs, the 721 hook adjusts `cashOutTaxRate`/`cashOutCount`/`totalSupply` first, and the custom hook receives those already-updated values, allowing each hook to build on the previous hook's adjustments.
+
+4. **Weight scaling preserves token economics after tier splits.** When a 721 hook claims a portion of the payment for tier mints, the deployer scales the weight proportionally (`weight * projectAmount / totalAmount`) so the terminal only mints project tokens for the funds that actually enter the treasury. This prevents double-counting: the 721 hook mints its own NFTs for the split amount, and the terminal mints fungible tokens only for the remainder.
+
+5. **Ruleset IDs are predicted as `block.timestamp + i`.** The deployer must store hook configs keyed by ruleset ID before the rulesets are actually created. It predicts IDs using the core protocol's convention (`block.timestamp` for the first, incrementing for subsequent rulesets in the same transaction). `queueRulesetsOf` explicitly reverts if `latestRulesetId >= block.timestamp`, which would mean rulesets were already queued in the same block and the prediction would be wrong.
 
 ## Dependencies
 - `@bananapus/core-v6` — Core protocol (controller, directory, permissions)
