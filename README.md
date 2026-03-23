@@ -164,7 +164,8 @@ Add to `remappings.txt`:
 [profile.default]
 solc = '0.8.26'
 evm_version = 'cancun'
-optimizer_runs = 100000
+via_ir = true
+optimizer_runs = 200
 
 [fuzz]
 runs = 4096
