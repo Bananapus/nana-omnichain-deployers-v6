@@ -4,7 +4,7 @@
 
 - **Trusted forwarder.** ERC-2771 `_msgSender()` is trusted to append the real sender. A compromised forwarder can impersonate any address for `deploySuckersFor`, `launchProjectFor`, `queueRulesetsOf`, and `launchRulesetsFor`.
 - **Sucker registry.** `SUCKER_REGISTRY.isSuckerOf()` is the sole gatekeeper for 0% cashout tax and mint permission. A compromised or malicious registry lets any address bypass cashout taxes and mint tokens freely.
-- **Controller trust.** The deployer passes an arbitrary `IJBController controller` parameter. `_validateController` checks `DIRECTORY.controllerOf(projectId)`, but during `launchProjectFor` the project does not yet exist -- validation is skipped, relying on the controller returning the correct project ID.
+- **Controller trust.** The deployer passes an arbitrary `IJBController controller` parameter. `_validateController` checks `controller.DIRECTORY().controllerOf(projectId)` (a reflexive lookup through the controller's own directory reference), but during `launchProjectFor` the project does not yet exist -- validation is skipped, relying on the controller returning the correct project ID.
 - **Extra data hooks.** Arbitrary `IJBRulesetDataHook` addresses from ruleset metadata are stored and delegated to with `staticcall`. A malicious hook can return arbitrary weight, cashout tax rate, or hook specifications.
 
 ## 2. Economic / Manipulation Risks
@@ -27,7 +27,7 @@
 
 ## 5. Reentrancy Surface
 
-- **`launchProjectFor` external call chain.** The function makes external calls to: (1) `controller.launchProjectFor()` (creates project, deploys rulesets), (2) `HOOK_DEPLOYER.deployHookFor()` (deploys 721 hook clone), (3) `controller.queueRulesetsOf()` (queues additional rulesets). None of these calls are try-catch wrapped — a revert in any of them fails the entire launch. Reentrancy from the controller callback during project creation could call back into `launchProjectFor`, but the new project would get a different ID (monotonically incrementing), so state corruption is not possible.
+- **`launchProjectFor` external call chain.** The function makes external calls to: (1) `_deploy721Hook()` via `HOOK_DEPLOYER.deployHookFor()` (deploys 721 hook clone), (2) `controller.launchProjectFor()` (creates project, deploys rulesets), (3) `JBOwnable(hook).transferOwnershipToProject()` (transfers hook ownership to the new project), (4) `SUCKER_REGISTRY.deploySuckersFor()` (deploys suckers if configured), (5) `PROJECTS.transferFrom()` (transfers the project NFT to the owner). None of these calls are try-catch wrapped — a revert in any of them fails the entire launch. Reentrancy from the controller callback during project creation could call back into `launchProjectFor`, but the new project would get a different ID (monotonically incrementing), so state corruption is not possible.
 - **`beforePayRecordedWith` delegates to external hooks.** Calls `IJBRulesetDataHook(tiered721Hook).beforePayRecordedWith(context)` (not try-caught) and optionally delegates to the extra data hook via `staticcall`. The 721 hook call can execute arbitrary code. At callback time, no deployer state has been modified (the deployer is stateless during payments — it only routes). Reentrancy through the pay path processes as an independent payment.
 - **`beforeCashOutRecordedWith` delegates to external hooks.** Same pattern as pay: calls the 721 hook (not try-caught), then optionally the extra data hook. Sucker check via `SUCKER_REGISTRY.isSuckerOf` is a view call. No deployer state is modified during cashouts.
 - **No `ReentrancyGuard`.** Safe because the deployer is effectively stateless during pay/cashout operations — it reads `_tiered721HookOf` and `_extraDataHookOf` mappings but never writes them outside of deployment functions.
@@ -53,7 +53,7 @@
 
 ### 8.1 Controller validation skipped during `launchProjectFor` (by design)
 
-`_validateController` checks `DIRECTORY.controllerOf(projectId)` to verify the provided controller matches the project's registered controller. During `launchProjectFor`, the project does not yet exist, so no directory entry exists. Validation is skipped, relying on `controller.launchProjectFor()` to return the correct project ID. This is accepted because: (1) the project is created atomically within the same transaction, (2) the caller provides the controller address, so they choose their own trust boundary, and (3) validating against a non-existent project would always fail, making the check useless.
+`_validateController` checks `controller.DIRECTORY().controllerOf(projectId)` to verify the provided controller matches the project's registered controller. During `launchProjectFor`, the project does not yet exist, so no directory entry exists. Validation is skipped, relying on `controller.launchProjectFor()` to return the correct project ID. This is accepted because: (1) the project is created atomically within the same transaction, (2) the caller provides the controller address, so they choose their own trust boundary, and (3) validating against a non-existent project would always fail, making the check useless.
 
 ### 8.2 Suckers receive 0% cashout tax (shared with revnet-core)
 
