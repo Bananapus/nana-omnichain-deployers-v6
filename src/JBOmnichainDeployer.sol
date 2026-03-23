@@ -53,6 +53,10 @@ contract JBOmnichainDeployer is
     /// @notice Thrown when a data hook is set to this contract.
     error JBOmnichainDeployer_InvalidHook();
 
+    /// @notice Thrown when an empty `rulesetConfigurations` array is passed to a simplified overload that needs at
+    /// least one ruleset to derive a default 721 config.
+    error JBOmnichainDeployer_NoRulesetConfigurations();
+
     /// @notice Thrown when the project ID returned by the controller does not match the expected project ID.
     error JBOmnichainDeployer_ProjectIdMismatch();
 
@@ -60,10 +64,6 @@ contract JBOmnichainDeployer is
     /// @dev Ruleset IDs are predicted as `block.timestamp + i`. This prediction fails if
     /// `latestRulesetIdOf >= block.timestamp`, which can only happen if rulesets were already queued in the same block.
     error JBOmnichainDeployer_RulesetIdsUnpredictable();
-
-    /// @notice Thrown when an empty `rulesetConfigurations` array is passed to a simplified overload that needs at
-    /// least one ruleset to derive a default 721 config.
-    error JBOmnichainDeployer_NoRulesetConfigurations();
 
     error JBOmnichainDeployer_UnexpectedNFTReceived();
 
