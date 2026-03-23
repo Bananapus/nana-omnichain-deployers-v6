@@ -61,6 +61,10 @@ contract JBOmnichainDeployer is
     /// `latestRulesetIdOf >= block.timestamp`, which can only happen if rulesets were already queued in the same block.
     error JBOmnichainDeployer_RulesetIdsUnpredictable();
 
+    /// @notice Thrown when an empty `rulesetConfigurations` array is passed to a simplified overload that needs at
+    /// least one ruleset to derive a default 721 config.
+    error JBOmnichainDeployer_NoRulesetConfigurations();
+
     error JBOmnichainDeployer_UnexpectedNFTReceived();
 
     //*********************************************************************//
@@ -623,6 +627,7 @@ contract JBOmnichainDeployer is
         pure
         returns (JBOmnichain721Config memory config)
     {
+        if (rulesetConfigurations.length == 0) revert JBOmnichainDeployer_NoRulesetConfigurations();
         config.deployTiersHookConfig.tiersConfig.currency = rulesetConfigurations[0].metadata.baseCurrency;
         config.deployTiersHookConfig.tiersConfig.decimals = 18;
     }
