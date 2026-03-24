@@ -23,8 +23,6 @@ import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol"
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import {mulDiv} from "@prb/math/src/Common.sol";
-
 import {IJBOmnichainDeployer} from "./interfaces/IJBOmnichainDeployer.sol";
 import {JBDeployerHookConfig} from "./structs/JBDeployerHookConfig.sol";
 import {JBOmnichain721Config} from "./structs/JBOmnichain721Config.sol";
@@ -232,17 +230,25 @@ contract JBOmnichainDeployer is
         override
         returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
     {
-        // Get the 721 hook's spec and total split amount.
-        // The 721 hook only contributes specs (split amounts), not weight.
+        // Get the 721 hook's weight, spec, and total split amount.
+        // The 721 hook's returned weight already accounts for tier-split deductions
+        // (via JB721TiersHookLib.calculateWeight), so we use it directly instead of re-scaling.
         JBTiered721HookConfig memory tiered721Config = _tiered721HookOf[context.projectId][context.rulesetId];
         JBPayHookSpecification memory tiered721HookSpec;
         uint256 totalSplitAmount;
         bool hasTiered721Spec;
+        // The weight returned by the 721 hook (already scaled for splits).
+        uint256 tiered721Weight;
+        // Whether a 721 hook is configured for this project's ruleset.
+        bool has721Hook;
         if (address(tiered721Config.hook) != address(0)) {
+            // Mark that a 721 hook is configured.
+            has721Hook = true;
             // Call the 721 hook directly — useDataHookForPay is always true for 721 hooks.
             JBPayHookSpecification[] memory tiered721HookSpecs;
             // slither-disable-next-line unused-return
-            (, tiered721HookSpecs) = IJBRulesetDataHook(address(tiered721Config.hook)).beforePayRecordedWith(context);
+            (tiered721Weight, tiered721HookSpecs) =
+                IJBRulesetDataHook(address(tiered721Config.hook)).beforePayRecordedWith(context);
             // The 721 hook returns a single spec (itself) whose amount is the total split amount.
             // Only the first spec is used by design — JB721TiersHook always returns exactly one spec.
             if (tiered721HookSpecs.length > 0) {
@@ -256,7 +262,7 @@ contract JBOmnichainDeployer is
         uint256 projectAmount = totalSplitAmount >= context.amount.value ? 0 : context.amount.value - totalSplitAmount;
 
         // Get the custom data hook's weight and specs. Reduce the amount so it only considers funds entering the
-        // project.
+        // project, and pass the 721 hook's weight so the data hook sees the split-adjusted weight.
         JBPayHookSpecification[] memory dataHookSpecs;
         bool customHookCalled;
         {
@@ -264,21 +270,17 @@ contract JBOmnichainDeployer is
             if (address(extraHook.dataHook) != address(0) && extraHook.useDataHookForPay) {
                 JBBeforePayRecordedContext memory hookContext = context;
                 hookContext.amount.value = projectAmount;
+                // Pass the 721 hook's weight (which accounts for split deductions) so the data hook
+                // makes its decisions (e.g. mint-vs-swap) based on the correct post-split weight.
+                if (has721Hook) hookContext.weight = tiered721Weight;
                 (weight, dataHookSpecs) = extraHook.dataHook.beforePayRecordedWith(hookContext);
                 customHookCalled = true;
             }
         }
 
         if (!customHookCalled) {
-            weight = context.weight;
-        }
-
-        // Scale the data hook's weight for splits so the terminal mints tokens only for the project's share.
-        // Preserves weight=0 from hooks like buyback (buying back, not minting).
-        if (projectAmount == 0) {
-            weight = 0;
-        } else if (projectAmount < context.amount.value) {
-            weight = mulDiv({x: weight, y: projectAmount, denominator: context.amount.value});
+            // Use the 721 hook's weight directly (already scaled for splits) or fall back to context weight.
+            weight = has721Hook ? tiered721Weight : context.weight;
         }
 
         // Merge specifications: 721 hook spec first, then data hook specs.

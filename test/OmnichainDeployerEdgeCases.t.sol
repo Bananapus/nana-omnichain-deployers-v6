@@ -152,11 +152,12 @@ contract OmnichainDeployerEdgeCases is Test {
         );
         vm.mockCall(hookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector), abi.encode());
 
-        // Default mock: 721 hook returns original weight and empty specs (0 tiers).
+        // Default mock: 721 hook returns context weight and empty specs (0 tiers, no splits).
+        // A real 721 hook with no tiers returns contextWeight unchanged.
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
-            abi.encode(uint256(0), new JBPayHookSpecification[](0))
+            abi.encode(uint256(1000), new JBPayHookSpecification[](0))
         );
     }
 
@@ -239,10 +240,11 @@ contract OmnichainDeployerEdgeCases is Test {
         JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](1);
         specs[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 1 ether, metadata: ""});
 
+        // 721 hook returns weight=0 when splits consume the entire payment.
         vm.mockCall(
             mock721,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
-            abi.encode(uint256(1000), specs)
+            abi.encode(uint256(0), specs)
         );
 
         JBBeforePayRecordedContext memory ctx = _makePayContext(projectId, rulesetId);
@@ -260,6 +262,13 @@ contract OmnichainDeployerEdgeCases is Test {
         _launchProjectWithHook(address(0));
         rulesetId = block.timestamp;
 
+        // Override the default 721 mock: with no splits, 721 hook returns contextWeight (12345) and empty specs.
+        vm.mockCall(
+            hookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(12_345), new JBPayHookSpecification[](0))
+        );
+
         JBBeforePayRecordedContext memory ctx = _makePayContext(projectId, rulesetId);
         ctx.weight = 12_345;
 
@@ -271,7 +280,7 @@ contract OmnichainDeployerEdgeCases is Test {
     // =========================================================================
     // Weight edge case: large weight near max — verify no overflow in mulDiv
     // =========================================================================
-    function test_beforePay_largeWeight_mulDivSafety() public {
+    function test_beforePay_largeWeight_customHookPassthrough() public {
         _launchProjectWithHook(address(customHook));
         rulesetId = block.timestamp;
 
@@ -282,7 +291,7 @@ contract OmnichainDeployerEdgeCases is Test {
             abi.encode(type(uint256).max, new JBPayHookSpecification[](0))
         );
 
-        // Mock a 721 hook that takes 50% as splits.
+        // Mock a 721 hook that takes 50% as splits (returns weight=500, scaled for 50% splits).
         address mock721 = makeAddr("mock721");
         _storeTiered721Hook(mock721);
 
@@ -292,17 +301,16 @@ contract OmnichainDeployerEdgeCases is Test {
         vm.mockCall(
             mock721,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
-            abi.encode(uint256(0), specs721)
+            abi.encode(uint256(500), specs721)
         );
 
         JBBeforePayRecordedContext memory ctx = _makePayContext(projectId, rulesetId);
         ctx.amount.value = 1 ether;
         ctx.weight = 1000;
 
-        // Should not revert — mulDiv handles large values.
+        // The custom hook's weight is used directly (no mulDiv scaling).
         (uint256 weight,) = deployer.beforePayRecordedWith(ctx);
-        // weight = mulDiv(type(uint256).max, 0.5 ether, 1 ether) = type(uint256).max / 2
-        assertEq(weight, type(uint256).max / 2, "mulDiv should handle near-max weight safely");
+        assertEq(weight, type(uint256).max, "custom hook's large weight should pass through directly");
     }
 
     // =========================================================================
