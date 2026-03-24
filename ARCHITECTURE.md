@@ -48,7 +48,7 @@ Payment → JBOmnichainDeployer.beforePayRecordedWith()
   → If 721 hook returned specs: include in merged output
   → Calls custom hook from _extraDataHookOf (if useDataHookForPay=true)
   → Custom hook receives reduced amount (payment - splitAmount)
-  → Adjusts weight proportionally for splits
+  → Uses 721 hook's split-adjusted weight directly
   → Merges both hook specs (721 first if any, then custom)
 
 Cash Out → JBOmnichainDeployer.beforeCashOutRecordedWith()
@@ -94,7 +94,7 @@ Owner → JBOmnichainDeployer.launchRulesetsFor()
 
 3. **721 hook specs are merged first, custom hook specs second.** During payments, the 721 hook's split amount is subtracted from the payment before the custom hook sees it. This ordering ensures the 721 hook claims funds for tier mints at full price, and the custom hook (e.g., buyback) operates on the remaining amount. For cash outs, the 721 hook adjusts `cashOutTaxRate`/`cashOutCount`/`totalSupply` first, and the custom hook receives those already-updated values, allowing each hook to build on the previous hook's adjustments.
 
-4. **Weight scaling preserves token economics after tier splits.** When a 721 hook claims a portion of the payment for tier mints, the deployer scales the weight proportionally (`weight * projectAmount / totalAmount`) so the terminal only mints project tokens for the funds that actually enter the treasury. This prevents double-counting: the 721 hook mints its own NFTs for the split amount, and the terminal mints fungible tokens only for the remainder.
+4. **721 hook's weight is used directly after tier splits.** The 721 hook's `beforePayRecordedWith` returns a weight that is already adjusted for tier-split deductions (via `JB721TiersHookLib.calculateWeight`). The deployer uses this weight directly instead of re-scaling with `mulDiv`. This prevents double-counting: the 721 hook mints its own NFTs for the split amount, and the terminal mints fungible tokens only for the remainder at the hook's pre-adjusted weight.
 
 5. **Ruleset IDs are predicted as `block.timestamp + i`.** The deployer must store hook configs keyed by ruleset ID before the rulesets are actually created. It predicts IDs using the core protocol's convention (`block.timestamp` for the first, incrementing for subsequent rulesets in the same transaction). `queueRulesetsOf` explicitly reverts if `latestRulesetId >= block.timestamp`, which would mean rulesets were already queued in the same block and the prediction would be wrong.
 
@@ -105,4 +105,3 @@ Owner → JBOmnichainDeployer.launchRulesetsFor()
 - `@bananapus/permission-ids-v6` — Permission constants
 - `@bananapus/suckers-v6` — Cross-chain sucker registry
 - `@openzeppelin/contracts` — ERC2771, ERC721Receiver
-- `@prb/math` — Fixed-point math (`mulDiv` for weight scaling)

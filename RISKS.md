@@ -11,7 +11,7 @@
 
 - **Sucker cashout bypass.** Any address registered as a sucker for a project gets 0% cashout tax rate and full reclaim. If a malicious sucker is registered (via compromised `SUCKER_REGISTRY`), it can drain the project's surplus.
 - **Weight manipulation via extra data hook.** `beforePayRecordedWith` forwards to the extra data hook, which can return any `weight`. A malicious hook can inflate token minting or set weight=0 to block minting.
-- **721 hook amount splitting.** The deployer computes `projectAmount = context.amount.value - totalSplitAmount` and scales weight proportionally. If the 721 hook returns a `totalSplitAmount >= context.amount.value`, `projectAmount` is set to 0 and weight becomes 0 -- no tokens are minted for the payment.
+- **721 hook amount splitting.** The deployer computes `projectAmount = context.amount.value - totalSplitAmount`. The 721 hook's returned weight (already adjusted for splits via `JB721TiersHookLib.calculateWeight`) is used directly -- no proportional scaling is applied. If the 721 hook returns a `totalSplitAmount >= context.amount.value`, `projectAmount` is set to 0 and weight becomes 0 -- no tokens are minted for the payment.
 
 ## 3. Access Control
 
@@ -45,7 +45,7 @@
 - For any project launched through this deployer, `DIRECTORY.controllerOf(projectId)` matches the controller used during launch.
 - `_tiered721HookOf[projectId][rulesetId]` is non-zero for every rulesetId created through this deployer.
 - Sucker cashouts always receive 0% tax rate (no path where `isSuckerOf` returns true but tax > 0).
-- `beforePayRecordedWith` weight scaling: `weight * projectAmount / context.amount.value` never exceeds the original hook-returned weight.
+- `beforePayRecordedWith` uses the 721 hook's weight directly (already split-adjusted by `JB721TiersHookLib.calculateWeight`), so no additional scaling is applied.
 - Self-reference prevention: `rulesetConfigurations[i].metadata.dataHook` cannot be `address(this)` after `_setup721`.
 - Project NFT ownership: after `_launchProjectFor`, the project NFT is owned by `owner`, not the deployer.
 
