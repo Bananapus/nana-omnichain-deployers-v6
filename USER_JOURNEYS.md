@@ -70,7 +70,7 @@ There is a simplified overload that omits `deploy721Config` and derives a defaul
 
 **Edge cases**:
 
-- **Simplified overload with zero rulesets**: Will revert because `_default721Config` accesses `rulesetConfigurations[0]` -- array index out of bounds.
+- **Simplified overload with zero rulesets**: Reverts with `JBOmnichainDeployer_NoRulesetConfigurations`.
 - **Custom hook set to `address(this)`**: Reverts with `JBOmnichainDeployer_InvalidHook`.
 - **Controller returns wrong project ID**: Reverts with `JBOmnichainDeployer_ProjectIdMismatch`. This can happen if another project is created in the same transaction before this call.
 - **721 hook deployment with `salt == bytes32(0)`**: Deploys non-deterministically. Cross-chain address matching will fail.
@@ -437,5 +437,5 @@ function _default721Config(JBRulesetConfig[] memory rulesetConfigurations)
 
 **Edge cases**:
 
-- **Empty rulesets array**: Reverts with array index out of bounds on `rulesetConfigurations[0]`.
+- **Empty rulesets array**: Reverts with `JBOmnichainDeployer_NoRulesetConfigurations`.
 - **Non-18-decimal token**: The 721 hook will use 18 decimals regardless. This affects tier pricing if the project's accounting context uses a different precision.
