@@ -84,7 +84,7 @@ This means a project can have both a 721 hook (for NFT minting on payments) and 
 
 ### Simplified Overloads
 
-Each of `launchProjectFor`, `launchRulesetsFor`, and `queueRulesetsOf` has a simplified overload that omits the `deploy721Config` parameter. These use `_default721Config(rulesetConfigurations)`, which creates an empty-tier 721 config with `currency` from the first ruleset's `baseCurrency`, `decimals = 18`, `useDataHookForCashOut = false`, and no salt. At least one ruleset configuration is required (reverts with `JBOmnichainDeployer_NoRulesetConfigurations` if empty). For `queueRulesetsOf`, since the default config has 0 tiers, the existing 721 hook is always carried forward.
+Each of `launchProjectFor`, `launchRulesetsFor`, and `queueRulesetsOf` has a simplified overload that omits the `deploy721Config` parameter. These use `_default721Config(rulesetConfigurations)`, which creates an empty-tier 721 config with `currency` from the first ruleset's `baseCurrency`, `decimals = 18`, `useDataHookForCashOut = false`, and no salt. At least one ruleset configuration is required. For `queueRulesetsOf`, since the default config has 0 tiers, the existing 721 hook is always carried forward.
 
 ### Deterministic Cross-Chain Addresses
 
