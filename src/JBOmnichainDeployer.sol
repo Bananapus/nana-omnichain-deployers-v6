@@ -53,6 +53,10 @@ contract JBOmnichainDeployer is
     /// @notice Thrown when a data hook is set to this contract.
     error JBOmnichainDeployer_InvalidHook();
 
+    /// @notice Thrown when an empty `rulesetConfigurations` array is passed to a simplified overload that needs at
+    /// least one ruleset to derive a default 721 config.
+    error JBOmnichainDeployer_NoRulesetConfigurations();
+
     /// @notice Thrown when the project ID returned by the controller does not match the expected project ID.
     error JBOmnichainDeployer_ProjectIdMismatch();
 
@@ -623,6 +627,7 @@ contract JBOmnichainDeployer is
         pure
         returns (JBOmnichain721Config memory config)
     {
+        if (rulesetConfigurations.length == 0) revert JBOmnichainDeployer_NoRulesetConfigurations();
         config.deployTiersHookConfig.tiersConfig.currency = rulesetConfigurations[0].metadata.baseCurrency;
         config.deployTiersHookConfig.tiersConfig.decimals = 18;
     }

@@ -95,7 +95,7 @@ Single-transaction deployment of Juicebox projects with cross-chain suckers and 
 | `SUCKER_REGISTRY` | Set at construction | `IJBSuckerRegistry` -- deploys/tracks suckers, `isSuckerOf` checks. Immutable. |
 | `projectId = 0` (wildcard) | Used in constructor | `MAP_SUCKER_TOKEN` permission granted to `SUCKER_REGISTRY` with `projectId=0`, giving it token mapping rights for all projects. |
 | `decimals = 18` | Used in `_default721Config` | Default decimal precision when 721 config is omitted (simplified overloads). |
-| `baseCurrency` | From first ruleset | When 721 config is omitted, `baseCurrency` is read from `rulesetConfigurations[0].metadata.baseCurrency`. |
+| `baseCurrency` | From first ruleset | When 721 config is omitted, `baseCurrency` is read from `rulesetConfigurations[0].metadata.baseCurrency`. Reverts with `JBOmnichainDeployer_NoRulesetConfigurations` if the array is empty. |
 
 ## Gotchas
 
