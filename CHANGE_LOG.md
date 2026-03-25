@@ -83,7 +83,7 @@ The `dataHook` field moved from last to first. This changes ABI encoding and is 
 ### 1.9 Solidity version bumped
 
 **v5**: `pragma solidity 0.8.23`
-**v6**: `pragma solidity 0.8.26`
+**v6**: `pragma solidity ^0.8.26`
 
 ### 1.10 721 hook config types replaced
 
