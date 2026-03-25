@@ -254,10 +254,11 @@ contract Tiered721HookComposition is Test {
         hookSpecs[0] = JBPayHookSpecification({
             hook: IJBPayHook(hookAddr), noop: false, amount: splitAmount, metadata: splitMetadata
         });
+        // The 721 hook's calculateWeight returns contextWeight * (1 ether - 0.3 ether) / 1 ether = 700.
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
-            abi.encode(uint256(1000), hookSpecs)
+            abi.encode(uint256(700), hookSpecs)
         );
         JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
         (uint256 weight, JBPayHookSpecification[] memory specs) = deployer.beforePayRecordedWith(context);
@@ -265,7 +266,7 @@ contract Tiered721HookComposition is Test {
         assertEq(address(specs[0].hook), hookAddr, "spec points to 721 hook");
         assertEq(specs[0].amount, splitAmount, "split amount must be forwarded, not hardcoded to 0");
         assertEq(specs[0].metadata, splitMetadata, "split metadata must be forwarded");
-        assertEq(weight, 700, "weight adjusted for split ratio");
+        assertEq(weight, 700, "weight from 721 hook used directly");
     }
 
     function test_beforePay_721SplitsComposedWithBuyback() public {
@@ -275,10 +276,11 @@ contract Tiered721HookComposition is Test {
         hookSpecs[0] = JBPayHookSpecification({
             hook: IJBPayHook(hookAddr), noop: false, amount: splitAmount, metadata: abi.encode(uint256(5))
         });
+        // 721 hook returns weight already scaled for splits: 1000 * 0.75 = 750.
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
-            abi.encode(uint256(1000), hookSpecs)
+            abi.encode(uint256(750), hookSpecs)
         );
         uint256 buybackWeight = 555;
         JBPayHookSpecification[] memory buybackSpecs = new JBPayHookSpecification[](1);
@@ -292,7 +294,7 @@ contract Tiered721HookComposition is Test {
         );
         JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
         (uint256 weight, JBPayHookSpecification[] memory specs) = deployer.beforePayRecordedWith(context);
-        assertEq(weight, 416, "weight = buybackWeight * (amount - split) / amount");
+        assertEq(weight, 555, "weight = buyback hook's returned weight (721 weight passed as context)");
         assertEq(specs.length, 2, "721 spec + buyback spec");
         assertEq(address(specs[0].hook), hookAddr, "first = 721 hook");
         assertEq(specs[0].amount, splitAmount, "721 split amount preserved");
@@ -594,10 +596,11 @@ contract Tiered721HookComposition is Test {
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
         hookSpecs[0] =
             JBPayHookSpecification({hook: IJBPayHook(hookAddr), noop: false, amount: 0.4 ether, metadata: bytes("")});
+        // 721 hook returns weight already scaled for splits: 1000 * 0.6 = 600.
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
-            abi.encode(uint256(1000), hookSpecs)
+            abi.encode(uint256(600), hookSpecs)
         );
         JBPayHookSpecification[] memory emptySpecs = new JBPayHookSpecification[](0);
         vm.mockCall(
@@ -607,7 +610,7 @@ contract Tiered721HookComposition is Test {
         );
         JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
         (uint256 weight,) = deployer.beforePayRecordedWith(context);
-        assertEq(weight, 1200, "weight = customWeight * (amount - split) / amount");
+        assertEq(weight, 2000, "weight = custom hook's returned weight (721 weight passed as context)");
     }
 
     function test_beforePay_fullSplit_weightZero() public {
@@ -615,14 +618,15 @@ contract Tiered721HookComposition is Test {
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
         hookSpecs[0] =
             JBPayHookSpecification({hook: IJBPayHook(hookAddr), noop: false, amount: 1 ether, metadata: bytes("")});
+        // 721 hook returns weight=0 when splits consume the entire payment.
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
-            abi.encode(uint256(1000), hookSpecs)
+            abi.encode(uint256(0), hookSpecs)
         );
         JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
         (uint256 weight,) = deployer.beforePayRecordedWith(context);
-        assertEq(weight, 0, "full split = zero weight");
+        assertEq(weight, 0, "full split = zero weight (from 721 hook)");
     }
 
     function test_beforePay_noSplit_noAdjustment() public {
@@ -656,6 +660,7 @@ contract Tiered721HookComposition is Test {
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
         hookSpecs[0] =
             JBPayHookSpecification({hook: IJBPayHook(hookAddr), noop: false, amount: 0.4 ether, metadata: bytes("")});
+        // 721 hook returns weight already scaled for splits: 1000 * 0.6 = 600.
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -673,7 +678,7 @@ contract Tiered721HookComposition is Test {
         );
         JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
         (uint256 weight, JBPayHookSpecification[] memory specs) = deployer.beforePayRecordedWith(context);
-        assertEq(weight, 1200, "weight = buybackWeight * (amount - split) / amount");
+        assertEq(weight, 2000, "weight = buyback hook's returned weight (721 weight passed as context)");
         assertEq(specs.length, 2, "721 spec + buyback spec");
         assertEq(address(specs[0].hook), hookAddr, "first = 721 hook");
         assertEq(specs[0].amount, 0.4 ether, "721 split amount");
@@ -686,12 +691,14 @@ contract Tiered721HookComposition is Test {
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
         hookSpecs[0] =
             JBPayHookSpecification({hook: IJBPayHook(hookAddr), noop: false, amount: 0.2 ether, metadata: bytes("")});
+        // 721 hook returns weight already scaled for splits: 1000 * 0.8 = 800.
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
             abi.encode(uint256(800), hookSpecs)
         );
-        uint256 mintPathWeight = 1000;
+        // Buyback mint path returns context.weight (which is now the 721 hook's weight = 800).
+        uint256 mintPathWeight = 800;
         JBPayHookSpecification[] memory emptyBuybackSpecs = new JBPayHookSpecification[](0);
         vm.mockCall(
             buybackHookAddr,
@@ -700,7 +707,7 @@ contract Tiered721HookComposition is Test {
         );
         JBBeforePayRecordedContext memory context = _makePayContext(projectId, block.timestamp);
         (uint256 weight, JBPayHookSpecification[] memory specs) = deployer.beforePayRecordedWith(context);
-        assertEq(weight, 800, "weight = buybackWeight * (amount - split) / amount");
+        assertEq(weight, 800, "weight = 721 hook's weight (buyback mint path returns context.weight)");
         assertEq(specs.length, 1, "only 721 spec (buyback empty)");
         assertEq(address(specs[0].hook), hookAddr, "spec = 721 hook");
         assertEq(specs[0].amount, 0.2 ether, "721 split amount");

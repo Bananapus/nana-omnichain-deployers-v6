@@ -135,11 +135,12 @@ contract OmnichainDeployerAttacks is Test {
         );
         vm.mockCall(hookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector), abi.encode());
 
-        // Default mock: 721 hook returns original weight and empty specs (0 tiers).
+        // Default mock: 721 hook returns context weight and empty specs (0 tiers, no splits).
+        // A real 721 hook with no tiers returns contextWeight unchanged.
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
-            abi.encode(uint256(0), new JBPayHookSpecification[](0))
+            abi.encode(uint256(1000), new JBPayHookSpecification[](0))
         );
     }
 
