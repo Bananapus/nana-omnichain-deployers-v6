@@ -10,7 +10,7 @@ Settings from `foundry.toml`:
 
 | Setting | Value |
 |---------|-------|
-| Solidity version | `0.8.26` |
+| Solidity version | `^0.8.26` |
 | EVM target | `cancun` |
 | Intermediate representation | `via_ir = true` |
 | Optimizer runs | `200` |
@@ -359,7 +359,7 @@ RPC_ETHEREUM_MAINNET=<your_rpc> forge test --match-path 'test/fork/*.t.sol' -vvv
 RPC_ETHEREUM_MAINNET=<your_rpc> forge test --match-contract OmnichainDeployerInvariant -vvv
 
 # Compiler settings
-# Solidity 0.8.26, EVM version: cancun, via_ir: true, optimizer: 200 runs
+# Solidity ^0.8.26, EVM version: cancun, via_ir: true, optimizer: 200 runs
 ```
 
 Foundry config is at `foundry.toml`. Fuzz runs: 4096. Invariant runs: 1024, depth: 100, `fail_on_revert: false`.
