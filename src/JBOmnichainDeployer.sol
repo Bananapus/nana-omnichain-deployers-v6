@@ -797,14 +797,22 @@ contract JBOmnichainDeployer is
         }
 
         // Deploy a new 721 hook if tiers are provided, otherwise carry forward the existing hook.
+        // Track whether to use the 721 hook for cash outs.
+        bool use721ForCashOut;
+
         if (deploy721Config.deployTiersHookConfig.tiersConfig.tiers.length > 0) {
             hook = _deploy721Hook({projectId: projectId, config: deploy721Config});
             JBOwnable(address(hook)).transferOwnershipToProject(projectId);
+            // Use the caller-provided flag when deploying a new hook.
+            use721ForCashOut = deploy721Config.useDataHookForCashOut;
         } else {
-            hook = _tiered721HookOf[projectId][latestRulesetId].hook;
+            JBTiered721HookConfig memory previousConfig = _tiered721HookOf[projectId][latestRulesetId];
+            hook = previousConfig.hook;
             // Revert if no hook exists to carry forward — this means no tiers were provided and
             // no previous ruleset had a 721 hook deployed through this contract.
             if (address(hook) == address(0)) revert JBOmnichainDeployer_InvalidHook();
+            // Preserve the previous ruleset's cash-out flag when carrying forward.
+            use721ForCashOut = previousConfig.useDataHookForCashOut;
         }
 
         // slither-disable-next-line reentrancy-benign
@@ -812,7 +820,7 @@ contract JBOmnichainDeployer is
             projectId: projectId,
             rulesetConfigurations: rulesetConfigurations,
             hook721: hook,
-            use721ForCashOut: deploy721Config.useDataHookForCashOut
+            use721ForCashOut: use721ForCashOut
         });
 
         // Configure the rulesets.
