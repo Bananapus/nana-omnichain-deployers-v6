@@ -35,7 +35,7 @@ import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 
-contract NemesisPoCs is Test {
+contract JBOmnichainDeployerTest is Test {
     IJBPermissions internal permissions = IJBPermissions(makeAddr("permissions"));
     IJBProjects internal projects = IJBProjects(makeAddr("projects"));
     IJB721TiersHookDeployer internal hookDeployer = IJB721TiersHookDeployer(makeAddr("hookDeployer"));
@@ -48,7 +48,7 @@ contract NemesisPoCs is Test {
 
     uint256 internal constant PROJECT_ID = 42;
 
-    function test_poc_existingProjectSuckerDeploymentDeadEndsAtRegistryPermissionGate() public {
+    function test_existingProjectSuckerDeployment_revertsWithoutRegistryPermission() public {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
@@ -108,7 +108,7 @@ contract NemesisPoCs is Test {
         deployer.deploySuckersFor(PROJECT_ID, config);
     }
 
-    function test_poc_queueCarryForwardClearsExisting721CashOutFlag() public {
+    function test_queueCarryForward_preserves721CashOutFlag() public {
         address suckerRegistry = makeAddr("suckerRegistry");
 
         vm.mockCall(
@@ -216,14 +216,14 @@ contract NemesisPoCs is Test {
 
         (IJB721TiersHook carriedHook, bool queuedUseForCashOut) = deployer.tiered721HookOf(PROJECT_ID, queuedRulesetId);
         assertEq(address(carriedHook), hookAddr, "queue should carry the existing 721 hook address forward");
-        // After the fix for NEW-M-3, the carry-forward preserves the cash-out flag.
+        // The carry-forward preserves the cash-out flag from the previous ruleset.
         assertTrue(queuedUseForCashOut, "queue should preserve the existing 721 cash-out flag");
 
         JBBeforeCashOutRecordedContext memory queuedContext = _cashOutContext(queuedRulesetId);
         (uint256 queuedTaxRate, uint256 queuedCashOutCount, uint256 queuedTotalSupply,) =
             deployer.beforeCashOutRecordedWith(queuedContext);
 
-        // With the fix, the 721 hook is properly consulted for cash-outs in the queued ruleset.
+        // The 721 hook is properly consulted for cash-outs in the queued ruleset.
         assertEq(queuedTaxRate, 1234, "queued ruleset should forward cash-outs into the 721 hook");
         assertEq(queuedCashOutCount, 55, "queued ruleset should use the 721 hook cash-out count");
         assertEq(queuedTotalSupply, 999, "queued ruleset should use the 721 hook total supply");
