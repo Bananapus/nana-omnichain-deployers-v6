@@ -137,6 +137,10 @@ v6 imports `mulDiv` from `@prb/math` to scale the data hook's weight proportiona
 
 No events are defined directly in this contract or its interface in either v5 or v6. All events are emitted by downstream contracts (controller, sucker registry, etc.).
 
+Indexer note:
+- model this repo primarily through downstream event correlation;
+- a project can now have both a stored 721 hook and an extra data hook, so one deployer/project entity may need to reference multiple downstream hook addresses.
+
 ---
 
 ## 4. Error Changes
@@ -323,3 +327,15 @@ v6: `if (msg.sender != address(PROJECTS)) revert JBOmnichainDeployer_UnexpectedN
 | `deploySuckersFor(projectId, suckerConfig)` | `deploySuckersFor(projectId, suckerConfig)` | Unchanged. |
 
 > **Cross-repo impact**: Uses `LAUNCH_RULESETS` from `nana-permission-ids-v6` (split from `QUEUE_RULESETS`). The dual-hook composition pattern in `beforePayRecordedWith` uses `mulDiv` from `@prb/math` to scale weight proportionally — `revnet-core-v6` implements a similar pattern for its buyback hook + 721 hook composition.
+
+---
+
+## 8. Bug Fixes (Post-Audit)
+
+### 8.1 NEW-M-3: Queue carry-forward preserves `useDataHookForCashOut` flag
+
+**Severity**: Medium
+
+**Bug**: When `_queueRulesetsOf` carried forward the previous 721 hook (no new tiers), the `useDataHookForCashOut` flag was read from the fresh `deploy721Config` parameter instead of the stored previous value. The simplified `queueRulesetsOf` overload uses `_default721Config()` which defaults `useDataHookForCashOut` to `false`, silently disabling 721-mediated cash-outs at the next ruleset boundary.
+
+**Fix**: When carrying forward the previous 721 hook, the `useDataHookForCashOut` flag is now read from the stored `_tiered721HookOf` config for the previous ruleset, preserving the original intent. The caller-provided flag is only used when deploying a new 721 hook (i.e., when tiers are provided).

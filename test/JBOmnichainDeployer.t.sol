@@ -415,6 +415,91 @@ contract TestJBOmnichainDeployer is Test {
     }
 
     //*********************************************************************//
+    // --- NEW-M-3: Carry-forward preserves useDataHookForCashOut ------- //
+    //*********************************************************************//
+
+    /// @notice Regression test for NEW-M-3: when queuing a ruleset that carries forward the previous
+    /// 721 hook (no new tiers), the `useDataHookForCashOut` flag must be preserved from the prior
+    /// ruleset rather than defaulting to `false`.
+    function test_queueRulesetsOf_carryForward_preservesCashOutFlag() public {
+        // --- Step 1: Launch a project with useDataHookForCashOut = true ---
+        IJBController controller = IJBController(makeAddr("controller"));
+        IJBDirectory directory = IJBDirectory(makeAddr("directory"));
+        IJBRulesets rulesets = IJBRulesets(makeAddr("rulesets"));
+
+        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
+        );
+        vm.mockCall(
+            address(projects),
+            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
+            abi.encode()
+        );
+
+        JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
+        configs[0] = _makeRulesetConfig(address(0), false, false);
+
+        // Build a 721 config with useDataHookForCashOut = true.
+        JBOmnichain721Config memory deploy721Config;
+        deploy721Config.useDataHookForCashOut = true;
+        // The hook deployer mock returns hookAddr regardless of config.
+
+        JBTerminalConfig[] memory terminals = new JBTerminalConfig[](0);
+
+        uint256 launchTimestamp = block.timestamp;
+        deployer.launchProjectFor(
+            projectOwner, "test", deploy721Config, configs, terminals, "", _emptySuckerConfig(), controller
+        );
+
+        // Verify the initial launch stored useDataHookForCashOut = true.
+        (, bool initialCashOutFlag) = deployer.tiered721HookOf(projectId, launchTimestamp);
+        assertTrue(initialCashOutFlag, "initial launch should store useDataHookForCashOut = true");
+
+        // --- Step 2: Queue a new ruleset with no tiers (carry-forward) ---
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
+        vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
+            abi.encode(IERC165(address(controller)))
+        );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.RULESETS.selector), abi.encode(rulesets));
+        vm.mockCall(
+            address(rulesets),
+            abi.encodeWithSelector(IJBRulesets.latestRulesetIdOf.selector, projectId),
+            abi.encode(launchTimestamp)
+        );
+
+        // Warp forward so latestRulesetId < block.timestamp.
+        vm.warp(block.timestamp + 1);
+
+        uint256 expectedQueuedId = block.timestamp;
+        vm.mockCall(
+            address(controller),
+            abi.encodeWithSelector(IJBController.queueRulesetsOf.selector),
+            abi.encode(expectedQueuedId)
+        );
+
+        // Queue with no tiers — simplified overload defaults useDataHookForCashOut to false,
+        // but the fix should carry forward the previous value (true).
+        JBRulesetConfig[] memory newConfigs = new JBRulesetConfig[](1);
+        newConfigs[0] = _makeRulesetConfig(address(0), false, false);
+
+        vm.prank(projectOwner);
+        (uint256 queuedRulesetId, IJB721TiersHook hook) =
+            deployer.queueRulesetsOf(projectId, newConfigs, "", controller);
+
+        // --- Step 3: Verify the new ruleset preserved useDataHookForCashOut = true ---
+        assertEq(queuedRulesetId, expectedQueuedId, "should return queued ruleset ID");
+        assertEq(address(hook), hookAddr, "should carry forward existing hook");
+
+        (, bool carriedCashOutFlag) = deployer.tiered721HookOf(projectId, expectedQueuedId);
+        assertTrue(carriedCashOutFlag, "carry-forward must preserve useDataHookForCashOut = true");
+    }
+
+    //*********************************************************************//
     // --- Helpers ------------------------------------------------------- //
     //*********************************************************************//
 
