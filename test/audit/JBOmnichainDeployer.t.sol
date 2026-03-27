@@ -52,16 +52,15 @@ contract JBOmnichainDeployerTest is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
-        vm.mockCall(
-            address(directory), abi.encodeWithSelector(IJBDirectory.PROJECTS.selector), abi.encode(projects)
-        );
+        vm.mockCall(address(directory), abi.encodeWithSelector(IJBDirectory.PROJECTS.selector), abi.encode(projects));
         vm.mockCall(
             address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, PROJECT_ID), abi.encode(projectOwner)
         );
 
         JBSuckerRegistry registry = new JBSuckerRegistry(directory, permissions, address(this), address(0));
-        JBOmnichainDeployer deployer =
-            new JBOmnichainDeployer(IJBSuckerRegistry(address(registry)), hookDeployer, permissions, projects, address(0));
+        JBOmnichainDeployer deployer = new JBOmnichainDeployer(
+            IJBSuckerRegistry(address(registry)), hookDeployer, permissions, projects, address(0)
+        );
 
         vm.mockCall(
             address(permissions),
@@ -91,8 +90,7 @@ contract JBOmnichainDeployerTest is Test {
         );
 
         JBSuckerDeploymentConfig memory config = JBSuckerDeploymentConfig({
-            deployerConfigurations: new JBSuckerDeployerConfig[](0),
-            salt: bytes32("SUCKER_SALT")
+            deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32("SUCKER_SALT")
         });
 
         vm.prank(operator);
@@ -142,9 +140,7 @@ contract JBOmnichainDeployerTest is Test {
             abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
             abi.encode()
         );
-        vm.mockCall(
-            suckerRegistry, abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false)
-        );
+        vm.mockCall(suckerRegistry, abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false));
 
         JBOmnichainDeployer deployer =
             new JBOmnichainDeployer(IJBSuckerRegistry(suckerRegistry), hookDeployer, permissions, projects, address(0));
@@ -163,9 +159,7 @@ contract JBOmnichainDeployerTest is Test {
             owner: projectOwner,
             projectUri: "test",
             deploy721Config: JBOmnichain721Config({
-                deployTiersHookConfig: _empty721HookConfig(),
-                useDataHookForCashOut: true,
-                salt: bytes32(0)
+                deployTiersHookConfig: _empty721HookConfig(), useDataHookForCashOut: true, salt: bytes32(0)
             }),
             rulesetConfigurations: launchConfigs,
             terminalConfigurations: new JBTerminalConfig[](0),
@@ -229,11 +223,7 @@ contract JBOmnichainDeployerTest is Test {
         assertEq(queuedTotalSupply, 999, "queued ruleset should use the 721 hook total supply");
     }
 
-    function _cashOutContext(uint256 rulesetId)
-        internal
-        pure
-        returns (JBBeforeCashOutRecordedContext memory context)
-    {
+    function _cashOutContext(uint256 rulesetId) internal pure returns (JBBeforeCashOutRecordedContext memory context) {
         context.terminal = _addr("terminal");
         context.holder = _addr("holder");
         context.projectId = PROJECT_ID;
@@ -253,11 +243,7 @@ contract JBOmnichainDeployerTest is Test {
         return address(uint160(uint256(keccak256(bytes(seed)))));
     }
 
-    function _empty721HookConfig()
-        internal
-        pure
-        returns (JBDeploy721TiersHookConfig memory config)
-    {
+    function _empty721HookConfig() internal pure returns (JBDeploy721TiersHookConfig memory config) {
         config.tiersConfig.currency = uint32(uint160(JBConstants.NATIVE_TOKEN));
         config.tiersConfig.decimals = 18;
     }
