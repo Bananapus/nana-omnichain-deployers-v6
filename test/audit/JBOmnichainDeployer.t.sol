@@ -90,7 +90,9 @@ contract JBOmnichainDeployerTest is Test {
         );
 
         JBSuckerDeploymentConfig memory config = JBSuckerDeploymentConfig({
-            deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32("SUCKER_SALT")
+            deployerConfigurations: new JBSuckerDeployerConfig[](0),
+            // forge-lint: disable-next-line(unsafe-typecast)
+            salt: bytes32("SUCKER_SALT")
         });
 
         vm.prank(operator);
