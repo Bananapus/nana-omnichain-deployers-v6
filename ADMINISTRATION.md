@@ -2,6 +2,32 @@
 
 Admin privileges and their scope in nana-omnichain-deployers-v6.
 
+## At A Glance
+
+| Item | Details |
+|------|---------|
+| Scope | Omnichain project launch, hook composition, sucker deployment, and the deployer's data-hook proxy behavior. |
+| Operators | Project owners and delegates, the `JBOmnichainDeployer`, and the configured `JBSuckerRegistry` with its wildcard token-mapping grant. |
+| Highest-risk actions | Launching a project with the wrong hook composition, terminal configuration, or cross-chain setup, then assuming it can be rewritten later. |
+| Recovery posture | The deployer's immutable dependencies cannot be edited in place. Project-level recovery usually means launching corrected rulesets or redeploying the broader project path. |
+
+## Routine Operations
+
+- Validate all deploy-time hook choices, 721 settings, and sucker configuration before using `launchProjectFor` or `launchRulesetsFor`.
+- Keep the distinction clear between per-ruleset composed hooks and the deployer's permanent proxy role.
+- Use the deployer when you want its tax-free sucker and mint-permission behavior; otherwise, do not assume it is a drop-in replacement for arbitrary hook wiring.
+
+## One-Way Or High-Risk Actions
+
+- Constructor-time wildcard permissions and immutable references on the deployer cannot be changed afterward.
+- Launch-time hook composition choices determine how future pay and cash-out flows are merged for that ruleset.
+- A bad omnichain deployment can leave a project with a cross-chain shape that is expensive to unwind operationally.
+
+## Recovery Notes
+
+- If the project is still administratively flexible, queue new rulesets or use project-level migration paths to move to corrected hook composition.
+- If the deployer's own immutable assumptions are wrong, recovery means deploying a new deployer path rather than trying to hot-fix the existing one.
+
 ## Roles
 
 | Role | How Assigned | Scope |
