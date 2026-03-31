@@ -1,11 +1,28 @@
-# RISKS.md -- nana-omnichain-deployers-v6
+# Omnichain Deployers Risk Register
+
+This file focuses on the risks in the deployer layer that launches Juicebox projects across chains while composing 721 hooks, suckers, and optional custom data hooks.
+
+## How to use this file
+
+- Read `Priority risks` first; they capture the highest-blast-radius deployment and cash-out assumptions.
+- Use the detailed sections for access control, integration, and reentrancy analysis.
+- Treat `Invariants to Verify` as required checks for any new omnichain deployment flow.
+
+## Priority risks
+
+| Priority | Risk | Why it matters | Primary controls |
+|----------|------|----------------|------------------|
+| P0 | Registry-trusted sucker bypass | This deployer gives suckers privileged cash-out behavior based on registry answers. A bad registry entry can affect many projects. | Registry allowlists, deployment verification, and explicit registry scrutiny. |
+| P1 | Cross-chain deployment drift | Omnichain assumptions fail if chain-specific wiring, peers, or composed hooks do not match. | Deterministic deploy ordering, parity checks, and post-deploy peer verification. |
+| P1 | Data-hook composition mistakes | The deployer wraps or forwards custom data hooks; a bad composition can alter pay or cash-out semantics unexpectedly. | Integration tests for wrapped hooks and careful review of forwarding logic. |
+
 
 ## 1. Trust Assumptions
 
 - **Trusted forwarder.** ERC-2771 `_msgSender()` is trusted to append the real sender. A compromised forwarder can impersonate any address for `deploySuckersFor`, `launchProjectFor`, `queueRulesetsOf`, and `launchRulesetsFor`.
 - **Sucker registry.** `SUCKER_REGISTRY.isSuckerOf()` is the sole gatekeeper for 0% cashout tax and mint permission. A compromised or malicious registry lets any address bypass cashout taxes and mint tokens freely.
-- **Controller trust.** The deployer passes an arbitrary `IJBController controller` parameter. `_validateController` checks `controller.DIRECTORY().controllerOf(projectId)` (a reflexive lookup through the controller's own directory reference), but during `launchProjectFor` the project does not yet exist -- validation is skipped, relying on the controller returning the correct project ID.
-- **Extra data hooks.** Arbitrary `IJBRulesetDataHook` addresses from ruleset metadata are stored and delegated to with `staticcall`. A malicious hook can return arbitrary weight, cashout tax rate, or hook specifications.
+- **Controller trust.** The deployer passes an arbitrary `IJBController controller` parameter. `_validateController` checks `controller.DIRECTORY().controllerOf(projectId)` (a reflexive lookup through the controller's own directory reference), but during `launchProjectFor` the project does not yet exist, so no pre-launch controller validation is possible. The post-launch safeguard is the explicit project-ID match check on `controller.launchProjectFor(...)`.
+- **Extra data hooks.** Arbitrary `IJBRulesetDataHook` addresses from ruleset metadata are stored and called directly from the deployer's pay/cash-out wrapper paths. A malicious hook can return arbitrary weight, cashout tax rate, or hook specifications, and can also consume all available gas or revert.
 
 ## 2. Economic / Manipulation Risks
 
@@ -22,13 +39,13 @@
 ## 4. DoS Vectors
 
 - **Ruleset ID collision.** `_setup721` stores hook configs at `block.timestamp + i`. If `latestRulesetIdOf >= block.timestamp` (rulesets already queued this block), `queueRulesetsOf` reverts with `RulesetIdsUnpredictable`. An attacker who queues rulesets in the same block as the legitimate owner can front-run and block their queue attempt. Gas impact: `queueRulesetsOf` costs ~200-400k gas per ruleset queued. The collision only occurs when two transactions queue rulesets in the same block for the same project — race condition window is one block (~12 seconds on L1, 2 seconds on L2).
-- **External hook revert.** `beforePayRecordedWith` and `beforeCashOutRecordedWith` call external hooks without try-catch. A reverting hook blocks all payments or cashouts for that project/ruleset. For cash-outs, if the 721 hook reverts, the custom hook is never reached (the revert propagates before it). Gas impact: the `staticcall` to the extra data hook has no gas limit — a gas-griefing hook can consume the entire transaction gas. The 721 hook call is similarly unbounded.
+- **External hook revert.** `beforePayRecordedWith` and `beforeCashOutRecordedWith` call external hooks without try-catch. A reverting hook blocks all payments or cashouts for that project/ruleset. For cash-outs, if the 721 hook reverts, the custom hook is never reached (the revert propagates before it). Gas impact: the direct call into the extra data hook has no gas limit, so a gas-griefing hook can consume the entire transaction gas. The 721 hook call is similarly unbounded.
 - **721 hook deployment revert.** `HOOK_DEPLOYER.deployHookFor` is called without try-catch. A failing deployment blocks the entire project launch.
 
 ## 5. Reentrancy Surface
 
 - **`launchProjectFor` external call chain.** The function makes external calls to: (1) `_deploy721Hook()` via `HOOK_DEPLOYER.deployHookFor()` (deploys 721 hook clone), (2) `controller.launchProjectFor()` (creates project, deploys rulesets), (3) `JBOwnable(hook).transferOwnershipToProject()` (transfers hook ownership to the new project), (4) `SUCKER_REGISTRY.deploySuckersFor()` (deploys suckers if configured), (5) `PROJECTS.transferFrom()` (transfers the project NFT to the owner). None of these calls are try-catch wrapped — a revert in any of them fails the entire launch. Reentrancy from the controller callback during project creation could call back into `launchProjectFor`, but the new project would get a different ID (monotonically incrementing), so state corruption is not possible.
-- **`beforePayRecordedWith` delegates to external hooks.** Calls `IJBRulesetDataHook(tiered721Hook).beforePayRecordedWith(context)` (not try-caught) and optionally delegates to the extra data hook via `staticcall`. The 721 hook call can execute arbitrary code. At callback time, no deployer state has been modified (the deployer is stateless during payments — it only routes). Reentrancy through the pay path processes as an independent payment.
+- **`beforePayRecordedWith` delegates to external hooks.** Calls `IJBRulesetDataHook(tiered721Hook).beforePayRecordedWith(context)` (not try-caught) and optionally calls the extra data hook directly. The 721 hook and extra hook can execute arbitrary code. At callback time, no deployer state has been modified (the deployer is stateless during payments — it only routes). Reentrancy through the pay path processes as an independent payment.
 - **`beforeCashOutRecordedWith` delegates to external hooks.** Same pattern as pay: calls the 721 hook (not try-caught), then optionally the extra data hook. Sucker check via `SUCKER_REGISTRY.isSuckerOf` is a view call. No deployer state is modified during cashouts.
 - **No `ReentrancyGuard`.** Safe because the deployer is effectively stateless during pay/cashout operations — it reads `_tiered721HookOf` and `_extraDataHookOf` mappings but never writes them outside of deployment functions.
 
@@ -53,7 +70,7 @@
 
 ### 8.1 Controller validation skipped during `launchProjectFor` (by design)
 
-`_validateController` checks `controller.DIRECTORY().controllerOf(projectId)` to verify the provided controller matches the project's registered controller. During `launchProjectFor`, the project does not yet exist, so no directory entry exists. Validation is skipped, relying on `controller.launchProjectFor()` to return the correct project ID. This is accepted because: (1) the project is created atomically within the same transaction, (2) the caller provides the controller address, so they choose their own trust boundary, and (3) validating against a non-existent project would always fail, making the check useless.
+`_validateController` checks `controller.DIRECTORY().controllerOf(projectId)` to verify the provided controller matches the project's registered controller. During `launchProjectFor`, the project does not yet exist, so no directory entry exists and no pre-launch validation is possible. The accepted safeguard is the explicit `ProjectIdMismatch` check immediately after `controller.launchProjectFor()` returns. This is accepted because: (1) the project is created atomically within the same transaction, (2) the caller provides the controller address, so they choose their own trust boundary, and (3) validating against a non-existent project would always fail, making the check useless.
 
 ### 8.2 Suckers receive 0% cashout tax (shared with revnet-core)
 
