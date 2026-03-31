@@ -34,6 +34,7 @@ import {IJB721TokenUriResolver} from "@bananapus/721-hook-v6/src/interfaces/IJB7
 import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBDeploy721TiersHookConfig.sol";
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
+import {JB721TierConfigFlags} from "@bananapus/721-hook-v6/src/structs/JB721TierConfigFlags.sol";
 import {JB721TiersHookFlags} from "@bananapus/721-hook-v6/src/structs/JB721TiersHookFlags.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
@@ -231,13 +232,15 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
             encodedIPFSUri: bytes32("tier1"),
             category: 1,
             discountPercent: 0,
-            allowOwnerMint: false,
-            useReserveBeneficiaryAsDefault: false,
-            transfersPausable: false,
-            useVotingUnits: false,
-            cantBeRemoved: false,
-            cantIncreaseDiscountPercent: false,
-            cantBuyWithCredits: false,
+            flags: JB721TierConfigFlags({
+                allowOwnerMint: false,
+                useReserveBeneficiaryAsDefault: false,
+                transfersPausable: false,
+                useVotingUnits: false,
+                cantBeRemoved: false,
+                cantIncreaseDiscountPercent: false,
+                cantBuyWithCredits: false
+            }),
             splitPercent: SPLIT_PERCENT,
             splits: tierSplits
         });

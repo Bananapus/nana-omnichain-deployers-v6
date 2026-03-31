@@ -9,6 +9,7 @@ import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.so
 import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
 import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
+import {JB721TierConfigFlags} from "@bananapus/721-hook-v6/src/structs/JB721TierConfigFlags.sol";
 import {IJBOwnable} from "@bananapus/ownable-v6/src/interfaces/IJBOwnable.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
@@ -69,13 +70,15 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             encodedIPFSUri: bytes32("tier2"),
             category: 2,
             discountPercent: 0,
-            allowOwnerMint: false,
-            useReserveBeneficiaryAsDefault: false,
-            transfersPausable: false,
-            useVotingUnits: false,
-            cantBeRemoved: false,
-            cantIncreaseDiscountPercent: false,
-            cantBuyWithCredits: false,
+            flags: JB721TierConfigFlags({
+                allowOwnerMint: false,
+                useReserveBeneficiaryAsDefault: false,
+                transfersPausable: false,
+                useVotingUnits: false,
+                cantBeRemoved: false,
+                cantIncreaseDiscountPercent: false,
+                cantBuyWithCredits: false
+            }),
             splitPercent: 0,
             splits: new JBSplit[](0)
         });
@@ -146,13 +149,15 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             encodedIPFSUri: bytes32("tier3"),
             category: 3,
             discountPercent: 0,
-            allowOwnerMint: false,
-            useReserveBeneficiaryAsDefault: false,
-            transfersPausable: false,
-            useVotingUnits: false,
-            cantBeRemoved: false,
-            cantIncreaseDiscountPercent: false,
-            cantBuyWithCredits: false,
+            flags: JB721TierConfigFlags({
+                allowOwnerMint: false,
+                useReserveBeneficiaryAsDefault: false,
+                transfersPausable: false,
+                useVotingUnits: false,
+                cantBeRemoved: false,
+                cantIncreaseDiscountPercent: false,
+                cantBuyWithCredits: false
+            }),
             splitPercent: 0,
             splits: new JBSplit[](0)
         });
@@ -195,13 +200,15 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             encodedIPFSUri: bytes32("bad"),
             category: 4,
             discountPercent: 0,
-            allowOwnerMint: false,
-            useReserveBeneficiaryAsDefault: false,
-            transfersPausable: false,
-            useVotingUnits: false,
-            cantBeRemoved: false,
-            cantIncreaseDiscountPercent: false,
-            cantBuyWithCredits: false,
+            flags: JB721TierConfigFlags({
+                allowOwnerMint: false,
+                useReserveBeneficiaryAsDefault: false,
+                transfersPausable: false,
+                useVotingUnits: false,
+                cantBeRemoved: false,
+                cantIncreaseDiscountPercent: false,
+                cantBuyWithCredits: false
+            }),
             splitPercent: 0,
             splits: new JBSplit[](0)
         });
