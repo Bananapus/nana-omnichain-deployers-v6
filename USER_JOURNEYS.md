@@ -29,7 +29,19 @@
 2. Reuse those inputs consistently on each chain.
 3. Validate that the controller, hook ownership, and sucker expectations still line up across the resulting deployments.
 
-## Journey 3: Compose A Tiered 721 Hook With A Custom Extra Hook
+## Journey 3: Carry Forward An Existing 721 Hook While Queueing New Omnichain Rulesets
+
+**Starting state:** the project already has a 721 hook and wants future omnichain-aware rulesets without replacing that collection.
+
+**Success:** the deployer carries the existing hook forward, stores it against the queued ruleset, and preserves the ownership and wrapper assumptions bridge flows need.
+
+**Flow**
+1. Queue the next ruleset through the deployer using the path that reuses the existing 721 hook.
+2. Validate the controller and queued ruleset inputs before relying on the result.
+3. Let the deployer transfer or confirm hook ownership as needed so future project-controlled behavior still resolves correctly.
+4. Confirm the queued ruleset now points at the carried-forward hook rather than accidentally dropping the 721 layer.
+
+## Journey 4: Compose A Tiered 721 Hook With A Custom Extra Hook
 
 **Starting state:** the project wants standard tiered NFTs plus some extra product logic.
 
@@ -40,7 +52,7 @@
 2. Let the deployer remember which composition belongs to each ruleset.
 3. Make sure bridge flows still bypass or special-case the right tax and data-hook behavior.
 
-## Journey 4: Evolve The Project After Launch Without Breaking Bridge Paths
+## Journey 5: Evolve The Project After Launch Without Breaking Bridge Paths
 
 **Starting state:** the project is live and future rulesets need new metadata, hook composition, or payout behavior.
 
