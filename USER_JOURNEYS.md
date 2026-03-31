@@ -2,46 +2,56 @@
 
 ## Who This Repo Serves
 
-- founders launching a project across multiple chains from day one
-- operators who want 721 tiers and suckers wired in during deployment
-- integrators who need deterministic cross-chain deployment planning
+- teams launching Juicebox projects that should be cross-chain from day one
+- deployers composing a tiered 721 hook with sucker support and optional extra hooks
+- operators evolving rulesets without breaking sucker-safe wrapper behavior
 
 ## Journey 1: Launch A Project Across Chains In One Flow
 
-**Starting state:** you know the project owner, the base Juicebox rulesets, accepted terminals, and whether the launch includes 721 tiers or custom data hooks.
+**Starting state:** the project wants an initial Juicebox launch plus 721 hook plus sucker package instead of separate setup steps.
 
-**Success:** the project launches with the intended owner, rulesets, optional tiered NFTs, and optional sucker deployment support.
+**Success:** the project launches with its omnichain-capable shape already installed.
 
 **Flow**
-1. Prepare the controller, project metadata, rulesets, and terminal configs.
-2. Add optional 721 hook configuration if the project should mint NFTs on payment.
-3. Add optional custom data-hook configuration if another hook must compose with the 721 layer.
-4. Add optional sucker deployment configuration for the chains you want bridged.
-5. Call the omnichain deployer once and receive the final project ownership in the target owner account.
+1. Call `JBOmnichainDeployer` with the project launch config, 721 config, sucker deployment config, and any extra hook composition.
+2. The deployer launches the base Juicebox project and either deploys or wires the tiered 721 hook.
+3. It wraps the hook composition so future rulesets can keep sucker-safe behavior while still preserving project-specific hook logic.
+4. Deterministic salts are used so sibling-chain deployments can be coordinated with confidence.
 
 ## Journey 2: Coordinate Deterministic Deployment Inputs Across Chains
 
-**Starting state:** multiple chains or operators need to agree on what will be deployed before execution.
+**Starting state:** multiple chain deployments need to line up so the same project shape exists everywhere.
 
-**Success:** you can keep sucker and hook deployments aligned across chains by keeping sender and salt inputs consistent.
-
-**Flow**
-1. Reuse the same sender and salt inputs on each chain where deterministic alignment matters.
-2. Remember that the deployer mixes `msg.sender` into the salts it uses, so matching salts alone are not enough.
-3. Treat ruleset-ID prediction as an implementation assumption the deployer depends on during launch and queue flows, not as a standalone public utility surface.
-
-## Journey 3: Evolve The Project After Launch
-
-**Starting state:** the project is live and the owner wants to keep operating it as a normal Juicebox project.
-
-**Success:** post-launch administration happens through the standard owner-controlled protocol surfaces.
+**Success:** teams can predict addresses, salts, and wrapper behavior before doing the live rollout.
 
 **Flow**
-1. Queue rulesets through the core controller as needed.
-2. Manage the 721 hook or sucker-connected contracts within the permissions granted during deployment.
-3. Treat this repo as the bootstrap layer rather than the long-term operator surface.
+1. Fix the deployer inputs that drive deterministic addresses for suckers and hook packaging.
+2. Reuse those inputs consistently on each chain.
+3. Validate that the controller, hook ownership, and sucker expectations still line up across the resulting deployments.
+
+## Journey 3: Compose A Tiered 721 Hook With A Custom Extra Hook
+
+**Starting state:** the project wants standard tiered NFTs plus some extra product logic.
+
+**Success:** the extra logic composes with the 721 hook and sucker wrapper instead of overriding them unsafely.
+
+**Flow**
+1. Provide the extra-hook config when launching through `JBOmnichainDeployer`.
+2. Let the deployer remember which composition belongs to each ruleset.
+3. Make sure bridge flows still bypass or special-case the right tax and data-hook behavior.
+
+## Journey 4: Evolve The Project After Launch Without Breaking Bridge Paths
+
+**Starting state:** the project is live and future rulesets need new metadata, hook composition, or payout behavior.
+
+**Success:** ruleset changes preserve the special wrapper assumptions that let suckers bridge cleanly.
+
+**Flow**
+1. Queue the next ruleset through the omnichain-aware deployer surface.
+2. Keep track of which hook stack should apply for that future ruleset.
+3. Confirm that sucker flows still land on the mint-safe and tax-safe path the wrapper was designed to preserve.
 
 ## Hand-Offs
 
-- Use [nana-core-v6](../nana-core-v6/USER_JOURNEYS.md) for normal post-launch treasury operations.
-- Use [nana-suckers-v6](../nana-suckers-v6/USER_JOURNEYS.md) for bridge-specific runtime behavior.
+- Use [nana-suckers-v6](../nana-suckers-v6/USER_JOURNEYS.md) for the bridge mechanics after the project has been launched with suckers.
+- Use [nana-721-hook-v6](../nana-721-hook-v6/USER_JOURNEYS.md) for the standard tier and resolver behavior that this repo packages into the omnichain launch.
