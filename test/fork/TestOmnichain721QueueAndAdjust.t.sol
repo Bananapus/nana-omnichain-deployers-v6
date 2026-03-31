@@ -75,6 +75,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             useVotingUnits: false,
             cannotBeRemoved: false,
             cannotIncreaseDiscountPercent: false,
+            cantBuyWithCredits: false,
             splitPercent: 0,
             splits: new JBSplit[](0)
         });
@@ -151,6 +152,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             useVotingUnits: false,
             cannotBeRemoved: false,
             cannotIncreaseDiscountPercent: false,
+            cantBuyWithCredits: false,
             splitPercent: 0,
             splits: new JBSplit[](0)
         });
@@ -199,6 +201,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             useVotingUnits: false,
             cannotBeRemoved: false,
             cannotIncreaseDiscountPercent: false,
+            cantBuyWithCredits: false,
             splitPercent: 0,
             splits: new JBSplit[](0)
         });
