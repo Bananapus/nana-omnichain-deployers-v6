@@ -43,7 +43,7 @@ Admin privileges and their scope in nana-omnichain-deployers-v6.
 
 | Function | Required Role | Permission ID | Scope | What It Does |
 |----------|--------------|---------------|-------|--------------|
-| `deploySuckersFor` | Project owner or operator | `DEPLOY_SUCKERS` | Per-project | Deploys new cross-chain suckers for an existing project via the sucker registry. |
+| `deploySuckersFor` | Project owner or operator | `DEPLOY_SUCKERS` | Per-project | Deploys new cross-chain suckers for an existing project via the sucker registry. The same operation also applies token mappings on the new suckers, so existing projects must already have the registry arranged as an authorized `MAP_SUCKER_TOKEN` operator for that project. |
 | `launchRulesetsFor` | Project owner or operator | `LAUNCH_RULESETS` + `SET_TERMINALS` | Per-project | Deploys a 721 tiers hook, launches new rulesets with terminal configuration for an existing project. Has a simplified overload without `deploy721Config`. |
 | `queueRulesetsOf` | Project owner or operator | `QUEUE_RULESETS` | Per-project | Queues new rulesets for an existing project. If tiers provided, deploys a new 721 hook. Otherwise, carries forward the 721 hook from the latest ruleset. Has a simplified overload without `deploy721Config`. |
 
@@ -81,11 +81,13 @@ Admin privileges and their scope in nana-omnichain-deployers-v6.
 
 | Action | Who | Mechanism |
 |--------|-----|-----------|
-| Deploy suckers for existing project | Project owner or DEPLOY_SUCKERS operator | `deploySuckersFor` calls `SUCKER_REGISTRY.deploySuckersFor` |
+| Deploy suckers for existing project | Project owner or DEPLOY_SUCKERS operator | `deploySuckersFor` calls `SUCKER_REGISTRY.deploySuckersFor`; because the registry also applies the initial mappings, existing projects must pair this with a project-level `MAP_SUCKER_TOKEN` arrangement for the registry |
 | Deploy suckers during project launch | Project deployer (anyone) | Included in `launchProjectFor` if `salt != bytes32(0)` |
 | Map sucker tokens | JBSuckerRegistry | Granted MAP_SUCKER_TOKEN at construction with projectId=0 wildcard |
 | Grant 0% cash-out tax to suckers | Automatic | `beforeCashOutRecordedWith` checks `SUCKER_REGISTRY.isSuckerOf` |
 | Grant mint permission to suckers | Automatic | `hasMintPermissionFor` checks `SUCKER_REGISTRY.isSuckerOf` |
+
+**Existing-project operator note:** `deploySuckersFor` looks like a deployment-only action at the top level, but it is intentionally a deploy-and-map flow. If an existing project delegates `DEPLOY_SUCKERS` without also arranging `MAP_SUCKER_TOKEN` for the registry, the transaction will fail once the registry reaches the mapping step.
 
 **Cross-chain determinism:** The salt for sucker deployment is combined with `_msgSender()` (`keccak256(abi.encode(salt, _msgSender()))`). Deploying from the same sender address with the same salt on each chain produces matching sucker addresses.
 

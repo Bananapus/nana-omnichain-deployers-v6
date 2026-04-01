@@ -37,6 +37,9 @@ interface IJBOmnichainDeployer {
         returns (IJB721TiersHook hook, bool useDataHookForCashOut);
 
     /// @notice Deploy new suckers for an existing project.
+    /// @dev This flow forwards to `JBSuckerRegistry.deploySuckersFor`, which also applies the supplied token mappings
+    /// on each newly deployed sucker. Existing projects therefore need both deployment authority and a project-level
+    /// arrangement that lets the registry perform `MAP_SUCKER_TOKEN` for the same operation.
     /// @param projectId The ID of the project to deploy suckers for.
     /// @param suckerDeploymentConfiguration The suckers to set up for the project.
     /// @return suckers The addresses of the deployed suckers.

@@ -378,7 +378,9 @@ contract JBOmnichainDeployer is
     //*********************************************************************//
 
     /// @notice Deploy new suckers for an existing project.
-    /// @dev Only the juicebox's owner can deploy new suckers.
+    /// @dev Only the juicebox's owner or an operator with `JBPermissionIds.DEPLOY_SUCKERS` can call this entrypoint.
+    /// The downstream registry call also maps the configured tokens on each newly created sucker, so the same
+    /// end-to-end operation depends on the project's token-mapping authority being arranged for the registry.
     /// @param projectId The ID of the project to deploy suckers for.
     /// @param suckerDeploymentConfiguration The suckers to set up for the project.
     function deploySuckersFor(
