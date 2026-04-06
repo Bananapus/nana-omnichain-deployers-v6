@@ -808,7 +808,8 @@ contract JBOmnichainDeployer is
             // Use the caller-provided flag when deploying a new hook.
             use721ForCashOut = deploy721Config.useDataHookForCashOut;
         } else {
-            JBTiered721HookConfig memory previousConfig = _tiered721HookOf[projectId][latestRulesetId];
+            uint256 currentRulesetId = controller.RULESETS().currentOf(projectId).id;
+            JBTiered721HookConfig memory previousConfig = _tiered721HookOf[projectId][currentRulesetId];
             hook = previousConfig.hook;
             // Revert if no hook exists to carry forward — this means no tiers were provided and
             // no previous ruleset had a 721 hook deployed through this contract.

@@ -11,6 +11,7 @@ import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 import {IJBRulesets} from "@bananapus/core-v6/src/interfaces/IJBRulesets.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
 import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
 import {JBFundAccessLimitGroup} from "@bananapus/core-v6/src/structs/JBFundAccessLimitGroup.sol";
@@ -194,6 +195,15 @@ contract JBOmnichainDeployerTest is Test {
             address(rulesets),
             abi.encodeWithSelector(IJBRulesets.latestRulesetIdOf.selector, PROJECT_ID),
             abi.encode(initialRulesetId)
+        );
+
+        // Mock currentOf to return a JBRuleset with id = initialRulesetId so the carry-forward lookup succeeds.
+        JBRuleset memory currentRuleset;
+        currentRuleset.id = uint48(initialRulesetId);
+        vm.mockCall(
+            address(rulesets),
+            abi.encodeWithSelector(IJBRulesets.currentOf.selector, PROJECT_ID),
+            abi.encode(currentRuleset)
         );
 
         vm.warp(block.timestamp + 1);

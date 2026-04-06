@@ -392,6 +392,19 @@ contract TestJBOmnichainDeployer is Test {
             abi.encodeWithSelector(IJBRulesets.latestRulesetIdOf.selector, projectId),
             abi.encode(launchTimestamp)
         );
+
+        // Mock currentOf to return a ruleset whose id matches the launch so carry-forward can look up the stored 721
+        // hook.
+        {
+            JBRuleset memory currentRuleset;
+            currentRuleset.id = uint48(launchTimestamp);
+            vm.mockCall(
+                address(rulesets),
+                abi.encodeWithSelector(IJBRulesets.currentOf.selector, projectId),
+                abi.encode(currentRuleset)
+            );
+        }
+
         // Warp forward so latestRulesetId < block.timestamp.
         vm.warp(block.timestamp + 1);
 
@@ -470,6 +483,16 @@ contract TestJBOmnichainDeployer is Test {
             address(rulesets),
             abi.encodeWithSelector(IJBRulesets.latestRulesetIdOf.selector, projectId),
             abi.encode(launchTimestamp)
+        );
+
+        // Mock currentOf to return a ruleset whose id matches the launch so carry-forward can look up the stored 721
+        // hook.
+        JBRuleset memory currentRuleset;
+        currentRuleset.id = uint48(launchTimestamp);
+        vm.mockCall(
+            address(rulesets),
+            abi.encodeWithSelector(IJBRulesets.currentOf.selector, projectId),
+            abi.encode(currentRuleset)
         );
 
         // Warp forward so latestRulesetId < block.timestamp.
