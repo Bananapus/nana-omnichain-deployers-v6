@@ -808,6 +808,8 @@ contract JBOmnichainDeployer is
             // Use the caller-provided flag when deploying a new hook.
             use721ForCashOut = deploy721Config.useDataHookForCashOut;
         } else {
+            // Read the *current* (approved) ruleset — not `latestRulesetId` — because a queued-but-unapproved
+            // ruleset may have been rejected by the approval hook, so its hook config should not be carried forward.
             uint256 currentRulesetId = controller.RULESETS().currentOf(projectId).id;
             JBTiered721HookConfig memory previousConfig = _tiered721HookOf[projectId][currentRulesetId];
             hook = previousConfig.hook;
