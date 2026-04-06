@@ -614,11 +614,20 @@ contract OmnichainDeployerEdgeCases is Test {
             abi.encode(uint256(50)) // A past ruleset ID — no hook stored at this ID
         );
 
+        // Mock currentOf to return a ruleset with id=50 (no hook stored for this id via the deployer).
+        JBRuleset memory currentRuleset;
+        currentRuleset.id = uint48(50);
+        vm.mockCall(
+            address(rulesets),
+            abi.encodeWithSelector(IJBRulesets.currentOf.selector, projectId),
+            abi.encode(currentRuleset)
+        );
+
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(0), true, false);
 
         // Empty 721 config — no tiers, so it tries to carry forward an existing hook.
-        // But no hook was stored for rulesetId=1 via this deployer.
+        // But no hook was stored for rulesetId=50 via this deployer.
         JBOmnichain721Config memory empty721Config;
         vm.prank(projectOwner);
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_InvalidHook.selector);

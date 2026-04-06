@@ -19,6 +19,7 @@
 - A same-block queue assumption breaks predicted ruleset IDs and silently strands stored config.
 - A project expects custom-hook behavior on cash-out, but the wrapper flags disable it or the sucker exemption bypasses it.
 - Deterministic deployment assumptions fail because sender or salt composition changed.
+- Existing-project sucker deployment is treated as a pure `DEPLOY_SUCKERS` flow even though the registry also performs token mapping, so missing `MAP_SUCKER_TOKEN` authority for the registry shows up only when the deploy path reaches `mapTokens`.
 
 ## Useful Proof Points
 

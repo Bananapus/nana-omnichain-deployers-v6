@@ -378,7 +378,9 @@ contract JBOmnichainDeployer is
     //*********************************************************************//
 
     /// @notice Deploy new suckers for an existing project.
-    /// @dev Only the juicebox's owner can deploy new suckers.
+    /// @dev Only the juicebox's owner or an operator with `JBPermissionIds.DEPLOY_SUCKERS` can call this entrypoint.
+    /// The downstream registry call also maps the configured tokens on each newly created sucker, so the same
+    /// end-to-end operation depends on the project's token-mapping authority being arranged for the registry.
     /// @param projectId The ID of the project to deploy suckers for.
     /// @param suckerDeploymentConfiguration The suckers to set up for the project.
     function deploySuckersFor(
@@ -806,7 +808,10 @@ contract JBOmnichainDeployer is
             // Use the caller-provided flag when deploying a new hook.
             use721ForCashOut = deploy721Config.useDataHookForCashOut;
         } else {
-            JBTiered721HookConfig memory previousConfig = _tiered721HookOf[projectId][latestRulesetId];
+            // Read the *current* (approved) ruleset — not `latestRulesetId` — because a queued-but-unapproved
+            // ruleset may have been rejected by the approval hook, so its hook config should not be carried forward.
+            uint256 currentRulesetId = controller.RULESETS().currentOf(projectId).id;
+            JBTiered721HookConfig memory previousConfig = _tiered721HookOf[projectId][currentRulesetId];
             hook = previousConfig.hook;
             // Revert if no hook exists to carry forward — this means no tiers were provided and
             // no previous ruleset had a 721 hook deployed through this contract.

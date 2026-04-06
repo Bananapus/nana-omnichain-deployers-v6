@@ -1,6 +1,6 @@
 {
     "name": "@bananapus/omnichain-deployers-v6",
-    "version": "0.0.20",
+  "version": "0.0.21",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -18,9 +18,8 @@
     },
     "dependencies": {
         "@bananapus/721-hook-v6": "^0.0.30",
-        "@bananapus/address-registry-v6": "^0.0.16",
-        "@bananapus/buyback-hook-v6": "^0.0.24",
-        "@bananapus/core-v6": "^0.0.30",
+        "@bananapus/buyback-hook-v6": "^0.0.25",
+        "@bananapus/core-v6": "^0.0.31",
         "@bananapus/ownable-v6": "^0.0.16",
         "@bananapus/permission-ids-v6": "^0.0.15",
         "@bananapus/suckers-v6": "^0.0.20",

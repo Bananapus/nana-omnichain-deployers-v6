@@ -539,6 +539,7 @@ contract TestAuditGaps is Test {
         // latestRulesetIdOf still = BASE_TIME (from launch).
         // Guard: BASE_TIME >= BASE_TIME + 1 -> false -> passes.
         _mockLatestRulesetId(BASE_TIME);
+        _mockCurrentRulesetId(BASE_TIME);
 
         uint256 expectedQueuedId = BASE_TIME + 1;
         vm.mockCall(
@@ -565,6 +566,7 @@ contract TestAuditGaps is Test {
         // Warp forward 1 second for first queue.
         vm.warp(BASE_TIME + 1);
         _mockLatestRulesetId(BASE_TIME);
+        _mockCurrentRulesetId(BASE_TIME);
 
         uint256 firstQueueTime = BASE_TIME + 1;
         vm.mockCall(
@@ -672,6 +674,7 @@ contract TestAuditGaps is Test {
         // Warp past the latestRulesetId: block.timestamp = BASE_TIME + 3.
         vm.warp(BASE_TIME + 3);
         _mockLatestRulesetId(latestRulesetId);
+        _mockCurrentRulesetId(BASE_TIME);
 
         uint256 expectedQueuedId = BASE_TIME + 3;
         vm.mockCall(
@@ -699,6 +702,7 @@ contract TestAuditGaps is Test {
         // Warp forward.
         vm.warp(BASE_TIME + 100);
         _mockLatestRulesetId(BASE_TIME);
+        _mockCurrentRulesetId(BASE_TIME);
 
         uint256 expectedQueuedId = BASE_TIME + 100;
         vm.mockCall(
@@ -738,6 +742,16 @@ contract TestAuditGaps is Test {
         // Warp forward.
         vm.warp(BASE_TIME + 50);
         _mockLatestRulesetId(BASE_TIME);
+
+        // Mock currentOf to return a ruleset whose id matches the launch ruleset so carry-forward can look up the
+        // stored 721 hook.
+        JBRuleset memory currentRuleset;
+        currentRuleset.id = uint48(BASE_TIME);
+        vm.mockCall(
+            address(rulesetsContract),
+            abi.encodeWithSelector(IJBRulesets.currentOf.selector, projectId),
+            abi.encode(currentRuleset)
+        );
 
         uint256 expectedQueuedId = BASE_TIME + 50;
         vm.mockCall(
@@ -820,6 +834,7 @@ contract TestAuditGaps is Test {
 
         vm.warp(BASE_TIME + 10);
         _mockLatestRulesetId(BASE_TIME);
+        _mockCurrentRulesetId(BASE_TIME);
 
         uint256 expectedQueuedId = BASE_TIME + 10;
         vm.mockCall(
@@ -863,6 +878,14 @@ contract TestAuditGaps is Test {
             address(rulesetsContract),
             abi.encodeWithSelector(IJBRulesets.latestRulesetIdOf.selector, projectId),
             abi.encode(latestRulesetId)
+        );
+    }
+
+    function _mockCurrentRulesetId(uint256 currentRulesetId) internal {
+        JBRuleset memory r;
+        r.id = uint48(currentRulesetId);
+        vm.mockCall(
+            address(rulesetsContract), abi.encodeWithSelector(IJBRulesets.currentOf.selector, projectId), abi.encode(r)
         );
     }
 
