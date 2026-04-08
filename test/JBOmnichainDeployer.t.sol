@@ -397,6 +397,7 @@ contract TestJBOmnichainDeployer is Test {
         // hook.
         {
             JBRuleset memory currentRuleset;
+            // forge-lint: disable-next-line(unsafe-typecast)
             currentRuleset.id = uint48(launchTimestamp);
             vm.mockCall(
                 address(rulesets),
@@ -488,6 +489,7 @@ contract TestJBOmnichainDeployer is Test {
         // Mock currentOf to return a ruleset whose id matches the launch so carry-forward can look up the stored 721
         // hook.
         JBRuleset memory currentRuleset;
+        // forge-lint: disable-next-line(unsafe-typecast)
         currentRuleset.id = uint48(launchTimestamp);
         vm.mockCall(
             address(rulesets),

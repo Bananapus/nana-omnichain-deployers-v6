@@ -746,6 +746,7 @@ contract TestAuditGaps is Test {
         // Mock currentOf to return a ruleset whose id matches the launch ruleset so carry-forward can look up the
         // stored 721 hook.
         JBRuleset memory currentRuleset;
+        // forge-lint: disable-next-line(unsafe-typecast)
         currentRuleset.id = uint48(BASE_TIME);
         vm.mockCall(
             address(rulesetsContract),
@@ -883,6 +884,7 @@ contract TestAuditGaps is Test {
 
     function _mockCurrentRulesetId(uint256 currentRulesetId) internal {
         JBRuleset memory r;
+        // forge-lint: disable-next-line(unsafe-typecast)
         r.id = uint48(currentRulesetId);
         vm.mockCall(
             address(rulesetsContract), abi.encodeWithSelector(IJBRulesets.currentOf.selector, projectId), abi.encode(r)

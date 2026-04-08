@@ -199,6 +199,7 @@ contract JBOmnichainDeployerTest is Test {
 
         // Mock currentOf to return a JBRuleset with id = initialRulesetId so the carry-forward lookup succeeds.
         JBRuleset memory currentRuleset;
+        // forge-lint: disable-next-line(unsafe-typecast)
         currentRuleset.id = uint48(initialRulesetId);
         vm.mockCall(
             address(rulesets),
