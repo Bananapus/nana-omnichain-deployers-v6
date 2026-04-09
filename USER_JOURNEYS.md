@@ -36,10 +36,11 @@
 **Success:** the deployer carries the existing hook forward, stores it against the queued ruleset, and preserves the ownership and wrapper assumptions bridge flows need.
 
 **Flow**
-1. Queue the next ruleset through the deployer using the path that reuses the existing 721 hook.
-2. Validate the controller and queued ruleset inputs before relying on the result.
-3. Let the deployer transfer or confirm hook ownership as needed so future project-controlled behavior still resolves correctly.
-4. Confirm the queued ruleset now points at the carried-forward hook rather than accidentally dropping the 721 layer.
+1. Queue the next ruleset through the deployer using the path that reuses the existing 721 hook (pass zero tiers).
+2. The deployer selects the source hook: it first checks the latest queued ruleset (if approved or with no approval hook), then falls back to the current active ruleset. This prevents losing a recently queued hook config.
+3. The `useDataHookForCashOut` flag is preserved from whichever source ruleset is selected.
+4. Validate the controller and queued ruleset inputs before relying on the result.
+5. Confirm the queued ruleset now points at the carried-forward hook rather than accidentally dropping the 721 layer.
 
 ## Journey 4: Compose A Tiered 721 Hook With A Custom Extra Hook
 
