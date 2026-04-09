@@ -30,6 +30,7 @@ import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 
 contract RejectingApprovalHook is ERC165, IJBRulesetApprovalHook {
+    // forge-lint: disable-next-line(mixed-case-function)
     function DURATION() external pure override returns (uint256) {
         return 0;
     }
@@ -73,10 +74,12 @@ contract SequentialHookDeployer is IJB721TiersHookDeployer {
 }
 
 contract MockSuckerRegistryCarryForward is IJBSuckerRegistry {
+    // forge-lint: disable-next-line(mixed-case-function)
     function DIRECTORY() external pure override returns (IJBDirectory) {
         return IJBDirectory(address(0));
     }
 
+    // forge-lint: disable-next-line(mixed-case-function)
     function PROJECTS() external pure override returns (IJBProjects) {
         return IJBProjects(address(0));
     }
@@ -97,6 +100,7 @@ contract MockSuckerRegistryCarryForward is IJBSuckerRegistry {
         return new address[](0);
     }
 
+    // forge-lint: disable-next-line(mixed-case-function)
     function MAX_TO_REMOTE_FEE() external pure override returns (uint256) {
         return 0;
     }
@@ -236,7 +240,8 @@ contract CarryForwardRejectedHookTest is TestBaseWorkflow {
 
     function _default721Config() internal pure returns (JBOmnichain721Config memory config) {
         config.deployTiersHookConfig.tiersConfig.currency =
-            uint32(uint160(address(0x000000000000000000000000000000000000EEEe)));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        uint32(uint160(address(0x000000000000000000000000000000000000EEEe)));
         config.deployTiersHookConfig.tiersConfig.decimals = 18;
     }
 
@@ -255,6 +260,7 @@ contract CarryForwardRejectedHookTest is TestBaseWorkflow {
             metadata: JBRulesetMetadata({
                 reservedPercent: 0,
                 cashOutTaxRate: 0,
+                // forge-lint: disable-next-line(unsafe-typecast)
                 baseCurrency: uint32(uint160(address(0x000000000000000000000000000000000000EEEe))),
                 pausePay: false,
                 pauseCreditTransfers: false,
@@ -290,6 +296,7 @@ contract CarryForwardRejectedHookTest is TestBaseWorkflow {
         jbPermissions()
             .setPermissionsFor(
                 owner,
+                // forge-lint: disable-next-line(unsafe-typecast)
                 JBPermissionsData({operator: address(this), projectId: uint64(projectId), permissionIds: permissionIds})
             );
 
@@ -298,7 +305,10 @@ contract CarryForwardRejectedHookTest is TestBaseWorkflow {
             .setPermissionsFor(
                 owner,
                 JBPermissionsData({
-                    operator: address(deployer), projectId: uint64(projectId), permissionIds: permissionIds
+                    operator: address(deployer),
+                    // forge-lint: disable-next-line(unsafe-typecast)
+                    projectId: uint64(projectId),
+                    permissionIds: permissionIds
                 })
             );
     }

@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookProjectDeployer.sol";
+import {JBApprovalStatus} from "@bananapus/core-v6/src/enums/JBApprovalStatus.sol";
 import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
@@ -808,10 +809,24 @@ contract JBOmnichainDeployer is
             // Use the caller-provided flag when deploying a new hook.
             use721ForCashOut = deploy721Config.useDataHookForCashOut;
         } else {
-            // Read the *current* (approved) ruleset — not `latestRulesetId` — because a queued-but-unapproved
-            // ruleset may have been rejected by the approval hook, so its hook config should not be carried forward.
-            uint256 currentRulesetId = controller.RULESETS().currentOf(projectId).id;
-            JBTiered721HookConfig memory previousConfig = _tiered721HookOf[projectId][currentRulesetId];
+            uint256 sourceRulesetId;
+            {
+                // First try the latest queued ruleset — if it's been explicitly approved
+                // (or has no approval hook), its hook config should take precedence.
+                (JBRuleset memory latestQueued, JBApprovalStatus approvalStatus) =
+                    controller.RULESETS().latestQueuedOf(projectId);
+                if (
+                    latestQueued.id != 0
+                        && (approvalStatus == JBApprovalStatus.Approved || approvalStatus == JBApprovalStatus.Empty)
+                        && address(_tiered721HookOf[projectId][latestQueued.id].hook) != address(0)
+                ) {
+                    sourceRulesetId = latestQueued.id;
+                } else {
+                    // Fall back to the current (active, approved) ruleset.
+                    sourceRulesetId = controller.RULESETS().currentOf(projectId).id;
+                }
+            }
+            JBTiered721HookConfig memory previousConfig = _tiered721HookOf[projectId][sourceRulesetId];
             hook = previousConfig.hook;
             // Revert if no hook exists to carry forward — this means no tiers were provided and
             // no previous ruleset had a 721 hook deployed through this contract.

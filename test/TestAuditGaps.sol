@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 
+import {JBApprovalStatus} from "@bananapus/core-v6/src/enums/JBApprovalStatus.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
@@ -539,6 +540,7 @@ contract TestAuditGaps is Test {
         // latestRulesetIdOf still = BASE_TIME (from launch).
         // Guard: BASE_TIME >= BASE_TIME + 1 -> false -> passes.
         _mockLatestRulesetId(BASE_TIME);
+        _mockLatestQueuedRuleset(BASE_TIME, JBApprovalStatus.Empty);
         _mockCurrentRulesetId(BASE_TIME);
 
         uint256 expectedQueuedId = BASE_TIME + 1;
@@ -566,6 +568,7 @@ contract TestAuditGaps is Test {
         // Warp forward 1 second for first queue.
         vm.warp(BASE_TIME + 1);
         _mockLatestRulesetId(BASE_TIME);
+        _mockLatestQueuedRuleset(BASE_TIME, JBApprovalStatus.Empty);
         _mockCurrentRulesetId(BASE_TIME);
 
         uint256 firstQueueTime = BASE_TIME + 1;
@@ -596,6 +599,7 @@ contract TestAuditGaps is Test {
 
         // Warp forward 1 more second. Now block.timestamp = BASE_TIME + 2.
         vm.warp(BASE_TIME + 2);
+        _mockLatestQueuedRuleset(firstQueueTime, JBApprovalStatus.Empty);
 
         uint256 secondQueueTime = BASE_TIME + 2;
         vm.mockCall(
@@ -674,6 +678,7 @@ contract TestAuditGaps is Test {
         // Warp past the latestRulesetId: block.timestamp = BASE_TIME + 3.
         vm.warp(BASE_TIME + 3);
         _mockLatestRulesetId(latestRulesetId);
+        _mockLatestQueuedRuleset(BASE_TIME, JBApprovalStatus.Empty);
         _mockCurrentRulesetId(BASE_TIME);
 
         uint256 expectedQueuedId = BASE_TIME + 3;
@@ -702,6 +707,7 @@ contract TestAuditGaps is Test {
         // Warp forward.
         vm.warp(BASE_TIME + 100);
         _mockLatestRulesetId(BASE_TIME);
+        _mockLatestQueuedRuleset(BASE_TIME, JBApprovalStatus.Empty);
         _mockCurrentRulesetId(BASE_TIME);
 
         uint256 expectedQueuedId = BASE_TIME + 100;
@@ -742,16 +748,8 @@ contract TestAuditGaps is Test {
         // Warp forward.
         vm.warp(BASE_TIME + 50);
         _mockLatestRulesetId(BASE_TIME);
-
-        // Mock currentOf to return a ruleset whose id matches the launch ruleset so carry-forward can look up the
-        // stored 721 hook.
-        JBRuleset memory currentRuleset;
-        currentRuleset.id = uint48(BASE_TIME);
-        vm.mockCall(
-            address(rulesetsContract),
-            abi.encodeWithSelector(IJBRulesets.currentOf.selector, projectId),
-            abi.encode(currentRuleset)
-        );
+        _mockLatestQueuedRuleset(BASE_TIME, JBApprovalStatus.Empty);
+        _mockCurrentRulesetId(BASE_TIME);
 
         uint256 expectedQueuedId = BASE_TIME + 50;
         vm.mockCall(
@@ -834,6 +832,7 @@ contract TestAuditGaps is Test {
 
         vm.warp(BASE_TIME + 10);
         _mockLatestRulesetId(BASE_TIME);
+        _mockLatestQueuedRuleset(BASE_TIME, JBApprovalStatus.Empty);
         _mockCurrentRulesetId(BASE_TIME);
 
         uint256 expectedQueuedId = BASE_TIME + 10;
@@ -883,9 +882,21 @@ contract TestAuditGaps is Test {
 
     function _mockCurrentRulesetId(uint256 currentRulesetId) internal {
         JBRuleset memory r;
+        // forge-lint: disable-next-line(unsafe-typecast)
         r.id = uint48(currentRulesetId);
         vm.mockCall(
             address(rulesetsContract), abi.encodeWithSelector(IJBRulesets.currentOf.selector, projectId), abi.encode(r)
+        );
+    }
+
+    function _mockLatestQueuedRuleset(uint256 rulesetId, JBApprovalStatus status) internal {
+        JBRuleset memory r;
+        // forge-lint: disable-next-line(unsafe-typecast)
+        r.id = uint48(rulesetId);
+        vm.mockCall(
+            address(rulesetsContract),
+            abi.encodeWithSelector(IJBRulesets.latestQueuedOf.selector, projectId),
+            abi.encode(r, status)
         );
     }
 

@@ -31,6 +31,15 @@ caller
   -> project ownership is transferred to the intended owner
 ```
 
+### 721 Hook Carry-Forward (Queue Path)
+
+When `queueRulesetsOf` is called without new tiers, the deployer carries the existing 721 hook forward. The source ruleset is chosen with this precedence:
+
+1. **Latest queued ruleset** — if its approval status is `Approved` or `Empty` (no approval hook) and it has a hook config stored in the deployer.
+2. **Current active ruleset** — fallback when no qualifying queued ruleset exists.
+
+This ensures that a recently queued (and approved) ruleset's hook config takes precedence over a potentially stale active ruleset. The `useDataHookForCashOut` flag is also preserved from whichever source ruleset is selected.
+
 ### Pay And Cash-Out Wrapping
 
 ```text
@@ -47,6 +56,7 @@ runtime callback
 - Hook order matters: the 721 hook runs first, and the extra hook receives the updated context.
 - The deployer's predicted ruleset IDs must stay aligned with `JBRulesets` behavior; the storage keys depend on it.
 - Every project launched through this repo gets a 721 hook surface, even if it starts with zero tiers.
+- Carry-forward must prefer the latest approved queued ruleset over the current ruleset to avoid losing hook config from a recently queued update.
 
 ## Where Complexity Lives
 
