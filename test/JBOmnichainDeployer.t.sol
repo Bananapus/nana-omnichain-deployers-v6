@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 
+import {JBApprovalStatus} from "@bananapus/core-v6/src/enums/JBApprovalStatus.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
@@ -393,8 +394,19 @@ contract TestJBOmnichainDeployer is Test {
             abi.encode(launchTimestamp)
         );
 
-        // Mock currentOf to return a ruleset whose id matches the launch so carry-forward can look up the stored 721
-        // hook.
+        // Mock latestQueuedOf to return the launch ruleset with Empty approval status.
+        {
+            JBRuleset memory latestQueuedRuleset;
+            // forge-lint: disable-next-line(unsafe-typecast)
+            latestQueuedRuleset.id = uint48(launchTimestamp);
+            vm.mockCall(
+                address(rulesets),
+                abi.encodeWithSelector(IJBRulesets.latestQueuedOf.selector, projectId),
+                abi.encode(latestQueuedRuleset, JBApprovalStatus.Empty)
+            );
+        }
+
+        // Mock currentOf as a fallback (not reached when latestQueuedOf succeeds).
         {
             JBRuleset memory currentRuleset;
             // forge-lint: disable-next-line(unsafe-typecast)
@@ -486,8 +498,17 @@ contract TestJBOmnichainDeployer is Test {
             abi.encode(launchTimestamp)
         );
 
-        // Mock currentOf to return a ruleset whose id matches the launch so carry-forward can look up the stored 721
-        // hook.
+        // Mock latestQueuedOf to return the launch ruleset with Empty approval status.
+        JBRuleset memory latestQueuedRuleset;
+        // forge-lint: disable-next-line(unsafe-typecast)
+        latestQueuedRuleset.id = uint48(launchTimestamp);
+        vm.mockCall(
+            address(rulesets),
+            abi.encodeWithSelector(IJBRulesets.latestQueuedOf.selector, projectId),
+            abi.encode(latestQueuedRuleset, JBApprovalStatus.Empty)
+        );
+
+        // Mock currentOf as a fallback (not reached when latestQueuedOf succeeds).
         JBRuleset memory currentRuleset;
         // forge-lint: disable-next-line(unsafe-typecast)
         currentRuleset.id = uint48(launchTimestamp);

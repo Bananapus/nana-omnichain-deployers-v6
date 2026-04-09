@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 
+import {JBApprovalStatus} from "@bananapus/core-v6/src/enums/JBApprovalStatus.sol";
 import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
@@ -197,7 +198,18 @@ contract JBOmnichainDeployerTest is Test {
             abi.encode(initialRulesetId)
         );
 
-        // Mock currentOf to return a JBRuleset with id = initialRulesetId so the carry-forward lookup succeeds.
+        // Mock latestQueuedOf to return the initial ruleset with Empty approval status,
+        // so the carry-forward logic finds the 721 hook from the latest queued ruleset.
+        JBRuleset memory latestQueuedRuleset;
+        // forge-lint: disable-next-line(unsafe-typecast)
+        latestQueuedRuleset.id = uint48(initialRulesetId);
+        vm.mockCall(
+            address(rulesets),
+            abi.encodeWithSelector(IJBRulesets.latestQueuedOf.selector, PROJECT_ID),
+            abi.encode(latestQueuedRuleset, JBApprovalStatus.Empty)
+        );
+
+        // Mock currentOf as a fallback (not reached in this scenario since latestQueuedOf succeeds).
         JBRuleset memory currentRuleset;
         // forge-lint: disable-next-line(unsafe-typecast)
         currentRuleset.id = uint48(initialRulesetId);

@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 
+import {JBApprovalStatus} from "@bananapus/core-v6/src/enums/JBApprovalStatus.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBCashOutHook} from "@bananapus/core-v6/src/interfaces/IJBCashOutHook.sol";
@@ -612,6 +613,17 @@ contract OmnichainDeployerEdgeCases is Test {
             address(rulesets),
             abi.encodeWithSelector(IJBRulesets.latestRulesetIdOf.selector, projectId),
             abi.encode(uint256(50)) // A past ruleset ID — no hook stored at this ID
+        );
+
+        // Mock latestQueuedOf to return a ruleset with id=50 (no hook stored for this id via the deployer).
+        // The carry-forward logic checks latestQueuedOf first; since no hook was stored at id=50,
+        // it falls through to currentOf.
+        JBRuleset memory latestQueuedRuleset;
+        latestQueuedRuleset.id = uint48(50);
+        vm.mockCall(
+            address(rulesets),
+            abi.encodeWithSelector(IJBRulesets.latestQueuedOf.selector, projectId),
+            abi.encode(latestQueuedRuleset, JBApprovalStatus.Empty)
         );
 
         // Mock currentOf to return a ruleset with id=50 (no hook stored for this id via the deployer).
