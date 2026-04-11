@@ -20,6 +20,7 @@ import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.
 import {JBOwnable} from "@bananapus/ownable-v6/src/JBOwnable.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
+import {JBRelayBeneficiary} from "@bananapus/suckers-v6/src/libraries/JBRelayBeneficiary.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
@@ -248,6 +249,17 @@ contract JBOmnichainDeployer is
         override
         returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
     {
+        // Resolve the relay beneficiary — if the payer is a sucker with relay metadata,
+        // swap the beneficiary so downstream hooks (721, buyback) see the real user.
+        address effectiveBeneficiary = JBRelayBeneficiary.resolve({
+            payer: context.payer,
+            beneficiary: context.beneficiary,
+            projectId: context.projectId,
+            metadata: context.metadata,
+            registry: SUCKER_REGISTRY
+        });
+        bool beneficiarySwapped = effectiveBeneficiary != context.beneficiary;
+
         // Get the 721 hook's weight, spec, and total split amount.
         // The 721 hook's returned weight already accounts for tier-split deductions
         // (via JB721TiersHookLib.calculateWeight), so we use it directly instead of re-scaling.
@@ -264,9 +276,18 @@ contract JBOmnichainDeployer is
             has721Hook = true;
             // Call the 721 hook directly — useDataHookForPay is always true for 721 hooks.
             JBPayHookSpecification[] memory tiered721HookSpecs;
-            // slither-disable-next-line unused-return
-            (tiered721Weight, tiered721HookSpecs) =
-                IJBRulesetDataHook(address(tiered721Config.hook)).beforePayRecordedWith(context);
+            if (beneficiarySwapped) {
+                // Create memory copy with swapped beneficiary for the 721 hook.
+                JBBeforePayRecordedContext memory hookContext721 = context;
+                hookContext721.beneficiary = effectiveBeneficiary;
+                // slither-disable-next-line unused-return
+                (tiered721Weight, tiered721HookSpecs) =
+                    IJBRulesetDataHook(address(tiered721Config.hook)).beforePayRecordedWith(hookContext721);
+            } else {
+                // slither-disable-next-line unused-return
+                (tiered721Weight, tiered721HookSpecs) =
+                    IJBRulesetDataHook(address(tiered721Config.hook)).beforePayRecordedWith(context);
+            }
             // The 721 hook returns a single spec (itself) whose amount is the total split amount.
             // Only the first spec is used by design — JB721TiersHook always returns exactly one spec.
             if (tiered721HookSpecs.length > 0) {
@@ -291,6 +312,8 @@ contract JBOmnichainDeployer is
                 // Pass the 721 hook's weight (which accounts for split deductions) so the data hook
                 // makes its decisions (e.g. mint-vs-swap) based on the correct post-split weight.
                 if (has721Hook) hookContext.weight = tiered721Weight;
+                // Swap beneficiary for the data hook too.
+                if (beneficiarySwapped) hookContext.beneficiary = effectiveBeneficiary;
                 (weight, dataHookSpecs) = extraHook.dataHook.beforePayRecordedWith(hookContext);
                 customHookCalled = true;
             }
