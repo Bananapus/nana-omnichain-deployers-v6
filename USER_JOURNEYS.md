@@ -64,6 +64,18 @@
 2. Keep track of which hook stack should apply for that future ruleset.
 3. Confirm that sucker flows still land on the mint-safe and tax-safe path the wrapper was designed to preserve.
 
+## Journey 6: Support Cross-Chain Payments That Route Through Hooks Correctly
+
+**Starting state:** a sucker pays the project on behalf of a remote user via `payRemote`, and the deployer's `beforePayRecordedWith` needs to forward the correct beneficiary to downstream hooks.
+
+**Success:** the 721 hook and any extra data hooks see the real remote user as the beneficiary, not the sucker contract, so NFTs and credits accrue to the right person.
+
+**Flow**
+1. The sucker calls `terminal.pay()` with itself as beneficiary and embeds the real user's address in the payment metadata under the `JB_RELAY_BENEFICIARY` key.
+2. `JBOmnichainDeployer.beforePayRecordedWith()` detects the relay beneficiary by checking if the payer is a registered sucker.
+3. It swaps the beneficiary in the context before forwarding to the 721 hook and any extra data hook.
+4. Downstream hooks mint NFTs and accrue credits to the real user.
+
 ## Hand-Offs
 
 - Use [nana-suckers-v6](../nana-suckers-v6/USER_JOURNEYS.md) for the bridge mechanics after the project has been launched with suckers.
