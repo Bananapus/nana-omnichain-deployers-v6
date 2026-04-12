@@ -43,7 +43,7 @@ contract RevertingDataHook is IJBRulesetDataHook {
         external
         pure
         override
-        returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
+        returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
         revert("Hook always reverts");
     }
@@ -72,9 +72,9 @@ contract InflatingDataHook is IJBRulesetDataHook {
         external
         pure
         override
-        returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
+        returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, new JBCashOutHookSpecification[](0));
+        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, context.totalSupply, new JBCashOutHookSpecification[](0));
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
@@ -166,7 +166,7 @@ contract OmnichainDeployerAttacks is Test {
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, sucker);
 
-        (uint256 cashOutTaxRate,,,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate,,,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 0, "Sucker should get 0 tax");
     }
 
@@ -182,7 +182,7 @@ contract OmnichainDeployerAttacks is Test {
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
 
-        (uint256 cashOutTaxRate,,,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate,,,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 5000, "Non-sucker should get original tax");
     }
 
@@ -291,7 +291,7 @@ contract OmnichainDeployerAttacks is Test {
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, storedRulesetId, sucker);
 
         // Sucker gets early return with 0 tax — never hits the reverting hook.
-        (uint256 cashOutTaxRate,,,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate,,,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 0, "Sucker bypasses hook and gets 0 tax");
     }
 

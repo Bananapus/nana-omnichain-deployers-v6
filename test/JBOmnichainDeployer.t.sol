@@ -207,7 +207,7 @@ contract TestJBOmnichainDeployer is Test {
 
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, rulesetId, sucker);
 
-        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) =
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) =
             deployer.beforeCashOutRecordedWith(context);
 
         assertEq(cashOutTaxRate, 0, "sucker should get 0 tax");
@@ -223,7 +223,7 @@ contract TestJBOmnichainDeployer is Test {
 
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, rulesetId, randomAddr);
 
-        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) =
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) =
             deployer.beforeCashOutRecordedWith(context);
 
         assertEq(cashOutTaxRate, context.cashOutTaxRate, "non-sucker should get original tax");

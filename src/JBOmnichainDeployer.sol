@@ -19,6 +19,7 @@ import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.so
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 import {JBOwnable} from "@bananapus/ownable-v6/src/JBOwnable.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
+import {IJBSucker} from "@bananapus/suckers-v6/src/interfaces/IJBSucker.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -133,13 +134,15 @@ contract JBOmnichainDeployer is
     // ------------------------- external views -------------------------- //
     //*********************************************************************//
 
-    /// @notice Allow cash outs from suckers without a tax.
+    /// @notice Allow cash outs from suckers without a tax, and compute cross-chain tax supply for non-sucker cash outs.
     /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a cash out.
     /// @param context Standard Juicebox cash out context. See `JBBeforeCashOutRecordedContext`.
     /// @return cashOutTaxRate The cash out tax rate, which influences the amount of terminal tokens which get cashed
     /// out.
     /// @return cashOutCount The number of project tokens that are cashed out.
-    /// @return totalSupply The total project token supply.
+    /// @return totalSupply The total project token supply (for proportional reclaim).
+    /// @return taxTotalSupply The total supply used for the cash out tax calculation. Includes tokens on other
+    /// chains so the tax cannot be bypassed by cashing out on a chain where the holder dominates local supply.
     /// @return hookSpecifications The amount of funds and the data to send to cash out hooks (this contract).
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
         external
@@ -149,18 +152,24 @@ contract JBOmnichainDeployer is
             uint256 cashOutTaxRate,
             uint256 cashOutCount,
             uint256 totalSupply,
+            uint256 taxTotalSupply,
             JBCashOutHookSpecification[] memory hookSpecifications
         )
     {
         // If the cash out is from a sucker, bypass all taxes and fees.
+        // taxTotalSupply is irrelevant when cashOutTaxRate is 0.
         if (SUCKER_REGISTRY.isSuckerOf({projectId: context.projectId, addr: context.holder})) {
-            return (0, context.cashOutCount, context.totalSupply, hookSpecifications);
+            return (0, context.cashOutCount, context.totalSupply, 0, hookSpecifications);
         }
 
         // Start with the values from the context. Hooks below may override these.
         cashOutTaxRate = context.cashOutTaxRate;
         cashOutCount = context.cashOutCount;
         totalSupply = context.totalSupply;
+
+        // Compute the cross-chain tax supply: local supply + sum of known peer chain supplies.
+        // This prevents the cash out tax from vanishing when a holder dominates the local supply.
+        taxTotalSupply = _taxTotalSupplyOf(context.projectId, totalSupply);
 
         // Will hold the 721 hook's cash out specifications (always 0 or 1 element).
         JBCashOutHookSpecification[] memory tiered721HookSpecifications;
@@ -171,7 +180,8 @@ contract JBOmnichainDeployer is
         // If a 721 hook is set and opted into cash out handling, let it adjust the cash out parameters.
         if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
             // Forward to the 721 hook. It may change the tax rate, count, supply, and return hook specs.
-            (cashOutTaxRate, cashOutCount, totalSupply, tiered721HookSpecifications) =
+            // We discard the inner hook's taxTotalSupply — this contract computes the cross-chain value.
+            (cashOutTaxRate, cashOutCount, totalSupply,, tiered721HookSpecifications) =
                 IJBRulesetDataHook(address(tiered721Config.hook)).beforeCashOutRecordedWith(context);
         }
 
@@ -190,13 +200,14 @@ contract JBOmnichainDeployer is
             hookContext.totalSupply = totalSupply;
 
             // Forward to the extra hook. It may further change the tax rate, count, supply, and return hook specs.
-            (cashOutTaxRate, cashOutCount, totalSupply, extraHookSpecifications) =
+            // We discard the inner hook's taxTotalSupply — this contract computes the cross-chain value.
+            (cashOutTaxRate, cashOutCount, totalSupply,, extraHookSpecifications) =
                 extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
         }
 
         // If neither hook returned any specifications, return the adjusted values with no hook specs.
         if (tiered721HookSpecifications.length == 0 && extraHookSpecifications.length == 0) {
-            return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
+            return (cashOutTaxRate, cashOutCount, totalSupply, taxTotalSupply, hookSpecifications);
         }
 
         // Merge both hooks' specifications: 721 spec (if any) first, then extra hook specs.
@@ -215,7 +226,7 @@ contract JBOmnichainDeployer is
             hookSpecifications = extraHookSpecifications;
         }
 
-        return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
+        return (cashOutTaxRate, cashOutCount, totalSupply, taxTotalSupply, hookSpecifications);
     }
 
     /// @notice Forward the call to the original data hook.
@@ -612,6 +623,42 @@ contract JBOmnichainDeployer is
             memo: memo,
             controller: controller
         });
+    }
+
+    //*********************************************************************//
+    // -------------------------- internal views ------------------------ //
+    //*********************************************************************//
+
+    /// @notice Computes the total supply used for the cash out tax, including tokens known to exist on peer chains.
+    /// @dev Iterates over all suckers for the project and sums their `peerChainTotalSupply`. If any sucker call
+    /// reverts, that sucker's contribution is skipped (conservative: underestimates global supply).
+    /// @param projectId The project to compute the tax total supply for.
+    /// @param localTotalSupply The total supply on the current chain (including reserved tokens).
+    /// @return The tax total supply (local + known remote).
+    function _taxTotalSupplyOf(uint256 projectId, uint256 localTotalSupply) internal view returns (uint256) {
+        // Get all suckers for this project.
+        address[] memory suckers = SUCKER_REGISTRY.suckersOf(projectId);
+        uint256 numberOfSuckers = suckers.length;
+
+        // If there are no suckers, this isn't an omnichain project — tax supply equals local supply.
+        if (numberOfSuckers == 0) return localTotalSupply;
+
+        // Sum the known peer chain supplies across all suckers.
+        uint256 remoteTotalSupply;
+        for (uint256 i; i < numberOfSuckers;) {
+            // slither-disable-next-line calls-loop
+            try IJBSucker(suckers[i]).peerChainTotalSupply() returns (uint256 peerSupply) {
+                remoteTotalSupply += peerSupply;
+            } catch {
+                // If a sucker call fails, skip it. This is conservative — underestimates global supply,
+                // which means the tax bite is lighter (safe direction for users, less safe for the project).
+            }
+            unchecked {
+                ++i;
+            }
+        }
+
+        return localTotalSupply + remoteTotalSupply;
     }
 
     //*********************************************************************//

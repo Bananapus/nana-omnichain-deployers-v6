@@ -153,7 +153,7 @@ contract JBOmnichainDeployerTest is Test {
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(1234), uint256(55), uint256(999), emptySpecs)
+            abi.encode(uint256(1234), uint256(55), uint256(999), uint256(999), emptySpecs)
         );
 
         JBRulesetConfig[] memory launchConfigs = new JBRulesetConfig[](1);
@@ -177,7 +177,7 @@ contract JBOmnichainDeployerTest is Test {
         assertTrue(initialUseForCashOut, "launch should store the initial cash-out flag");
 
         JBBeforeCashOutRecordedContext memory initialContext = _cashOutContext(initialRulesetId);
-        (uint256 initialTaxRate, uint256 initialCashOutCount, uint256 initialTotalSupply,) =
+        (uint256 initialTaxRate, uint256 initialCashOutCount, uint256 initialTotalSupply,,) =
             deployer.beforeCashOutRecordedWith(initialContext);
         assertEq(initialTaxRate, 1234, "initial ruleset should forward cash-outs into the 721 hook");
         assertEq(initialCashOutCount, 55, "initial ruleset should use the 721 hook cash-out count");
@@ -239,7 +239,7 @@ contract JBOmnichainDeployerTest is Test {
         assertTrue(queuedUseForCashOut, "queue should preserve the existing 721 cash-out flag");
 
         JBBeforeCashOutRecordedContext memory queuedContext = _cashOutContext(queuedRulesetId);
-        (uint256 queuedTaxRate, uint256 queuedCashOutCount, uint256 queuedTotalSupply,) =
+        (uint256 queuedTaxRate, uint256 queuedCashOutCount, uint256 queuedTotalSupply,,) =
             deployer.beforeCashOutRecordedWith(queuedContext);
 
         // The 721 hook is properly consulted for cash-outs in the queued ruleset.

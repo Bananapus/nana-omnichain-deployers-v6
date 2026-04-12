@@ -55,9 +55,9 @@ contract PayRevertingHook is IJBRulesetDataHook {
         external
         pure
         override
-        returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
+        returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, new JBCashOutHookSpecification[](0));
+        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, context.totalSupply, new JBCashOutHookSpecification[](0));
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
@@ -86,7 +86,7 @@ contract CashOutRevertingHook is IJBRulesetDataHook {
         external
         pure
         override
-        returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
+        returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
         revert CustomCashOutError();
     }
@@ -117,9 +117,9 @@ contract MintPermissionRevertingHook is IJBRulesetDataHook {
         external
         pure
         override
-        returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
+        returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, new JBCashOutHookSpecification[](0));
+        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, context.totalSupply, new JBCashOutHookSpecification[](0));
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
@@ -146,10 +146,10 @@ contract ExtremeCashOutHook is IJBRulesetDataHook {
         external
         pure
         override
-        returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
+        returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
         // Return extreme values: max tax rate, zero count, max supply.
-        return (type(uint256).max, 0, type(uint256).max, new JBCashOutHookSpecification[](0));
+        return (type(uint256).max, 0, type(uint256).max, type(uint256).max, new JBCashOutHookSpecification[](0));
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
@@ -189,9 +189,9 @@ contract ManySpecsHook is IJBRulesetDataHook {
         external
         pure
         override
-        returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
+        returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, new JBCashOutHookSpecification[](0));
+        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, context.totalSupply, new JBCashOutHookSpecification[](0));
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
@@ -219,9 +219,9 @@ contract ZeroWeightHook is IJBRulesetDataHook {
         external
         pure
         override
-        returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
+        returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, new JBCashOutHookSpecification[](0));
+        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, context.totalSupply, new JBCashOutHookSpecification[](0));
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
@@ -369,7 +369,7 @@ contract TestAuditGaps is Test {
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, storedRulesetId, sucker);
 
         // Sucker gets early return -- never hits the reverting hook.
-        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 0, "Sucker should get 0 tax even with reverting hook");
         assertEq(cashOutCount, ctx.cashOutCount, "Sucker cashOutCount should pass through");
         assertEq(totalSupply, ctx.totalSupply, "Sucker totalSupply should pass through");
@@ -427,7 +427,7 @@ contract TestAuditGaps is Test {
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, storedRulesetId, attacker);
 
-        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, type(uint256).max, "Should pass through max tax rate from hook");
         assertEq(cashOutCount, 0, "Should pass through 0 count from hook");
         assertEq(totalSupply, type(uint256).max, "Should pass through max supply from hook");
@@ -482,7 +482,7 @@ contract TestAuditGaps is Test {
         // Cash out should work since the hook only reverts for pay (useDataHookForCashOut = false).
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, storedRulesetId, attacker);
 
-        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, ctx.cashOutTaxRate, "Cash out should return original tax rate");
         assertEq(cashOutCount, ctx.cashOutCount, "Cash out should return original count");
         assertEq(totalSupply, ctx.totalSupply, "Cash out should return original supply");
