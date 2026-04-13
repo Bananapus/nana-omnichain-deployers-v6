@@ -153,7 +153,7 @@ contract JBOmnichainDeployerTest is Test {
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(1234), uint256(55), uint256(999), uint256(999), emptySpecs)
+            abi.encode(uint256(1234), uint256(55), uint256(999), uint256(0), emptySpecs)
         );
 
         JBRulesetConfig[] memory launchConfigs = new JBRulesetConfig[](1);

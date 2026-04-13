@@ -92,7 +92,7 @@ contract CustomCashOutHook is IJBRulesetDataHook {
             });
         }
 
-        return (cashOutTaxRateReturn, cashOutCountReturn, totalSupplyReturn, totalSupplyReturn, hookSpecifications);
+        return (cashOutTaxRateReturn, cashOutCountReturn, totalSupplyReturn, 0, hookSpecifications);
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external view override returns (bool) {
@@ -391,7 +391,7 @@ contract OmnichainDeployerEdgeCases is Test {
         vm.mockCall(
             mock721,
             abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(9999), uint256(1), uint256(1), uint256(1), new JBCashOutHookSpecification[](0))
+            abi.encode(uint256(9999), uint256(1), uint256(1), uint256(0), new JBCashOutHookSpecification[](0))
         );
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
@@ -441,7 +441,7 @@ contract OmnichainDeployerEdgeCases is Test {
         vm.mockCall(
             mock721,
             abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(4000), uint256(700), uint256(9000), uint256(9000), specs)
+            abi.encode(uint256(4000), uint256(700), uint256(9000), uint256(0), specs)
         );
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);

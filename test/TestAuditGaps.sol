@@ -57,7 +57,7 @@ contract PayRevertingHook is IJBRulesetDataHook {
         override
         returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, context.totalSupply, new JBCashOutHookSpecification[](0));
+        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, 0, new JBCashOutHookSpecification[](0));
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
@@ -119,7 +119,7 @@ contract MintPermissionRevertingHook is IJBRulesetDataHook {
         override
         returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, context.totalSupply, new JBCashOutHookSpecification[](0));
+        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, 0, new JBCashOutHookSpecification[](0));
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
@@ -149,7 +149,7 @@ contract ExtremeCashOutHook is IJBRulesetDataHook {
         returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
         // Return extreme values: max tax rate, zero count, max supply.
-        return (type(uint256).max, 0, type(uint256).max, type(uint256).max, new JBCashOutHookSpecification[](0));
+        return (type(uint256).max, 0, type(uint256).max, 0, new JBCashOutHookSpecification[](0));
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
@@ -191,7 +191,7 @@ contract ManySpecsHook is IJBRulesetDataHook {
         override
         returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, context.totalSupply, new JBCashOutHookSpecification[](0));
+        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, 0, new JBCashOutHookSpecification[](0));
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
@@ -221,7 +221,7 @@ contract ZeroWeightHook is IJBRulesetDataHook {
         override
         returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, context.totalSupply, new JBCashOutHookSpecification[](0));
+        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, 0, new JBCashOutHookSpecification[](0));
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {

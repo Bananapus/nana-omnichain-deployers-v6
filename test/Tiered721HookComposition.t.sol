@@ -349,7 +349,7 @@ contract Tiered721HookComposition is Test {
         vm.mockCall(
             buybackHookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(3000), uint256(500), uint256(5000), uint256(5000), cashOutSpecs)
+            abi.encode(uint256(3000), uint256(500), uint256(5000), uint256(0), cashOutSpecs)
         );
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
         (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(context);
@@ -375,7 +375,7 @@ contract Tiered721HookComposition is Test {
         vm.mockCall(
             customHookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(2000), uint256(100), uint256(1000), uint256(1000), cashOutSpecs)
+            abi.encode(uint256(2000), uint256(100), uint256(1000), uint256(0), cashOutSpecs)
         );
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
         (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(context);

@@ -74,7 +74,7 @@ contract InflatingDataHook is IJBRulesetDataHook {
         override
         returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, context.totalSupply, new JBCashOutHookSpecification[](0));
+        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, 0, new JBCashOutHookSpecification[](0));
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
