@@ -141,7 +141,7 @@ contract JBOmnichainDeployer is
     /// out.
     /// @return cashOutCount The number of project tokens that are cashed out.
     /// @return totalSupply The total token supply across all chains (for both proportional reclaim and tax).
-    /// @return effectiveSurplus The global surplus across all chains for proportional reclaim (0 = use local surplus).
+    /// @return effectiveSurplusValue The global surplus across all chains for proportional reclaim.
     /// @return hookSpecifications The amount of funds and the data to send to cash out hooks (this contract).
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
         external
@@ -151,7 +151,7 @@ contract JBOmnichainDeployer is
             uint256 cashOutTaxRate,
             uint256 cashOutCount,
             uint256 totalSupply,
-            uint256 effectiveSurplus,
+            uint256 effectiveSurplusValue,
             JBCashOutHookSpecification[] memory hookSpecifications
         )
     {
@@ -170,7 +170,7 @@ contract JBOmnichainDeployer is
 
         // Compute the cross-chain tax surplus: local surplus + sum of known peer chain balances.
         // This prevents disproportionate reclaim when tokens bridge away but surplus stays.
-        effectiveSurplus = _effectiveSurplusOf(context.projectId, context.surplus.value);
+        effectiveSurplusValue = _effectiveSurplusOf(context.projectId, context.surplus.value);
 
         // Will hold the 721 hook's cash out specifications (always 0 or 1 element).
         JBCashOutHookSpecification[] memory tiered721HookSpecifications;
@@ -181,7 +181,7 @@ contract JBOmnichainDeployer is
         // If a 721 hook is set and opted into cash out handling, let it adjust the cash out parameters.
         if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
             // Forward to the 721 hook. It may change the tax rate, count, and return hook specs.
-            // We discard the inner hook's effectiveSurplus — this contract computes the cross-chain values.
+            // We discard the inner hook's effectiveSurplusValue — this contract computes the cross-chain values.
             // We also discard its totalSupply since this contract computes the cross-chain supply.
             (cashOutTaxRate, cashOutCount,,,tiered721HookSpecifications) =
                 IJBRulesetDataHook(address(tiered721Config.hook)).beforeCashOutRecordedWith(context);
@@ -202,7 +202,7 @@ contract JBOmnichainDeployer is
             hookContext.totalSupply = totalSupply;
 
             // Forward to the extra hook. It may further change the tax rate, count, and return hook specs.
-            // We discard the inner hook's effectiveSurplus — this contract computes the cross-chain values.
+            // We discard the inner hook's effectiveSurplusValue — this contract computes the cross-chain values.
             // We also discard its totalSupply since this contract computes the cross-chain supply.
             (cashOutTaxRate, cashOutCount,,, extraHookSpecifications) =
                 extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
@@ -210,7 +210,7 @@ contract JBOmnichainDeployer is
 
         // If neither hook returned any specifications, return the adjusted values with no hook specs.
         if (tiered721HookSpecifications.length == 0 && extraHookSpecifications.length == 0) {
-            return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplus, hookSpecifications);
+            return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
         }
 
         // Merge both hooks' specifications: 721 spec (if any) first, then extra hook specs.
@@ -229,7 +229,7 @@ contract JBOmnichainDeployer is
             hookSpecifications = extraHookSpecifications;
         }
 
-        return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplus, hookSpecifications);
+        return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
     }
 
     /// @notice Forward the call to the original data hook.
