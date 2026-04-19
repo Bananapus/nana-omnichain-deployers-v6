@@ -249,17 +249,6 @@ contract JBOmnichainDeployer is
         override
         returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
     {
-        // Resolve the relay beneficiary — if the payer is a sucker with relay metadata,
-        // swap the beneficiary so downstream hooks (721, buyback) see the real user.
-        address effectiveBeneficiary = JBRelayBeneficiary.resolve({
-            payer: context.payer,
-            beneficiary: context.beneficiary,
-            projectId: context.projectId,
-            metadata: context.metadata,
-            registry: SUCKER_REGISTRY
-        });
-        bool beneficiarySwapped = effectiveBeneficiary != context.beneficiary;
-
         // Get the 721 hook's weight, spec, and total split amount.
         // The 721 hook's returned weight already accounts for tier-split deductions
         // (via JB721TiersHookLib.calculateWeight), so we use it directly instead of re-scaling.
@@ -274,9 +263,20 @@ contract JBOmnichainDeployer is
         if (address(tiered721Config.hook) != address(0)) {
             // Mark that a 721 hook is configured.
             has721Hook = true;
+
+            // Resolve the relay beneficiary — if the payer is a sucker with relay metadata,
+            // swap the beneficiary so the 721 hook sees the real user.
+            address effectiveBeneficiary = JBRelayBeneficiary.resolve({
+                payer: context.payer,
+                beneficiary: context.beneficiary,
+                projectId: context.projectId,
+                metadata: context.metadata,
+                registry: SUCKER_REGISTRY
+            });
+
             // Call the 721 hook directly — useDataHookForPay is always true for 721 hooks.
             JBPayHookSpecification[] memory tiered721HookSpecs;
-            if (beneficiarySwapped) {
+            if (effectiveBeneficiary != context.beneficiary) {
                 // Create memory copy with swapped beneficiary for the 721 hook.
                 JBBeforePayRecordedContext memory hookContext721 = context;
                 hookContext721.beneficiary = effectiveBeneficiary;
