@@ -130,269 +130,7 @@ contract JBOmnichainDeployer is
     }
 
     //*********************************************************************//
-    // ------------------------- external views -------------------------- //
-    //*********************************************************************//
-
-    /// @notice Allow cash outs from suckers without a tax, and compute cross-chain tax supply for non-sucker cash outs.
-    /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a cash out.
-    /// @param context Standard Juicebox cash out context. See `JBBeforeCashOutRecordedContext`.
-    /// @return cashOutTaxRate The cash out tax rate, which influences the amount of terminal tokens which get cashed
-    /// out.
-    /// @return cashOutCount The number of project tokens that are cashed out.
-    /// @return totalSupply The total token supply across all chains (for both proportional reclaim and tax).
-    /// @return effectiveSurplusValue The global surplus across all chains for proportional reclaim.
-    /// @return hookSpecifications The amount of funds and the data to send to cash out hooks (this contract).
-    function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
-        external
-        view
-        override
-        returns (
-            uint256 cashOutTaxRate,
-            uint256 cashOutCount,
-            uint256 totalSupply,
-            uint256 effectiveSurplusValue,
-            JBCashOutHookSpecification[] memory hookSpecifications
-        )
-    {
-        // If the cash out is from a sucker, bypass all taxes and fees.
-        // Pass through the local surplus so the reclaim calculation can compute the pro-rata share.
-        if (SUCKER_REGISTRY.isSuckerOf({projectId: context.projectId, addr: context.holder})) {
-            return (0, context.cashOutCount, context.totalSupply, context.surplus.value, hookSpecifications);
-        }
-
-        // Start with the values from the context. Hooks below may override these.
-        cashOutTaxRate = context.cashOutTaxRate;
-        cashOutCount = context.cashOutCount;
-
-        // Compute the cross-chain total supply: local supply + sum of known peer chain supplies.
-        // This prevents the cash out tax from vanishing when a holder dominates the local supply.
-        totalSupply = context.totalSupply + SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
-
-        // Compute the cross-chain surplus: local surplus + sum of known peer chain surpluses.
-        // This prevents disproportionate reclaim when tokens bridge away but surplus stays.
-        effectiveSurplusValue = context.surplus.value
-            + SUCKER_REGISTRY.remoteSurplusOf(context.projectId, 18, uint256(uint160(context.surplus.token)));
-
-        // Will hold the 721 hook's cash out specifications (always 0 or 1 element).
-        JBCashOutHookSpecification[] memory tiered721HookSpecifications;
-
-        // Look up the 721 hook configured for this project's ruleset.
-        JBTiered721HookConfig memory tiered721Config = _tiered721HookOf[context.projectId][context.rulesetId];
-
-        // If a 721 hook is set and opted into cash out handling, let it adjust the cash out parameters.
-        if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
-            // Forward to the 721 hook. It may change the tax rate, count, and return hook specs.
-            // We discard the inner hook's effectiveSurplusValue — this contract computes the cross-chain values.
-            // We also discard its totalSupply since this contract computes the cross-chain supply.
-            // slither-disable-next-line unused-return
-            (cashOutTaxRate, cashOutCount,,, tiered721HookSpecifications) =
-                IJBRulesetDataHook(address(tiered721Config.hook)).beforeCashOutRecordedWith(context);
-        }
-
-        // Will hold the extra data hook's cash out specifications.
-        JBCashOutHookSpecification[] memory extraHookSpecifications;
-
-        // Look up any extra data hook configured for this project's ruleset.
-        JBDeployerHookConfig memory extraHook = _extraDataHookOf[context.projectId][context.rulesetId];
-
-        // If an extra hook is set and opted into cash out handling, let it adjust the cash out parameters.
-        if (address(extraHook.dataHook) != address(0) && extraHook.useDataHookForCashOut) {
-            // Build a mutable copy of the context with the latest values (possibly updated by the 721 hook).
-            JBBeforeCashOutRecordedContext memory hookContext = context;
-            hookContext.cashOutTaxRate = cashOutTaxRate;
-            hookContext.cashOutCount = cashOutCount;
-            hookContext.totalSupply = totalSupply;
-
-            // Forward to the extra hook. It may further change the tax rate, count, and return hook specs.
-            // We discard the inner hook's effectiveSurplusValue — this contract computes the cross-chain values.
-            // We also discard its totalSupply since this contract computes the cross-chain supply.
-            // slither-disable-next-line unused-return
-            (cashOutTaxRate, cashOutCount,,, extraHookSpecifications) =
-                extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
-        }
-
-        // If neither hook returned any specifications, return the adjusted values with no hook specs.
-        if (tiered721HookSpecifications.length == 0 && extraHookSpecifications.length == 0) {
-            return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
-        }
-
-        // Merge both hooks' specifications: 721 spec (if any) first, then extra hook specs.
-        if (tiered721HookSpecifications.length != 0 && extraHookSpecifications.length != 0) {
-            // Both hooks returned specs — combine them.
-            hookSpecifications = new JBCashOutHookSpecification[](1 + extraHookSpecifications.length);
-            hookSpecifications[0] = tiered721HookSpecifications[0];
-            for (uint256 i; i < extraHookSpecifications.length; i++) {
-                hookSpecifications[1 + i] = extraHookSpecifications[i];
-            }
-        } else if (tiered721HookSpecifications.length != 0) {
-            // Only the 721 hook returned a spec.
-            hookSpecifications = tiered721HookSpecifications;
-        } else {
-            // Only the extra hook returned specs.
-            hookSpecifications = extraHookSpecifications;
-        }
-
-        return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
-    }
-
-    /// @notice Forward the call to the original data hook.
-    /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a payment.
-    /// @param context Standard Juicebox payment context. See `JBBeforePayRecordedContext`.
-    /// @return weight The weight which project tokens are minted relative to. This can be used to customize how many
-    /// tokens get minted by a payment.
-    /// @return hookSpecifications Amounts (out of what's being paid in) to be sent to pay hooks instead of being paid
-    /// into the project. Useful for automatically routing funds from a treasury as payments come in.
-    function beforePayRecordedWith(JBBeforePayRecordedContext calldata context)
-        external
-        view
-        override
-        returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
-    {
-        // Get the 721 hook's weight, spec, and total split amount.
-        // The 721 hook's returned weight already accounts for tier-split deductions
-        // (via JB721TiersHookLib.calculateWeight), so we use it directly instead of re-scaling.
-        JBTiered721HookConfig memory tiered721Config = _tiered721HookOf[context.projectId][context.rulesetId];
-        JBPayHookSpecification memory tiered721HookSpec;
-        uint256 totalSplitAmount;
-        bool hasTiered721Spec;
-        // The weight returned by the 721 hook (already scaled for splits).
-        uint256 tiered721Weight;
-        // Whether a 721 hook is configured for this project's ruleset.
-        bool has721Hook;
-        if (address(tiered721Config.hook) != address(0)) {
-            // Mark that a 721 hook is configured.
-            has721Hook = true;
-            // Call the 721 hook directly — useDataHookForPay is always true for 721 hooks.
-            JBPayHookSpecification[] memory tiered721HookSpecs;
-            // slither-disable-next-line unused-return
-            (tiered721Weight, tiered721HookSpecs) =
-                IJBRulesetDataHook(address(tiered721Config.hook)).beforePayRecordedWith(context);
-            // The 721 hook returns a single spec (itself) whose amount is the total split amount.
-            // Only the first spec is used by design — JB721TiersHook always returns exactly one spec.
-            if (tiered721HookSpecs.length > 0) {
-                hasTiered721Spec = true;
-                tiered721HookSpec = tiered721HookSpecs[0];
-                totalSplitAmount = tiered721HookSpec.amount;
-            }
-        }
-
-        // The amount entering the project after tier splits.
-        uint256 projectAmount = totalSplitAmount >= context.amount.value ? 0 : context.amount.value - totalSplitAmount;
-
-        // Get the custom data hook's weight and specs. Reduce the amount so it only considers funds entering the
-        // project, and pass the 721 hook's weight so the data hook sees the split-adjusted weight.
-        JBPayHookSpecification[] memory dataHookSpecs;
-        bool customHookCalled;
-        {
-            JBDeployerHookConfig memory extraHook = _extraDataHookOf[context.projectId][context.rulesetId];
-            if (address(extraHook.dataHook) != address(0) && extraHook.useDataHookForPay) {
-                JBBeforePayRecordedContext memory hookContext = context;
-                hookContext.amount.value = projectAmount;
-                // Pass the 721 hook's weight (which accounts for split deductions) so the data hook
-                // makes its decisions (e.g. mint-vs-swap) based on the correct post-split weight.
-                if (has721Hook) hookContext.weight = tiered721Weight;
-                (weight, dataHookSpecs) = extraHook.dataHook.beforePayRecordedWith(hookContext);
-                customHookCalled = true;
-            }
-        }
-
-        if (!customHookCalled) {
-            // Use the 721 hook's weight directly (already scaled for splits) or fall back to context weight.
-            weight = has721Hook ? tiered721Weight : context.weight;
-        }
-
-        // Merge specifications: 721 hook spec first, then data hook specs.
-        bool hasDataHookSpecs = dataHookSpecs.length > 0;
-        if (!hasTiered721Spec && !hasDataHookSpecs) return (weight, hookSpecifications);
-
-        hookSpecifications = new JBPayHookSpecification[]((hasTiered721Spec ? 1 : 0) + dataHookSpecs.length);
-
-        uint256 specIndex;
-        if (hasTiered721Spec) hookSpecifications[specIndex++] = tiered721HookSpec;
-        for (uint256 i; i < dataHookSpecs.length; i++) {
-            hookSpecifications[specIndex + i] = dataHookSpecs[i];
-        }
-    }
-
-    /// @notice Get the extra data hook for a project and ruleset.
-    /// @param projectId The ID of the project to get the extra data hook for.
-    /// @param rulesetId The ID of the ruleset to get the extra data hook for.
-    /// @return hook The extra data hook configured for the project/ruleset.
-    function extraDataHookOf(
-        uint256 projectId,
-        uint256 rulesetId
-    )
-        external
-        view
-        override
-        returns (JBDeployerHookConfig memory hook)
-    {
-        return _extraDataHookOf[projectId][rulesetId];
-    }
-
-    /// @notice A flag indicating whether an address has permission to mint a project's tokens on-demand.
-    /// @dev A project's data hook can allow any address to mint its tokens.
-    /// @param projectId The ID of the project whose token can be minted.
-    /// @param ruleset The ruleset to check the token minting permission of.
-    /// @param addr The address to check the token minting permission of.
-    /// @return flag A flag indicating whether the address has permission to mint the project's tokens on-demand.
-    function hasMintPermissionFor(
-        uint256 projectId,
-        JBRuleset memory ruleset,
-        address addr
-    )
-        external
-        view
-        override
-        returns (bool)
-    {
-        // Suckers always get mint permission.
-        if (SUCKER_REGISTRY.isSuckerOf({projectId: projectId, addr: addr})) return true;
-
-        // Check the extra data hook (the 721 hook doesn't grant mint permission).
-        JBDeployerHookConfig memory extraHook = _extraDataHookOf[projectId][ruleset.id];
-        if (address(extraHook.dataHook) != address(0)) {
-            if (extraHook.dataHook.hasMintPermissionFor({projectId: projectId, ruleset: ruleset, addr: addr})) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// @notice Get the tiered 721 hook config for a project and ruleset.
-    /// @param projectId The ID of the project to get the 721 hook for.
-    /// @param rulesetId The ID of the ruleset to get the 721 hook for.
-    /// @return hook The 721 tiers hook.
-    /// @return useDataHookForCashOut Whether the 721 hook is used for cash outs.
-    function tiered721HookOf(
-        uint256 projectId,
-        uint256 rulesetId
-    )
-        external
-        view
-        override
-        returns (IJB721TiersHook hook, bool useDataHookForCashOut)
-    {
-        JBTiered721HookConfig memory config = _tiered721HookOf[projectId][rulesetId];
-        return (config.hook, config.useDataHookForCashOut);
-    }
-
-    //*********************************************************************//
-    // -------------------------- public views --------------------------- //
-    //*********************************************************************//
-
-    /// @notice Indicates if this contract adheres to the specified interface.
-    /// @dev See `IERC165.supportsInterface`.
-    /// @return A flag indicating if the provided interface ID is supported.
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IJBOmnichainDeployer).interfaceId
-            || interfaceId == type(IJBRulesetDataHook).interfaceId || interfaceId == type(IERC721Receiver).interfaceId
-            || interfaceId == type(IERC165).interfaceId;
-    }
-
-    //*********************************************************************//
-    // --------------------- external transactions ----------------------- //
+    // ---------------------- external transactions ---------------------- //
     //*********************************************************************//
 
     /// @notice Deploy new suckers for an existing project.
@@ -632,31 +370,272 @@ contract JBOmnichainDeployer is
     }
 
     //*********************************************************************//
-    // -------------------------- internal views ------------------------ //
+    // ------------------------- external views -------------------------- //
     //*********************************************************************//
 
-    //*********************************************************************//
-    // ------------------------ internal functions ----------------------- //
-    //*********************************************************************//
-
-    /// @dev ERC-2771 specifies the context as being a single address (20 bytes).
-    function _contextSuffixLength() internal view virtual override(ERC2771Context, Context) returns (uint256) {
-        return ERC2771Context._contextSuffixLength();
-    }
-
-    /// @notice Returns a default `JBOmnichain721Config` with `currency` from the first ruleset's `baseCurrency`,
-    /// `decimals = 18`, empty tiers, no cash-out handling, and no salt.
-    /// @param rulesetConfigurations The ruleset configurations to derive defaults from.
-    /// @return config The default 721 config.
-    function _default721Config(JBRulesetConfig[] memory rulesetConfigurations)
-        internal
-        pure
-        returns (JBOmnichain721Config memory config)
+    /// @notice Allow cash outs from suckers without a tax, and compute cross-chain tax supply for non-sucker cash outs.
+    /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a cash out.
+    /// @param context Standard Juicebox cash out context. See `JBBeforeCashOutRecordedContext`.
+    /// @return cashOutTaxRate The cash out tax rate, which influences the amount of terminal tokens which get cashed
+    /// out.
+    /// @return cashOutCount The number of project tokens that are cashed out.
+    /// @return totalSupply The total token supply across all chains (for both proportional reclaim and tax).
+    /// @return effectiveSurplusValue The global surplus across all chains for proportional reclaim.
+    /// @return hookSpecifications The amount of funds and the data to send to cash out hooks (this contract).
+    function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
+        external
+        view
+        override
+        returns (
+            uint256 cashOutTaxRate,
+            uint256 cashOutCount,
+            uint256 totalSupply,
+            uint256 effectiveSurplusValue,
+            JBCashOutHookSpecification[] memory hookSpecifications
+        )
     {
-        if (rulesetConfigurations.length == 0) revert JBOmnichainDeployer_NoRulesetConfigurations();
-        config.deployTiersHookConfig.tiersConfig.currency = rulesetConfigurations[0].metadata.baseCurrency;
-        config.deployTiersHookConfig.tiersConfig.decimals = 18;
+        // If the cash out is from a sucker, bypass all taxes and fees.
+        // Pass through the local surplus so the reclaim calculation can compute the pro-rata share.
+        if (SUCKER_REGISTRY.isSuckerOf({projectId: context.projectId, addr: context.holder})) {
+            return (0, context.cashOutCount, context.totalSupply, context.surplus.value, hookSpecifications);
+        }
+
+        // Start with the values from the context. Hooks below may override these.
+        cashOutTaxRate = context.cashOutTaxRate;
+        cashOutCount = context.cashOutCount;
+
+        // Compute the cross-chain total supply: local supply + sum of known peer chain supplies.
+        // This prevents the cash out tax from vanishing when a holder dominates the local supply.
+        totalSupply = context.totalSupply + SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
+
+        // Compute the cross-chain surplus: local surplus + sum of known peer chain surpluses.
+        // This prevents disproportionate reclaim when tokens bridge away but surplus stays.
+        effectiveSurplusValue = context.surplus.value
+            + SUCKER_REGISTRY.remoteSurplusOf({
+                projectId: context.projectId, decimals: 18, currency: uint256(uint160(context.surplus.token))
+            });
+
+        // Will hold the 721 hook's cash out specifications (always 0 or 1 element).
+        JBCashOutHookSpecification[] memory tiered721HookSpecifications;
+
+        // Look up the 721 hook configured for this project's ruleset.
+        JBTiered721HookConfig memory tiered721Config = _tiered721HookOf[context.projectId][context.rulesetId];
+
+        // If a 721 hook is set and opted into cash out handling, let it adjust the cash out parameters.
+        if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
+            // Forward to the 721 hook. It may change the tax rate, count, and return hook specs.
+            // We discard the inner hook's effectiveSurplusValue — this contract computes the cross-chain values.
+            // We also discard its totalSupply since this contract computes the cross-chain supply.
+            // slither-disable-next-line unused-return
+            (cashOutTaxRate, cashOutCount,,, tiered721HookSpecifications) =
+                IJBRulesetDataHook(address(tiered721Config.hook)).beforeCashOutRecordedWith(context);
+        }
+
+        // Will hold the extra data hook's cash out specifications.
+        JBCashOutHookSpecification[] memory extraHookSpecifications;
+
+        // Look up any extra data hook configured for this project's ruleset.
+        JBDeployerHookConfig memory extraHook = _extraDataHookOf[context.projectId][context.rulesetId];
+
+        // If an extra hook is set and opted into cash out handling, let it adjust the cash out parameters.
+        if (address(extraHook.dataHook) != address(0) && extraHook.useDataHookForCashOut) {
+            // Build a mutable copy of the context with the latest values (possibly updated by the 721 hook).
+            JBBeforeCashOutRecordedContext memory hookContext = context;
+            hookContext.cashOutTaxRate = cashOutTaxRate;
+            hookContext.cashOutCount = cashOutCount;
+            hookContext.totalSupply = totalSupply;
+
+            // Forward to the extra hook. It may further change the tax rate, count, and return hook specs.
+            // We discard the inner hook's effectiveSurplusValue — this contract computes the cross-chain values.
+            // We also discard its totalSupply since this contract computes the cross-chain supply.
+            // slither-disable-next-line unused-return
+            (cashOutTaxRate, cashOutCount,,, extraHookSpecifications) =
+                extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
+        }
+
+        // If neither hook returned any specifications, return the adjusted values with no hook specs.
+        if (tiered721HookSpecifications.length == 0 && extraHookSpecifications.length == 0) {
+            return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
+        }
+
+        // Merge both hooks' specifications: 721 spec (if any) first, then extra hook specs.
+        if (tiered721HookSpecifications.length != 0 && extraHookSpecifications.length != 0) {
+            // Both hooks returned specs — combine them.
+            hookSpecifications = new JBCashOutHookSpecification[](1 + extraHookSpecifications.length);
+            hookSpecifications[0] = tiered721HookSpecifications[0];
+            for (uint256 i; i < extraHookSpecifications.length; i++) {
+                hookSpecifications[1 + i] = extraHookSpecifications[i];
+            }
+        } else if (tiered721HookSpecifications.length != 0) {
+            // Only the 721 hook returned a spec.
+            hookSpecifications = tiered721HookSpecifications;
+        } else {
+            // Only the extra hook returned specs.
+            hookSpecifications = extraHookSpecifications;
+        }
+
+        return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
     }
+
+    /// @notice Forward the call to the original data hook.
+    /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a payment.
+    /// @param context Standard Juicebox payment context. See `JBBeforePayRecordedContext`.
+    /// @return weight The weight which project tokens are minted relative to. This can be used to customize how many
+    /// tokens get minted by a payment.
+    /// @return hookSpecifications Amounts (out of what's being paid in) to be sent to pay hooks instead of being paid
+    /// into the project. Useful for automatically routing funds from a treasury as payments come in.
+    function beforePayRecordedWith(JBBeforePayRecordedContext calldata context)
+        external
+        view
+        override
+        returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
+    {
+        // Get the 721 hook's weight, spec, and total split amount.
+        // The 721 hook's returned weight already accounts for tier-split deductions
+        // (via JB721TiersHookLib.calculateWeight), so we use it directly instead of re-scaling.
+        JBTiered721HookConfig memory tiered721Config = _tiered721HookOf[context.projectId][context.rulesetId];
+        JBPayHookSpecification memory tiered721HookSpec;
+        uint256 totalSplitAmount;
+        bool hasTiered721Spec;
+        // The weight returned by the 721 hook (already scaled for splits).
+        uint256 tiered721Weight;
+        // Whether a 721 hook is configured for this project's ruleset.
+        bool has721Hook;
+        if (address(tiered721Config.hook) != address(0)) {
+            // Mark that a 721 hook is configured.
+            has721Hook = true;
+            // Call the 721 hook directly — useDataHookForPay is always true for 721 hooks.
+            JBPayHookSpecification[] memory tiered721HookSpecs;
+            // slither-disable-next-line unused-return
+            (tiered721Weight, tiered721HookSpecs) =
+                IJBRulesetDataHook(address(tiered721Config.hook)).beforePayRecordedWith(context);
+            // The 721 hook returns a single spec (itself) whose amount is the total split amount.
+            // Only the first spec is used by design — JB721TiersHook always returns exactly one spec.
+            if (tiered721HookSpecs.length > 0) {
+                hasTiered721Spec = true;
+                tiered721HookSpec = tiered721HookSpecs[0];
+                totalSplitAmount = tiered721HookSpec.amount;
+            }
+        }
+
+        // The amount entering the project after tier splits.
+        uint256 projectAmount = totalSplitAmount >= context.amount.value ? 0 : context.amount.value - totalSplitAmount;
+
+        // Get the custom data hook's weight and specs. Reduce the amount so it only considers funds entering the
+        // project, and pass the 721 hook's weight so the data hook sees the split-adjusted weight.
+        JBPayHookSpecification[] memory dataHookSpecs;
+        bool customHookCalled;
+        {
+            JBDeployerHookConfig memory extraHook = _extraDataHookOf[context.projectId][context.rulesetId];
+            if (address(extraHook.dataHook) != address(0) && extraHook.useDataHookForPay) {
+                JBBeforePayRecordedContext memory hookContext = context;
+                hookContext.amount.value = projectAmount;
+                // Pass the 721 hook's weight (which accounts for split deductions) so the data hook
+                // makes its decisions (e.g. mint-vs-swap) based on the correct post-split weight.
+                if (has721Hook) hookContext.weight = tiered721Weight;
+                (weight, dataHookSpecs) = extraHook.dataHook.beforePayRecordedWith(hookContext);
+                customHookCalled = true;
+            }
+        }
+
+        if (!customHookCalled) {
+            // Use the 721 hook's weight directly (already scaled for splits) or fall back to context weight.
+            weight = has721Hook ? tiered721Weight : context.weight;
+        }
+
+        // Merge specifications: 721 hook spec first, then data hook specs.
+        bool hasDataHookSpecs = dataHookSpecs.length > 0;
+        if (!hasTiered721Spec && !hasDataHookSpecs) return (weight, hookSpecifications);
+
+        hookSpecifications = new JBPayHookSpecification[]((hasTiered721Spec ? 1 : 0) + dataHookSpecs.length);
+
+        uint256 specIndex;
+        if (hasTiered721Spec) hookSpecifications[specIndex++] = tiered721HookSpec;
+        for (uint256 i; i < dataHookSpecs.length; i++) {
+            hookSpecifications[specIndex + i] = dataHookSpecs[i];
+        }
+    }
+
+    /// @notice Get the extra data hook for a project and ruleset.
+    /// @param projectId The ID of the project to get the extra data hook for.
+    /// @param rulesetId The ID of the ruleset to get the extra data hook for.
+    /// @return hook The extra data hook configured for the project/ruleset.
+    function extraDataHookOf(
+        uint256 projectId,
+        uint256 rulesetId
+    )
+        external
+        view
+        override
+        returns (JBDeployerHookConfig memory hook)
+    {
+        return _extraDataHookOf[projectId][rulesetId];
+    }
+
+    /// @notice A flag indicating whether an address has permission to mint a project's tokens on-demand.
+    /// @dev A project's data hook can allow any address to mint its tokens.
+    /// @param projectId The ID of the project whose token can be minted.
+    /// @param ruleset The ruleset to check the token minting permission of.
+    /// @param addr The address to check the token minting permission of.
+    /// @return flag A flag indicating whether the address has permission to mint the project's tokens on-demand.
+    function hasMintPermissionFor(
+        uint256 projectId,
+        JBRuleset memory ruleset,
+        address addr
+    )
+        external
+        view
+        override
+        returns (bool)
+    {
+        // Suckers always get mint permission.
+        if (SUCKER_REGISTRY.isSuckerOf({projectId: projectId, addr: addr})) return true;
+
+        // Check the extra data hook (the 721 hook doesn't grant mint permission).
+        JBDeployerHookConfig memory extraHook = _extraDataHookOf[projectId][ruleset.id];
+        if (address(extraHook.dataHook) != address(0)) {
+            if (extraHook.dataHook.hasMintPermissionFor({projectId: projectId, ruleset: ruleset, addr: addr})) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// @notice Get the tiered 721 hook config for a project and ruleset.
+    /// @param projectId The ID of the project to get the 721 hook for.
+    /// @param rulesetId The ID of the ruleset to get the 721 hook for.
+    /// @return hook The 721 tiers hook.
+    /// @return useDataHookForCashOut Whether the 721 hook is used for cash outs.
+    function tiered721HookOf(
+        uint256 projectId,
+        uint256 rulesetId
+    )
+        external
+        view
+        override
+        returns (IJB721TiersHook hook, bool useDataHookForCashOut)
+    {
+        JBTiered721HookConfig memory config = _tiered721HookOf[projectId][rulesetId];
+        return (config.hook, config.useDataHookForCashOut);
+    }
+
+    //*********************************************************************//
+    // -------------------------- public views --------------------------- //
+    //*********************************************************************//
+
+    /// @notice Indicates if this contract adheres to the specified interface.
+    /// @dev See `IERC165.supportsInterface`.
+    /// @return A flag indicating if the provided interface ID is supported.
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        return interfaceId == type(IJBOmnichainDeployer).interfaceId
+            || interfaceId == type(IJBRulesetDataHook).interfaceId || interfaceId == type(IERC721Receiver).interfaceId
+            || interfaceId == type(IERC165).interfaceId;
+    }
+
+    //*********************************************************************//
+    // ---------------------- internal transactions ---------------------- //
+    //*********************************************************************//
 
     /// @notice Deploys a 721 tiers hook for a project.
     /// @dev The caller is responsible for transferring ownership to the project via
@@ -782,18 +761,6 @@ contract JBOmnichainDeployer is
         });
     }
 
-    /// @notice The calldata. Preferred to use over `msg.data`.
-    /// @return calldata The `msg.data` of this call.
-    function _msgData() internal view override(ERC2771Context, Context) returns (bytes calldata) {
-        return ERC2771Context._msgData();
-    }
-
-    /// @notice The message's sender. Preferred to use over `msg.sender`.
-    /// @return sender The address which sent this call.
-    function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
-        return ERC2771Context._msgSender();
-    }
-
     /// @notice Internal implementation of `queueRulesetsOf`.
     function _queueRulesetsOf(
         uint256 projectId,
@@ -912,6 +879,41 @@ contract JBOmnichainDeployer is
         }
 
         return rulesetConfigurations;
+    }
+
+    //*********************************************************************//
+    // ----------------------- internal views ---------------------------- //
+    //*********************************************************************//
+
+    /// @dev ERC-2771 specifies the context as being a single address (20 bytes).
+    function _contextSuffixLength() internal view virtual override(ERC2771Context, Context) returns (uint256) {
+        return ERC2771Context._contextSuffixLength();
+    }
+
+    /// @notice Returns a default `JBOmnichain721Config` with `currency` from the first ruleset's `baseCurrency`,
+    /// `decimals = 18`, empty tiers, no cash-out handling, and no salt.
+    /// @param rulesetConfigurations The ruleset configurations to derive defaults from.
+    /// @return config The default 721 config.
+    function _default721Config(JBRulesetConfig[] memory rulesetConfigurations)
+        internal
+        pure
+        returns (JBOmnichain721Config memory config)
+    {
+        if (rulesetConfigurations.length == 0) revert JBOmnichainDeployer_NoRulesetConfigurations();
+        config.deployTiersHookConfig.tiersConfig.currency = rulesetConfigurations[0].metadata.baseCurrency;
+        config.deployTiersHookConfig.tiersConfig.decimals = 18;
+    }
+
+    /// @notice The calldata. Preferred to use over `msg.data`.
+    /// @return calldata The `msg.data` of this call.
+    function _msgData() internal view override(ERC2771Context, Context) returns (bytes calldata) {
+        return ERC2771Context._msgData();
+    }
+
+    /// @notice The message's sender. Preferred to use over `msg.sender`.
+    /// @return sender The address which sent this call.
+    function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
+        return ERC2771Context._msgSender();
     }
 
     /// @notice Validates that the provided controller matches the project's controller in the directory.
