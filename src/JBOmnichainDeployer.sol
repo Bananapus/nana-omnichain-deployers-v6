@@ -312,8 +312,9 @@ contract JBOmnichainDeployer is
                 // Pass the 721 hook's weight (which accounts for split deductions) so the data hook
                 // makes its decisions (e.g. mint-vs-swap) based on the correct post-split weight.
                 if (has721Hook) hookContext.weight = tiered721Weight;
-                // Swap beneficiary for the data hook too.
-                if (beneficiarySwapped) hookContext.beneficiary = effectiveBeneficiary;
+                // Do NOT swap the beneficiary for the extra data hook (e.g. buyback hook).
+                // The buyback hook mints tokens to context.beneficiary — in the proxy pattern,
+                // that must remain the sucker terminal so it can collect tokens for proxy deposit.
                 (weight, dataHookSpecs) = extraHook.dataHook.beforePayRecordedWith(hookContext);
                 customHookCalled = true;
             }
