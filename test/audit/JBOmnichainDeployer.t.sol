@@ -145,6 +145,9 @@ contract JBOmnichainDeployerTest is Test {
             abi.encode()
         );
         vm.mockCall(suckerRegistry, abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false));
+        vm.mockCall(
+            suckerRegistry, abi.encodeWithSelector(IJBSuckerRegistry.suckersOf.selector), abi.encode(new address[](0))
+        );
 
         JBOmnichainDeployer deployer =
             new JBOmnichainDeployer(IJBSuckerRegistry(suckerRegistry), hookDeployer, permissions, projects, address(0));
@@ -181,7 +184,9 @@ contract JBOmnichainDeployerTest is Test {
             deployer.beforeCashOutRecordedWith(initialContext);
         assertEq(initialTaxRate, 1234, "initial ruleset should forward cash-outs into the 721 hook");
         assertEq(initialCashOutCount, 55, "initial ruleset should use the 721 hook cash-out count");
-        assertEq(initialTotalSupply, 999, "initial ruleset should use the 721 hook total supply");
+        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
+        // With no suckers, this equals context.totalSupply (777).
+        assertEq(initialTotalSupply, 777, "initial ruleset should use cross-chain totalSupply (context value)");
 
         vm.mockCall(
             address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
@@ -245,7 +250,9 @@ contract JBOmnichainDeployerTest is Test {
         // The 721 hook is properly consulted for cash-outs in the queued ruleset.
         assertEq(queuedTaxRate, 1234, "queued ruleset should forward cash-outs into the 721 hook");
         assertEq(queuedCashOutCount, 55, "queued ruleset should use the 721 hook cash-out count");
-        assertEq(queuedTotalSupply, 999, "queued ruleset should use the 721 hook total supply");
+        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
+        // With no suckers, this equals context.totalSupply (777).
+        assertEq(queuedTotalSupply, 777, "queued ruleset should use cross-chain totalSupply (context value)");
     }
 
     function _cashOutContext(uint256 rulesetId) internal pure returns (JBBeforeCashOutRecordedContext memory context) {

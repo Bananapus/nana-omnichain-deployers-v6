@@ -84,8 +84,9 @@ contract CodexNemesisAudit is Test {
         vm.mockCall(address(directory), abi.encodeWithSelector(IJBDirectory.PROJECTS.selector), abi.encode(projects));
 
         JBSuckerRegistry registry = new JBSuckerRegistry(directory, permissions, address(this), address(0));
-        JBOmnichainDeployer deployer =
-            new JBOmnichainDeployer(IJBSuckerRegistry(address(registry)), hookDeployer, permissions, projects, address(0));
+        JBOmnichainDeployer deployer = new JBOmnichainDeployer(
+            IJBSuckerRegistry(address(registry)), hookDeployer, permissions, projects, address(0)
+        );
 
         vm.mockCall(
             address(permissions),
@@ -115,8 +116,7 @@ contract CodexNemesisAudit is Test {
         );
 
         JBSuckerDeploymentConfig memory config = JBSuckerDeploymentConfig({
-            deployerConfigurations: new JBSuckerDeployerConfig[](0),
-            salt: bytes32("SUCKER_SALT")
+            deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32("SUCKER_SALT")
         });
 
         vm.prank(operator);

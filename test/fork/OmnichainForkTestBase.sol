@@ -27,6 +27,7 @@ import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
 import {JB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
 import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
+import {JB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/JB721CheckpointsDeployer.sol";
 import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookProjectDeployer.sol";
 import {IJB721TiersHookStore} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookStore.sol";
@@ -181,7 +182,14 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         suckerRegistry = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         hookStore = new JB721TiersHookStore();
         exampleHook = new JB721TiersHook(
-            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), hookStore, jbSplits(), address(0)
+            jbDirectory(),
+            jbPermissions(),
+            jbPrices(),
+            jbRulesets(),
+            hookStore,
+            jbSplits(),
+            new JB721CheckpointsDeployer(),
+            address(0)
         );
         addressRegistry = new JBAddressRegistry();
         hookDeployer721 = new JB721TiersHookDeployer(exampleHook, hookStore, addressRegistry, multisig());

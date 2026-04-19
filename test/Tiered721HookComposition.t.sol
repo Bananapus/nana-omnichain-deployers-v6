@@ -106,6 +106,11 @@ contract Tiered721HookComposition is Test {
         vm.mockCall(
             address(suckerRegistry), abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false)
         );
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.suckersOf.selector),
+            abi.encode(new address[](0))
+        );
         JBPayHookSpecification[] memory default721Specs = new JBPayHookSpecification[](1);
         default721Specs[0] =
             JBPayHookSpecification({hook: IJBPayHook(hookAddr), noop: false, amount: 0, metadata: bytes("")});
@@ -355,7 +360,9 @@ contract Tiered721HookComposition is Test {
         (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(context);
         assertEq(taxRate, 3000, "buyback hook's tax rate");
         assertEq(cashOutCount, 500, "buyback hook's cashOutCount");
-        assertEq(totalSupply, 5000, "buyback hook's totalSupply");
+        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
+        // With no suckers, this equals context.totalSupply.
+        assertEq(totalSupply, context.totalSupply, "cross-chain totalSupply (context value with no suckers)");
     }
 
     function test_beforeCashOut_zeroTiers_forwardsToUserHook() public {
@@ -381,7 +388,9 @@ contract Tiered721HookComposition is Test {
         (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(context);
         assertEq(taxRate, 2000, "user hook's tax rate");
         assertEq(cashOutCount, 100, "user hook's cashOutCount");
-        assertEq(totalSupply, 1000, "user hook's totalSupply");
+        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
+        // With no suckers, this equals context.totalSupply.
+        assertEq(totalSupply, context.totalSupply, "cross-chain totalSupply (context value with no suckers)");
     }
 
     function test_beforeCashOut_zeroTiers_noUserHook_returnsOriginal() public {

@@ -89,6 +89,13 @@ contract TestJBOmnichainDeployer is Test {
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
             abi.encode(uint256(1000), new JBPayHookSpecification[](0))
         );
+
+        // Default: no suckers deployed (non-omnichain project).
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.suckersOf.selector),
+            abi.encode(new address[](0))
+        );
     }
 
     //*********************************************************************//

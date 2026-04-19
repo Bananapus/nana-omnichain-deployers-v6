@@ -57,7 +57,9 @@ contract PayRevertingHook is IJBRulesetDataHook {
         override
         returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, 0, new JBCashOutHookSpecification[](0));
+        return (
+            context.cashOutTaxRate, context.cashOutCount, context.totalSupply, 0, new JBCashOutHookSpecification[](0)
+        );
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
@@ -119,7 +121,9 @@ contract MintPermissionRevertingHook is IJBRulesetDataHook {
         override
         returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, 0, new JBCashOutHookSpecification[](0));
+        return (
+            context.cashOutTaxRate, context.cashOutCount, context.totalSupply, 0, new JBCashOutHookSpecification[](0)
+        );
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
@@ -191,7 +195,9 @@ contract ManySpecsHook is IJBRulesetDataHook {
         override
         returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, 0, new JBCashOutHookSpecification[](0));
+        return (
+            context.cashOutTaxRate, context.cashOutCount, context.totalSupply, 0, new JBCashOutHookSpecification[](0)
+        );
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
@@ -221,7 +227,9 @@ contract ZeroWeightHook is IJBRulesetDataHook {
         override
         returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, 0, new JBCashOutHookSpecification[](0));
+        return (
+            context.cashOutTaxRate, context.cashOutCount, context.totalSupply, 0, new JBCashOutHookSpecification[](0)
+        );
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
@@ -308,6 +316,13 @@ contract TestAuditGaps is Test {
         );
         vm.mockCall(
             address(suckerRegistry), abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false)
+        );
+
+        // Default: no suckers deployed (non-omnichain project).
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.suckersOf.selector),
+            abi.encode(new address[](0))
         );
 
         // Default 721 hook mock: returns context weight and empty specs (0 tiers, no splits).
@@ -430,7 +445,9 @@ contract TestAuditGaps is Test {
         (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, type(uint256).max, "Should pass through max tax rate from hook");
         assertEq(cashOutCount, 0, "Should pass through 0 count from hook");
-        assertEq(totalSupply, type(uint256).max, "Should pass through max supply from hook");
+        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
+        // With no suckers, this equals context.totalSupply.
+        assertEq(totalSupply, ctx.totalSupply, "Should return cross-chain totalSupply (context value with no suckers)");
     }
 
     // -------------------------------------------------------------------------

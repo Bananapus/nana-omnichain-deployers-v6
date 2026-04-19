@@ -145,6 +145,13 @@ contract OmnichainDeployerEdgeCases is Test {
             address(suckerRegistry), abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false)
         );
 
+        // Default: no suckers deployed (non-omnichain project).
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.suckersOf.selector),
+            abi.encode(new address[](0))
+        );
+
         // Hook deployer mocks (every path now deploys a 721 hook).
         vm.mockCall(
             address(hookDeployer),
@@ -344,7 +351,9 @@ contract OmnichainDeployerEdgeCases is Test {
         (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 2000, "Should return custom hook tax rate");
         assertEq(cashOutCount, 500, "Should return custom hook cashOutCount");
-        assertEq(totalSupply, 8000, "Should return custom hook totalSupply");
+        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
+        // With no suckers, this equals context.totalSupply.
+        assertEq(totalSupply, ctx.totalSupply, "Should return cross-chain totalSupply (context value with no suckers)");
     }
 
     // =========================================================================
@@ -420,7 +429,9 @@ contract OmnichainDeployerEdgeCases is Test {
         (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 9999, "Should return custom hook's tax rate");
         assertEq(cashOutCount, 1, "Should return custom hook's cashOutCount");
-        assertEq(totalSupply, 1, "Should return custom hook's totalSupply");
+        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
+        // With no suckers, this equals context.totalSupply.
+        assertEq(totalSupply, ctx.totalSupply, "Should return cross-chain totalSupply (context value with no suckers)");
     }
 
     function test_beforeCashOut_merges721AndCustomHookSpecifications() public {
@@ -449,14 +460,15 @@ contract OmnichainDeployerEdgeCases is Test {
         (
             uint256 cashOutTaxRate,
             uint256 cashOutCount,
-            uint256 totalSupply,
-            ,
+            uint256 totalSupply,,
             JBCashOutHookSpecification[] memory hookSpecifications
         ) = deployer.beforeCashOutRecordedWith(ctx);
 
         assertEq(cashOutTaxRate, 2000, "Custom hook should receive and override 721-adjusted tax rate");
         assertEq(cashOutCount, 500, "Custom hook should receive and override 721-adjusted cashOutCount");
-        assertEq(totalSupply, 8000, "Custom hook should receive and override 721-adjusted totalSupply");
+        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
+        // With no suckers, this equals context.totalSupply.
+        assertEq(totalSupply, ctx.totalSupply, "Should return cross-chain totalSupply (context value with no suckers)");
         assertEq(hookSpecifications.length, 2, "721 and custom cash out specs should both be returned");
         assertEq(address(hookSpecifications[0].hook), mock721, "721 hook spec should come first");
         assertEq(hookSpecifications[0].amount, 11, "721 hook spec amount should be preserved");
