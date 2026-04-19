@@ -185,6 +185,7 @@ contract JBOmnichainDeployer is
             // Forward to the 721 hook. It may change the tax rate, count, and return hook specs.
             // We discard the inner hook's effectiveSurplusValue — this contract computes the cross-chain values.
             // We also discard its totalSupply since this contract computes the cross-chain supply.
+            // slither-disable-next-line unused-return
             (cashOutTaxRate, cashOutCount,,, tiered721HookSpecifications) =
                 IJBRulesetDataHook(address(tiered721Config.hook)).beforeCashOutRecordedWith(context);
         }
@@ -206,6 +207,7 @@ contract JBOmnichainDeployer is
             // Forward to the extra hook. It may further change the tax rate, count, and return hook specs.
             // We discard the inner hook's effectiveSurplusValue — this contract computes the cross-chain values.
             // We also discard its totalSupply since this contract computes the cross-chain supply.
+            // slither-disable-next-line unused-return
             (cashOutTaxRate, cashOutCount,,, extraHookSpecifications) =
                 extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
         }
