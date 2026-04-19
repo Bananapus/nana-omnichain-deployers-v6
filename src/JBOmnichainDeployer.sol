@@ -20,7 +20,6 @@ import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.
 import {JBOwnable} from "@bananapus/ownable-v6/src/JBOwnable.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
-import {JBRelayBeneficiary} from "@bananapus/suckers-v6/src/libraries/JBRelayBeneficiary.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
@@ -264,30 +263,12 @@ contract JBOmnichainDeployer is
             // Mark that a 721 hook is configured.
             has721Hook = true;
 
-            // Resolve the relay beneficiary — if the payer is a sucker with relay metadata,
-            // swap the beneficiary so the 721 hook sees the real user.
-            address effectiveBeneficiary = JBRelayBeneficiary.resolve({
-                payer: context.payer,
-                beneficiary: context.beneficiary,
-                projectId: context.projectId,
-                metadata: context.metadata,
-                registry: SUCKER_REGISTRY
-            });
-
             // Call the 721 hook directly — useDataHookForPay is always true for 721 hooks.
+            // The 721 hook resolves the relay beneficiary from metadata internally.
             JBPayHookSpecification[] memory tiered721HookSpecs;
-            if (effectiveBeneficiary != context.beneficiary) {
-                // Create memory copy with swapped beneficiary for the 721 hook.
-                JBBeforePayRecordedContext memory hookContext721 = context;
-                hookContext721.beneficiary = effectiveBeneficiary;
-                // slither-disable-next-line unused-return
-                (tiered721Weight, tiered721HookSpecs) =
-                    IJBRulesetDataHook(address(tiered721Config.hook)).beforePayRecordedWith(hookContext721);
-            } else {
-                // slither-disable-next-line unused-return
-                (tiered721Weight, tiered721HookSpecs) =
-                    IJBRulesetDataHook(address(tiered721Config.hook)).beforePayRecordedWith(context);
-            }
+            // slither-disable-next-line unused-return
+            (tiered721Weight, tiered721HookSpecs) =
+                IJBRulesetDataHook(address(tiered721Config.hook)).beforePayRecordedWith(context);
             // The 721 hook returns a single spec (itself) whose amount is the total split amount.
             // Only the first spec is used by design — JB721TiersHook always returns exactly one spec.
             if (tiered721HookSpecs.length > 0) {
