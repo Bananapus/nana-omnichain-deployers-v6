@@ -662,7 +662,7 @@ contract JBOmnichainDeployer is
 
         // Accumulate the known peer chain surplus across all suckers. Each sucker stores surplus as ETH-denominated
         // (18 decimals) and converts to the requested currency/decimals using the local JBPrices oracle.
-        uint256 remoteBalance;
+        uint256 remoteSurplus;
         for (uint256 i; i < numberOfSuckers;) {
             // slither-disable-next-line calls-loop
             // Query this sucker's peer chain surplus in 18-decimal precision, denominated in the given token's
@@ -671,7 +671,7 @@ contract JBOmnichainDeployer is
                 JBDenominatedAmount memory amt
             ) {
                 // Add this peer's known surplus to the running total.
-                remoteBalance += amt.value;
+                remoteSurplus += amt.value;
             } catch {
                 // If a sucker call fails, skip it. This is conservative — underestimates global surplus,
                 // which means less reclaimable (safe direction for the project, less favorable for users).
@@ -682,7 +682,7 @@ contract JBOmnichainDeployer is
         }
 
         // Return the combined local and remote surplus.
-        return localSurplus + remoteBalance;
+        return localSurplus + remoteSurplus;
     }
 
     /// @notice Computes the global total token supply, including supply known to exist on peer chains.
