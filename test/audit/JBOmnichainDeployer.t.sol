@@ -146,7 +146,12 @@ contract JBOmnichainDeployerTest is Test {
         );
         vm.mockCall(suckerRegistry, abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false));
         vm.mockCall(
-            suckerRegistry, abi.encodeWithSelector(IJBSuckerRegistry.suckersOf.selector), abi.encode(new address[](0))
+            suckerRegistry,
+            abi.encodeWithSelector(IJBSuckerRegistry.remoteTotalSupplyOf.selector),
+            abi.encode(uint256(0))
+        );
+        vm.mockCall(
+            suckerRegistry, abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector), abi.encode(uint256(0))
         );
 
         JBOmnichainDeployer deployer =

@@ -19,9 +19,7 @@ import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.so
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 import {JBOwnable} from "@bananapus/ownable-v6/src/JBOwnable.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
-import {IJBSucker} from "@bananapus/suckers-v6/src/interfaces/IJBSucker.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
-import {JBDenominatedAmount} from "@bananapus/suckers-v6/src/structs/JBDenominatedAmount.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
@@ -168,11 +166,12 @@ contract JBOmnichainDeployer is
 
         // Compute the cross-chain total supply: local supply + sum of known peer chain supplies.
         // This prevents the cash out tax from vanishing when a holder dominates the local supply.
-        totalSupply = _omnichainTotalSupplyOf(context.projectId, context.totalSupply);
+        totalSupply = context.totalSupply + SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
 
-        // Compute the cross-chain tax surplus: local surplus + sum of known peer chain balances.
+        // Compute the cross-chain surplus: local surplus + sum of known peer chain surpluses.
         // This prevents disproportionate reclaim when tokens bridge away but surplus stays.
-        effectiveSurplusValue = _omnichainSurplusOf(context.projectId, context.surplus.value, context.surplus.token);
+        effectiveSurplusValue = context.surplus.value
+            + SUCKER_REGISTRY.remoteSurplusOf(context.projectId, 18, uint256(uint160(context.surplus.token)));
 
         // Will hold the 721 hook's cash out specifications (always 0 or 1 element).
         JBCashOutHookSpecification[] memory tiered721HookSpecifications;
@@ -635,89 +634,6 @@ contract JBOmnichainDeployer is
     //*********************************************************************//
     // -------------------------- internal views ------------------------ //
     //*********************************************************************//
-
-    /// @notice Computes the global surplus used for the cash out reclaim base, including surplus known to exist on peer
-    /// chains.
-    /// @dev Iterates over all suckers for the project and sums their `peerChainSurplusOf`. If any sucker call
-    /// reverts, that sucker's contribution is skipped (conservative: underestimates global surplus).
-    /// @param projectId The project to compute the global surplus for.
-    /// @param localSurplus The surplus on the current chain.
-    /// @param token The token denomination to query peer chain surplus in (should match local surplus denomination).
-    /// @return The global surplus (local + known remote).
-    function _omnichainSurplusOf(
-        uint256 projectId,
-        uint256 localSurplus,
-        address token
-    )
-        internal
-        view
-        returns (uint256)
-    {
-        // Get all suckers for this project.
-        address[] memory suckers = SUCKER_REGISTRY.suckersOf(projectId);
-        uint256 numberOfSuckers = suckers.length;
-
-        // If there are no suckers, this isn't an omnichain project — surplus equals local surplus.
-        if (numberOfSuckers == 0) return localSurplus;
-
-        // Accumulate the known peer chain surplus across all suckers. Each sucker stores surplus as ETH-denominated
-        // (18 decimals) and converts to the requested currency/decimals using the local JBPrices oracle.
-        uint256 remoteSurplus;
-        for (uint256 i; i < numberOfSuckers;) {
-            // slither-disable-next-line calls-loop
-            // Query this sucker's peer chain surplus in 18-decimal precision, denominated in the given token's
-            // currency.
-            try IJBSucker(suckers[i]).peerChainSurplusOf(18, uint256(uint160(token))) returns (
-                JBDenominatedAmount memory amt
-            ) {
-                // Add this peer's known surplus to the running total.
-                remoteSurplus += amt.value;
-            } catch {
-                // If a sucker call fails, skip it. This is conservative — underestimates global surplus,
-                // which means less reclaimable (safe direction for the project, less favorable for users).
-            }
-            unchecked {
-                ++i;
-            }
-        }
-
-        // Return the combined local and remote surplus.
-        return localSurplus + remoteSurplus;
-    }
-
-    /// @notice Computes the global total token supply, including supply known to exist on peer chains.
-    /// @dev Iterates over all suckers for the project and sums their `peerChainTotalSupply()`. If any sucker call
-    /// reverts, that sucker's contribution is skipped (conservative: underestimates global supply).
-    /// @param projectId The project to compute the total supply for.
-    /// @param localTotalSupply The total token supply on the current chain.
-    /// @return The total supply (local + known remote).
-    function _omnichainTotalSupplyOf(uint256 projectId, uint256 localTotalSupply) internal view returns (uint256) {
-        // Get all suckers for this project.
-        address[] memory suckers = SUCKER_REGISTRY.suckersOf(projectId);
-        uint256 numberOfSuckers = suckers.length;
-
-        // If there are no suckers, this isn't an omnichain project — total supply equals local supply.
-        if (numberOfSuckers == 0) return localTotalSupply;
-
-        // Accumulate the known peer chain supplies across all suckers.
-        uint256 remoteTotalSupply;
-        for (uint256 i; i < numberOfSuckers;) {
-            // slither-disable-next-line calls-loop
-            try IJBSucker(suckers[i]).peerChainTotalSupply() returns (uint256 peerSupply) {
-                // Add this peer's known supply to the running total.
-                remoteTotalSupply += peerSupply;
-            } catch {
-                // If a sucker call fails, skip it. This is conservative — underestimates global supply,
-                // which means the tax bite is lighter (safe direction for users, less safe for the project).
-            }
-            unchecked {
-                ++i;
-            }
-        }
-
-        // Return the combined local and remote supply.
-        return localTotalSupply + remoteTotalSupply;
-    }
 
     //*********************************************************************//
     // ------------------------ internal functions ----------------------- //
