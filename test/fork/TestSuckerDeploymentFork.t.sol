@@ -179,7 +179,7 @@ contract TestSuckerDeploymentFork is OmnichainForkTestBase {
         });
 
         // Call beforeCashOutRecordedWith directly on the omnichain deployer.
-        (uint256 returnedTaxRate, uint256 returnedCashOutCount, uint256 returnedTotalSupply,) =
+        (uint256 returnedTaxRate, uint256 returnedCashOutCount, uint256 returnedTotalSupply,,) =
             omnichainDeployer.beforeCashOutRecordedWith(context);
 
         // Sucker should get 0% tax.

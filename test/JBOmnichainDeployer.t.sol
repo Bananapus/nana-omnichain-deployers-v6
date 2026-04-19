@@ -89,6 +89,18 @@ contract TestJBOmnichainDeployer is Test {
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
             abi.encode(uint256(1000), new JBPayHookSpecification[](0))
         );
+
+        // Default: no remote supply or surplus (non-omnichain project).
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.remoteTotalSupplyOf.selector),
+            abi.encode(uint256(0))
+        );
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector),
+            abi.encode(uint256(0))
+        );
     }
 
     //*********************************************************************//
@@ -207,7 +219,7 @@ contract TestJBOmnichainDeployer is Test {
 
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, rulesetId, sucker);
 
-        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) =
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) =
             deployer.beforeCashOutRecordedWith(context);
 
         assertEq(cashOutTaxRate, 0, "sucker should get 0 tax");
@@ -223,7 +235,7 @@ contract TestJBOmnichainDeployer is Test {
 
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, rulesetId, randomAddr);
 
-        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) =
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) =
             deployer.beforeCashOutRecordedWith(context);
 
         assertEq(cashOutTaxRate, context.cashOutTaxRate, "non-sucker should get original tax");

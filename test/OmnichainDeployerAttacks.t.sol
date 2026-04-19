@@ -43,7 +43,7 @@ contract RevertingDataHook is IJBRulesetDataHook {
         external
         pure
         override
-        returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
+        returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
         revert("Hook always reverts");
     }
@@ -72,9 +72,11 @@ contract InflatingDataHook is IJBRulesetDataHook {
         external
         pure
         override
-        returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
+        returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
-        return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, new JBCashOutHookSpecification[](0));
+        return (
+            context.cashOutTaxRate, context.cashOutCount, context.totalSupply, 0, new JBCashOutHookSpecification[](0)
+        );
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {
@@ -142,6 +144,18 @@ contract OmnichainDeployerAttacks is Test {
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
             abi.encode(uint256(1000), new JBPayHookSpecification[](0))
         );
+
+        // Default: no remote supply or surplus (non-omnichain project).
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.remoteTotalSupplyOf.selector),
+            abi.encode(uint256(0))
+        );
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector),
+            abi.encode(uint256(0))
+        );
     }
 
     // =========================================================================
@@ -166,7 +180,7 @@ contract OmnichainDeployerAttacks is Test {
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, sucker);
 
-        (uint256 cashOutTaxRate,,,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate,,,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 0, "Sucker should get 0 tax");
     }
 
@@ -182,7 +196,7 @@ contract OmnichainDeployerAttacks is Test {
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
 
-        (uint256 cashOutTaxRate,,,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate,,,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 5000, "Non-sucker should get original tax");
     }
 
@@ -291,7 +305,7 @@ contract OmnichainDeployerAttacks is Test {
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, storedRulesetId, sucker);
 
         // Sucker gets early return with 0 tax — never hits the reverting hook.
-        (uint256 cashOutTaxRate,,,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate,,,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 0, "Sucker bypasses hook and gets 0 tax");
     }
 

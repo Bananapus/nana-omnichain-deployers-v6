@@ -106,6 +106,16 @@ contract Tiered721HookComposition is Test {
         vm.mockCall(
             address(suckerRegistry), abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false)
         );
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.remoteTotalSupplyOf.selector),
+            abi.encode(uint256(0))
+        );
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector),
+            abi.encode(uint256(0))
+        );
         JBPayHookSpecification[] memory default721Specs = new JBPayHookSpecification[](1);
         default721Specs[0] =
             JBPayHookSpecification({hook: IJBPayHook(hookAddr), noop: false, amount: 0, metadata: bytes("")});
@@ -330,7 +340,7 @@ contract Tiered721HookComposition is Test {
             abi.encode(true)
         );
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, sucker);
-        (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(context);
+        (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(context);
         assertEq(taxRate, 0, "sucker gets 0 tax");
         assertEq(cashOutCount, context.cashOutCount);
         assertEq(totalSupply, context.totalSupply);
@@ -349,13 +359,15 @@ contract Tiered721HookComposition is Test {
         vm.mockCall(
             buybackHookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(3000), uint256(500), uint256(5000), cashOutSpecs)
+            abi.encode(uint256(3000), uint256(500), uint256(5000), uint256(0), cashOutSpecs)
         );
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
-        (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(context);
+        (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(context);
         assertEq(taxRate, 3000, "buyback hook's tax rate");
         assertEq(cashOutCount, 500, "buyback hook's cashOutCount");
-        assertEq(totalSupply, 5000, "buyback hook's totalSupply");
+        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
+        // With no suckers, this equals context.totalSupply.
+        assertEq(totalSupply, context.totalSupply, "cross-chain totalSupply (context value with no suckers)");
     }
 
     function test_beforeCashOut_zeroTiers_forwardsToUserHook() public {
@@ -375,13 +387,15 @@ contract Tiered721HookComposition is Test {
         vm.mockCall(
             customHookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(2000), uint256(100), uint256(1000), cashOutSpecs)
+            abi.encode(uint256(2000), uint256(100), uint256(1000), uint256(0), cashOutSpecs)
         );
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
-        (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(context);
+        (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(context);
         assertEq(taxRate, 2000, "user hook's tax rate");
         assertEq(cashOutCount, 100, "user hook's cashOutCount");
-        assertEq(totalSupply, 1000, "user hook's totalSupply");
+        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
+        // With no suckers, this equals context.totalSupply.
+        assertEq(totalSupply, context.totalSupply, "cross-chain totalSupply (context value with no suckers)");
     }
 
     function test_beforeCashOut_zeroTiers_noUserHook_returnsOriginal() public {
@@ -398,7 +412,7 @@ contract Tiered721HookComposition is Test {
             controller
         );
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
-        (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(context);
+        (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(context);
         assertEq(taxRate, context.cashOutTaxRate, "original tax rate");
         assertEq(cashOutCount, context.cashOutCount);
         assertEq(totalSupply, context.totalSupply);

@@ -133,13 +133,14 @@ contract JBOmnichainDeployer is
     // ------------------------- external views -------------------------- //
     //*********************************************************************//
 
-    /// @notice Allow cash outs from suckers without a tax.
+    /// @notice Allow cash outs from suckers without a tax, and compute cross-chain tax supply for non-sucker cash outs.
     /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a cash out.
     /// @param context Standard Juicebox cash out context. See `JBBeforeCashOutRecordedContext`.
     /// @return cashOutTaxRate The cash out tax rate, which influences the amount of terminal tokens which get cashed
     /// out.
     /// @return cashOutCount The number of project tokens that are cashed out.
-    /// @return totalSupply The total project token supply.
+    /// @return totalSupply The total token supply across all chains (for both proportional reclaim and tax).
+    /// @return effectiveSurplusValue The global surplus across all chains for proportional reclaim.
     /// @return hookSpecifications The amount of funds and the data to send to cash out hooks (this contract).
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
         external
@@ -149,18 +150,28 @@ contract JBOmnichainDeployer is
             uint256 cashOutTaxRate,
             uint256 cashOutCount,
             uint256 totalSupply,
+            uint256 effectiveSurplusValue,
             JBCashOutHookSpecification[] memory hookSpecifications
         )
     {
         // If the cash out is from a sucker, bypass all taxes and fees.
+        // Pass through the local surplus so the reclaim calculation can compute the pro-rata share.
         if (SUCKER_REGISTRY.isSuckerOf({projectId: context.projectId, addr: context.holder})) {
-            return (0, context.cashOutCount, context.totalSupply, hookSpecifications);
+            return (0, context.cashOutCount, context.totalSupply, context.surplus.value, hookSpecifications);
         }
 
         // Start with the values from the context. Hooks below may override these.
         cashOutTaxRate = context.cashOutTaxRate;
         cashOutCount = context.cashOutCount;
-        totalSupply = context.totalSupply;
+
+        // Compute the cross-chain total supply: local supply + sum of known peer chain supplies.
+        // This prevents the cash out tax from vanishing when a holder dominates the local supply.
+        totalSupply = context.totalSupply + SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
+
+        // Compute the cross-chain surplus: local surplus + sum of known peer chain surpluses.
+        // This prevents disproportionate reclaim when tokens bridge away but surplus stays.
+        effectiveSurplusValue = context.surplus.value
+            + SUCKER_REGISTRY.remoteSurplusOf(context.projectId, 18, uint256(uint160(context.surplus.token)));
 
         // Will hold the 721 hook's cash out specifications (always 0 or 1 element).
         JBCashOutHookSpecification[] memory tiered721HookSpecifications;
@@ -170,8 +181,11 @@ contract JBOmnichainDeployer is
 
         // If a 721 hook is set and opted into cash out handling, let it adjust the cash out parameters.
         if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
-            // Forward to the 721 hook. It may change the tax rate, count, supply, and return hook specs.
-            (cashOutTaxRate, cashOutCount, totalSupply, tiered721HookSpecifications) =
+            // Forward to the 721 hook. It may change the tax rate, count, and return hook specs.
+            // We discard the inner hook's effectiveSurplusValue — this contract computes the cross-chain values.
+            // We also discard its totalSupply since this contract computes the cross-chain supply.
+            // slither-disable-next-line unused-return
+            (cashOutTaxRate, cashOutCount,,, tiered721HookSpecifications) =
                 IJBRulesetDataHook(address(tiered721Config.hook)).beforeCashOutRecordedWith(context);
         }
 
@@ -189,14 +203,17 @@ contract JBOmnichainDeployer is
             hookContext.cashOutCount = cashOutCount;
             hookContext.totalSupply = totalSupply;
 
-            // Forward to the extra hook. It may further change the tax rate, count, supply, and return hook specs.
-            (cashOutTaxRate, cashOutCount, totalSupply, extraHookSpecifications) =
+            // Forward to the extra hook. It may further change the tax rate, count, and return hook specs.
+            // We discard the inner hook's effectiveSurplusValue — this contract computes the cross-chain values.
+            // We also discard its totalSupply since this contract computes the cross-chain supply.
+            // slither-disable-next-line unused-return
+            (cashOutTaxRate, cashOutCount,,, extraHookSpecifications) =
                 extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
         }
 
         // If neither hook returned any specifications, return the adjusted values with no hook specs.
         if (tiered721HookSpecifications.length == 0 && extraHookSpecifications.length == 0) {
-            return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
+            return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
         }
 
         // Merge both hooks' specifications: 721 spec (if any) first, then extra hook specs.
@@ -215,7 +232,7 @@ contract JBOmnichainDeployer is
             hookSpecifications = extraHookSpecifications;
         }
 
-        return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
+        return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
     }
 
     /// @notice Forward the call to the original data hook.
@@ -613,6 +630,10 @@ contract JBOmnichainDeployer is
             controller: controller
         });
     }
+
+    //*********************************************************************//
+    // -------------------------- internal views ------------------------ //
+    //*********************************************************************//
 
     //*********************************************************************//
     // ------------------------ internal functions ----------------------- //

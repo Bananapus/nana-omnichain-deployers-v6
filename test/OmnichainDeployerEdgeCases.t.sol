@@ -78,7 +78,7 @@ contract CustomCashOutHook is IJBRulesetDataHook {
         external
         view
         override
-        returns (uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
+        returns (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[] memory)
     {
         JBCashOutHookSpecification[] memory hookSpecifications;
 
@@ -92,7 +92,7 @@ contract CustomCashOutHook is IJBRulesetDataHook {
             });
         }
 
-        return (cashOutTaxRateReturn, cashOutCountReturn, totalSupplyReturn, hookSpecifications);
+        return (cashOutTaxRateReturn, cashOutCountReturn, totalSupplyReturn, 0, hookSpecifications);
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external view override returns (bool) {
@@ -143,6 +143,18 @@ contract OmnichainDeployerEdgeCases is Test {
         // Default: not a sucker.
         vm.mockCall(
             address(suckerRegistry), abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false)
+        );
+
+        // Default: no remote supply or surplus (non-omnichain project).
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.remoteTotalSupplyOf.selector),
+            abi.encode(uint256(0))
+        );
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector),
+            abi.encode(uint256(0))
         );
 
         // Hook deployer mocks (every path now deploys a 721 hook).
@@ -324,7 +336,7 @@ contract OmnichainDeployerEdgeCases is Test {
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
 
-        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 5000, "Should return original tax rate");
         assertEq(cashOutCount, 1000, "Should return original cashOutCount");
         assertEq(totalSupply, 10_000, "Should return original totalSupply");
@@ -341,10 +353,12 @@ contract OmnichainDeployerEdgeCases is Test {
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
 
-        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 2000, "Should return custom hook tax rate");
         assertEq(cashOutCount, 500, "Should return custom hook cashOutCount");
-        assertEq(totalSupply, 8000, "Should return custom hook totalSupply");
+        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
+        // With no suckers, this equals context.totalSupply.
+        assertEq(totalSupply, ctx.totalSupply, "Should return cross-chain totalSupply (context value with no suckers)");
     }
 
     // =========================================================================
@@ -370,7 +384,7 @@ contract OmnichainDeployerEdgeCases is Test {
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, sucker);
 
-        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 0, "Sucker should get 0 tax regardless of hooks");
         assertEq(cashOutCount, 1000, "Sucker should get original cashOutCount");
         assertEq(totalSupply, 10_000, "Sucker should get original totalSupply");
@@ -391,14 +405,14 @@ contract OmnichainDeployerEdgeCases is Test {
         vm.mockCall(
             mock721,
             abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(9999), uint256(1), uint256(1), new JBCashOutHookSpecification[](0))
+            abi.encode(uint256(9999), uint256(1), uint256(1), uint256(0), new JBCashOutHookSpecification[](0))
         );
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
 
         // Since useDataHookForCashOut is false, the 721 hook should NOT be called.
         // Original values should be returned.
-        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 5000, "Should return original tax rate, not 721 hook's 9999");
         assertEq(cashOutCount, 1000, "Should return original cashOutCount, not 721 hook's 1");
         assertEq(totalSupply, 10_000, "Should return original totalSupply, not 721 hook's 1");
@@ -417,10 +431,12 @@ contract OmnichainDeployerEdgeCases is Test {
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
 
         // Since useDataHookForCashOut is true, the custom hook SHOULD be called.
-        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 9999, "Should return custom hook's tax rate");
         assertEq(cashOutCount, 1, "Should return custom hook's cashOutCount");
-        assertEq(totalSupply, 1, "Should return custom hook's totalSupply");
+        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
+        // With no suckers, this equals context.totalSupply.
+        assertEq(totalSupply, ctx.totalSupply, "Should return cross-chain totalSupply (context value with no suckers)");
     }
 
     function test_beforeCashOut_merges721AndCustomHookSpecifications() public {
@@ -441,7 +457,7 @@ contract OmnichainDeployerEdgeCases is Test {
         vm.mockCall(
             mock721,
             abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(4000), uint256(700), uint256(9000), specs)
+            abi.encode(uint256(4000), uint256(700), uint256(9000), uint256(0), specs)
         );
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
@@ -449,13 +465,15 @@ contract OmnichainDeployerEdgeCases is Test {
         (
             uint256 cashOutTaxRate,
             uint256 cashOutCount,
-            uint256 totalSupply,
+            uint256 totalSupply,,
             JBCashOutHookSpecification[] memory hookSpecifications
         ) = deployer.beforeCashOutRecordedWith(ctx);
 
         assertEq(cashOutTaxRate, 2000, "Custom hook should receive and override 721-adjusted tax rate");
         assertEq(cashOutCount, 500, "Custom hook should receive and override 721-adjusted cashOutCount");
-        assertEq(totalSupply, 8000, "Custom hook should receive and override 721-adjusted totalSupply");
+        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
+        // With no suckers, this equals context.totalSupply.
+        assertEq(totalSupply, ctx.totalSupply, "Should return cross-chain totalSupply (context value with no suckers)");
         assertEq(hookSpecifications.length, 2, "721 and custom cash out specs should both be returned");
         assertEq(address(hookSpecifications[0].hook), mock721, "721 hook spec should come first");
         assertEq(hookSpecifications[0].amount, 11, "721 hook spec amount should be preserved");
@@ -477,7 +495,7 @@ contract OmnichainDeployerEdgeCases is Test {
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
 
         // Since useDataHookForCashOut is false, the custom hook should NOT be called.
-        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 5000, "Should return original tax rate, not custom hook's 2000");
         assertEq(cashOutCount, 1000, "Should return original cashOutCount, not custom hook's 1");
         assertEq(totalSupply, 10_000, "Should return original totalSupply, not custom hook's 1");
@@ -494,7 +512,7 @@ contract OmnichainDeployerEdgeCases is Test {
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
 
         // No 721 hook, no custom hook — should fall through to original values.
-        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,) = deployer.beforeCashOutRecordedWith(ctx);
+        (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 5000, "Should return original tax rate");
         assertEq(cashOutCount, 1000, "Should return original cashOutCount");
         assertEq(totalSupply, 10_000, "Should return original totalSupply");
