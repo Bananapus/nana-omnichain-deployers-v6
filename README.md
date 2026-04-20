@@ -3,7 +3,12 @@
 `@bananapus/omnichain-deployers-v6` launches Juicebox projects with cross-chain suckers and a 721 hook already wired in. It is the package you use when the default project shape should be omnichain from day one.
 
 Docs: <https://docs.juicebox.money>
-Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md)
+Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md)  
+User journeys: [USER_JOURNEYS.md](./USER_JOURNEYS.md)  
+Skills: [SKILLS.md](./SKILLS.md)  
+Risks: [RISKS.md](./RISKS.md)  
+Administration: [ADMINISTRATION.md](./ADMINISTRATION.md)  
+Audit instructions: [AUDIT_INSTRUCTIONS.md](./AUDIT_INSTRUCTIONS.md)
 
 ## Overview
 
@@ -12,10 +17,10 @@ The deployer wraps multiple launch concerns into one surface:
 - deploy or carry forward a tiered 721 hook
 - install itself as the project's data-hook wrapper
 - compose the 721 hook with an optional extra custom hook
-- grant tax-free and mint-safe behavior to project suckers
+- wrap sucker flows so project-specific cash-out taxation and mint-permission logic can be handled safely
 - deploy suckers deterministically across chains
 
-The wrapper exists so suckers can bridge without being blocked by project-specific cash-out tax logic while the project still keeps its own data hooks.
+The wrapper exists so sucker-triggered flows can be exempted from project-specific cash-out taxation and related mint-gating logic where needed while the project still keeps its own inner data hooks.
 
 Use this repo when the default project shape is "Juicebox project plus 721 hook plus cross-chain bridge." Do not use it when a project is single-chain or does not need the wrapper semantics around suckers.
 
@@ -41,6 +46,20 @@ This repo owns orchestration plus runtime wrapping:
 2. `nana-suckers-v6/src/JBSucker.sol`
 3. `nana-721-hook-v6/src/JB721TiersHook.sol`
 4. the extra hook repo, if the deployment composes one
+
+## Integration Traps
+
+- this repo wraps hooks and bridge flows together, so ownership and hook-order assumptions matter as much as the deployment salt
+- ruleset ID prediction is an implementation dependency and should be reviewed as an actual invariant
+- the deployer can carry forward an existing 721 hook shape, so stale assumptions about hook config can leak across deployments
+- bridge-safe wrapper behavior is part of the runtime trust model, not just deployment ergonomics
+
+## Where State Lives
+
+- orchestration and wrapper logic live in `JBOmnichainDeployer`
+- bridge runtime state lives in `nana-suckers-v6`
+- 721 tier state lives in `nana-721-hook-v6`
+- any extra hook behavior lives in the additional repo composed into the deployment
 
 ## Install
 
@@ -85,3 +104,8 @@ script/
 - hook composition order matters because the 721 hook runs before any extra custom hook
 - using the default empty-tier 721 config is convenient, but teams should still decide explicitly whether the hook participates in cash-out behavior
 - deterministic salts help with cross-chain address alignment, but only when the sender and configuration match exactly
+
+## For AI Agents
+
+- Describe this repo as an orchestration and wrapper layer, not as the source of sucker or 721 runtime behavior.
+- Start with `JBOmnichainDeployer`, then inspect the sibling repo that owns the behavior being questioned.
