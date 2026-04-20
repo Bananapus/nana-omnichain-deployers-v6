@@ -24,8 +24,6 @@ The wrapper exists so sucker-triggered flows can be exempted from project-specif
 
 Use this repo when the default project shape is "Juicebox project plus 721 hook plus cross-chain bridge." Do not use it when a project is single-chain or does not need the wrapper semantics around suckers.
 
-If the question is "how do suckers bridge?" start in `nana-suckers-v6`. If the question is "how does a 721 hook behave?" start in `nana-721-hook-v6`. This repo is where those components are packaged together and wrapped.
-
 ## Key Contract
 
 | Contract | Role |
@@ -49,17 +47,17 @@ This repo owns orchestration plus runtime wrapping:
 
 ## Integration Traps
 
-- this repo wraps hooks and bridge flows together, so ownership and hook-order assumptions matter as much as the deployment salt
-- ruleset ID prediction is an implementation dependency and should be reviewed as an actual invariant
-- the deployer can carry forward an existing 721 hook shape, so stale assumptions about hook config can leak across deployments
-- bridge-safe wrapper behavior is part of the runtime trust model, not just deployment ergonomics
+- this repo wraps hooks and bridge flows together, so ownership and hook-order assumptions matter as much as deployment salt
+- ruleset ID prediction is a real implementation dependency
+- the deployer can carry forward an existing 721 hook shape, so stale hook assumptions can leak across deployments
+- bridge-safe wrapper behavior is part of the runtime trust model
 
 ## Where State Lives
 
-- orchestration and wrapper logic live in `JBOmnichainDeployer`
-- bridge runtime state lives in `nana-suckers-v6`
-- 721 tier state lives in `nana-721-hook-v6`
-- any extra hook behavior lives in the additional repo composed into the deployment
+- orchestration and wrapper logic: `JBOmnichainDeployer`
+- bridge runtime state: `nana-suckers-v6`
+- 721 tier state: `nana-721-hook-v6`
+- extra hook behavior: the additional repo composed into the deployment
 
 ## Install
 
@@ -100,10 +98,10 @@ script/
 
 ## Risks And Notes
 
-- ruleset ID prediction is part of the implementation strategy and should be treated as a real assumption
+- ruleset ID prediction is part of the implementation strategy
 - hook composition order matters because the 721 hook runs before any extra custom hook
-- using the default empty-tier 721 config is convenient, but teams should still decide explicitly whether the hook participates in cash-out behavior
-- deterministic salts help with cross-chain address alignment, but only when the sender and configuration match exactly
+- default empty-tier 721 config is convenient, but teams should still decide explicitly whether the hook participates in cash-out behavior
+- deterministic salts only help with cross-chain address alignment when sender and configuration match exactly
 
 ## For AI Agents
 

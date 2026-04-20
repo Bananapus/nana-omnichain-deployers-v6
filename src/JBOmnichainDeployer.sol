@@ -412,7 +412,9 @@ contract JBOmnichainDeployer is
         // This prevents disproportionate reclaim when tokens bridge away but surplus stays.
         effectiveSurplusValue = context.surplus.value
             + SUCKER_REGISTRY.remoteSurplusOf({
-                projectId: context.projectId, decimals: 18, currency: uint256(uint160(context.surplus.token))
+                projectId: context.projectId,
+                decimals: context.surplus.decimals,
+                currency: uint256(context.surplus.currency)
             });
 
         // Will hold the 721 hook's cash out specifications (always 0 or 1 element).
@@ -444,6 +446,7 @@ contract JBOmnichainDeployer is
             hookContext.cashOutTaxRate = cashOutTaxRate;
             hookContext.cashOutCount = cashOutCount;
             hookContext.totalSupply = totalSupply;
+            hookContext.surplus.value = effectiveSurplusValue;
 
             // Forward to the extra hook. It may further change the tax rate, count, and return hook specs.
             // We discard the inner hook's effectiveSurplusValue — this contract computes the cross-chain values.
@@ -923,7 +926,9 @@ contract JBOmnichainDeployer is
     /// @param projectId The ID of the project to validate the controller for.
     /// @param controller The controller to validate.
     function _validateController(uint256 projectId, IJBController controller) internal view {
-        if (address(controller.DIRECTORY().controllerOf(projectId)) != address(controller)) {
+        address current = address(controller.DIRECTORY().controllerOf(projectId));
+        // Allow address(0) for fresh projects that haven't launched rulesets yet.
+        if (current != address(0) && current != address(controller)) {
             revert JBOmnichainDeployer_ControllerMismatch();
         }
     }
