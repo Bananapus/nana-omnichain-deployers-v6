@@ -29,6 +29,7 @@ This file focuses on the risks in the deployer layer that launches Juicebox proj
 - **Sucker cashout bypass.** Any address registered as a sucker for a project gets 0% cashout tax rate and full reclaim. If a malicious sucker is registered (via compromised `SUCKER_REGISTRY`), it can drain the project's surplus.
 - **Weight manipulation via extra data hook.** `beforePayRecordedWith` forwards to the extra data hook, which can return any `weight`. A malicious hook can inflate token minting or set weight=0 to block minting.
 - **721 hook amount splitting.** The deployer computes `projectAmount = context.amount.value - totalSplitAmount`. The 721 hook's returned weight (already adjusted for splits via `JB721TiersHookLib.calculateWeight`) is used directly -- no proportional scaling is applied. If the 721 hook returns a `totalSplitAmount >= context.amount.value`, `projectAmount` is set to 0 and weight becomes 0 -- no tokens are minted for the payment.
+- **Cross-chain sender dependence in sucker deployment salts.** `deploySuckersFor` salts deployments with `keccak256(abi.encode(userSalt, _msgSender()))`. This prevents replay collisions, but it also means the same logical project deployed by different operators on different chains will not get matching deterministic sucker addresses.
 
 ## 3. Access Control
 
@@ -41,6 +42,7 @@ This file focuses on the risks in the deployer layer that launches Juicebox proj
 - **Ruleset ID collision.** `_setup721` stores hook configs at `block.timestamp + i`. If `latestRulesetIdOf >= block.timestamp` (rulesets already queued this block), `queueRulesetsOf` reverts with `RulesetIdsUnpredictable`. An attacker who queues rulesets in the same block as the legitimate owner can front-run and block their queue attempt. Gas impact: `queueRulesetsOf` costs ~200-400k gas per ruleset queued. The collision only occurs when two transactions queue rulesets in the same block for the same project — race condition window is one block (~12 seconds on L1, 2 seconds on L2).
 - **External hook revert.** `beforePayRecordedWith` and `beforeCashOutRecordedWith` call external hooks without try-catch. A reverting hook blocks all payments or cashouts for that project/ruleset. For cash-outs, if the 721 hook reverts, the custom hook is never reached (the revert propagates before it). Gas impact: the direct call into the extra data hook has no gas limit, so a gas-griefing hook can consume the entire transaction gas. The 721 hook call is similarly unbounded.
 - **721 hook deployment revert.** `HOOK_DEPLOYER.deployHookFor` is called without try-catch. A failing deployment blocks the entire project launch.
+- **Unexpected safe NFT receipt reverts, but non-safe transfers can still strand assets.** `onERC721Received` only accepts `PROJECTS` NFTs. Safe transfers of any other ERC-721 revert instead of being accepted. The narrower residual risk is `transferFrom` or other non-safe delivery into the deployer, which bypasses the receiver hook and has no generalized rescue path.
 
 ## 5. Reentrancy Surface
 
@@ -53,7 +55,8 @@ This file focuses on the risks in the deployer layer that launches Juicebox proj
 
 - **Hook config keyed by predicted rulesetId.** Configs stored at `block.timestamp + i` must match the actual rulesetId assigned by the controller. If the controller assigns different IDs (e.g., due to approval hook delays), the stored configs become unreachable -- payments/cashouts fall through to default behavior (no 721 handling, no extra hook).
 - **Carried-forward 721 hook on queue.** When `tiers.length == 0`, `queueRulesetsOf` carries forward the hook from a previous ruleset. The source is selected by first checking `latestQueuedOf(projectId)` — if the queued ruleset's approval status is `Approved` or `Empty` and it has a stored hook config, that config is used. Otherwise it falls back to `currentOf(projectId)`. If neither has a hook deployed through this deployer, the mapping is empty and the call reverts with `JBOmnichainDeployer_InvalidHook`. The `useDataHookForCashOut` flag is also preserved from whichever source ruleset is selected.
-- **ERC721Receiver restriction.** `onERC721Received` only accepts from `PROJECTS`. Any other NFTs sent to this contract are permanently lost.
+- **ERC721Receiver restriction.** `onERC721Received` only accepts from `PROJECTS`. Non-project NFTs sent via `safeTransferFrom` revert cleanly; non-safe transfers can still become stuck because the deployer has no generalized rescue function.
+- **Empty simplified launch config reverts.** The convenience overload that derives a default 721 config from `rulesetConfigurations[0]` reverts with `JBOmnichainDeployer_NoRulesetConfigurations()` when called with an empty ruleset array.
 - **Cross-reference: sucker registration.** The deployer grants `MAP_SUCKER_TOKEN` to `SUCKER_REGISTRY` with `projectId=0` (wildcard). This means the registry can map tokens for ALL projects deployed through this deployer. See [nana-suckers-v6 RISKS.md](../nana-suckers-v6/RISKS.md) for the full sucker lifecycle risks.
 - **Cross-reference: core reentrancy.** The deployer delegates to `JBController` and `JBMultiTerminal` for all fund operations. See [nana-core-v6 RISKS.md](../nana-core-v6/RISKS.md) section 3 for the reentrancy surface of these contracts.
 
@@ -65,6 +68,7 @@ This file focuses on the risks in the deployer layer that launches Juicebox proj
 - `beforePayRecordedWith` uses the 721 hook's weight directly (already split-adjusted by `JB721TiersHookLib.calculateWeight`), so no additional scaling is applied.
 - Self-reference prevention: `rulesetConfigurations[i].metadata.dataHook` cannot be `address(this)` after `_setup721`.
 - Project NFT ownership: after `_launchProjectFor`, the project NFT is owned by `owner`, not the deployer.
+- `deploySuckersFor` uses the same `_msgSender()` on every chain when deterministic cross-chain peer symmetry is expected.
 
 ## 8. Accepted Behaviors
 

@@ -2,7 +2,7 @@
 
 This repo launches projects that are immediately composed with 721 hooks and sucker deployments. Audit it as a privileged deployer and runtime data-hook participant.
 
-## Objective
+## Audit Objective
 
 Find issues that:
 - launch projects with incorrect rulesets, terminals, or hook ownership
@@ -24,7 +24,13 @@ Key dependencies:
 - `nana-721-hook-v6`
 - `nana-suckers-v6`
 
-## System Model
+## Start Here
+
+1. `src/JBOmnichainDeployer.sol`
+2. `script/Deploy.s.sol`
+3. `script/helpers/DeployersDeploymentLib.sol`
+
+## Security Model
 
 `JBOmnichainDeployer` is a launch surface that can:
 - create a new Juicebox project
@@ -32,6 +38,22 @@ Key dependencies:
 - configure rulesets and terminals
 - deploy suckers and register them for the project
 - participate in pay or cash-out accounting as a data hook where needed
+
+## Roles And Privileges
+
+| Role | Powers | How constrained |
+|------|--------|-----------------|
+| Launch caller | Supply desired project configuration | Should receive exactly the requested state |
+| Omnichain deployer | Create hooks, projects, and sucker composition | Must relinquish setup authority after launch |
+| Sucker registry | Grant omnichain-specific privileges | Must not bless arbitrary contracts |
+
+## Integration Assumptions
+
+| Dependency | Assumption | What breaks if wrong |
+|------------|------------|----------------------|
+| `nana-core-v6` | Launch and ruleset surfaces are authentic | Deployed economics drift from requested config |
+| `nana-721-hook-v6` | Hook ownership and tier setup complete correctly | Collection state or authority is wrong |
+| `nana-suckers-v6` | Registry identifies genuine peers | Fee or mint exemptions widen incorrectly |
 
 ## Critical Invariants
 
@@ -47,26 +69,16 @@ If the deployer proxies or modifies hook outputs, the resulting project token is
 4. Ownership transfer is complete
 Deployer-created hooks and helper contracts must not retain silent control after initialization.
 
-## Threat Model
+## Attack Surfaces
 
-Prioritize:
-- empty or malformed ruleset configurations
-- hook ownership transfer races
+- malformed launch configuration
+- hook and sucker ownership transfer
 - registry-based privilege spoofing
-- reentrancy around project launch and initialization
-- stale assumptions when optional sucker deployment is skipped
+- reentrancy around launch and initialization
+- local-only launches versus omnichain launches with optional components disabled
 
-## Build And Verification
+## Verification
 
-Standard workflow:
 - `npm install`
 - `forge build`
 - `forge test`
-
-Existing tests emphasize:
-- reentrancy and attack paths
-- hook composition
-- weight scaling
-- omnichain fork and stress scenarios
-
-High-value findings typically show either a bad project launch state or a non-sucker actor receiving omnichain-only privileges.
