@@ -57,27 +57,35 @@ contract CodexNemesisAudit is Test {
         vm.mockCall(hookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector), abi.encode());
     }
 
-    function test_poc_launchRulesetsFor_revertsWhenProjectHasNoControllerYet() public {
+    function test_poc_launchRulesetsFor_succeedsWhenProjectHasNoControllerYet() public {
         JBOmnichainDeployer deployer =
             new JBOmnichainDeployer(mockSuckerRegistry, hookDeployer, permissions, projects, address(0));
 
         vm.mockCall(
             address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
         );
-        // A freshly created project with no controller yet is valid for core launchRulesetsFor,
-        // but the deployer rejects it before the controller can set itself as first controller.
+        // A freshly created project with no controller yet — the M-14 fix allows address(0) through.
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, PROJECT_ID),
             abi.encode(IERC165(address(0)))
+        );
+        // Mock controller.launchRulesetsFor to return a rulesetId.
+        vm.mockCall(
+            address(controller),
+            abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
+            abi.encode(uint256(1))
         );
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig();
 
         vm.prank(projectOwner);
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector);
-        deployer.launchRulesetsFor(PROJECT_ID, configs, new JBTerminalConfig[](0), "memo", controller);
+        (uint256 rulesetId,) =
+            deployer.launchRulesetsFor(PROJECT_ID, configs, new JBTerminalConfig[](0), "memo", controller);
+
+        // Verify the call succeeded and returned a valid rulesetId.
+        assertGt(rulesetId, 0, "launchRulesetsFor should succeed for fresh project with no controller");
     }
 
     function test_poc_deploySuckersFor_requiresHiddenPermissionForDeployerItself() public {
