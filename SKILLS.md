@@ -2,43 +2,24 @@
 
 ## Use This File For
 
-- Use this file when the task involves deploying core projects with suckers and optional 721 or custom data-hook composition in one flow.
-- Start here, then decide whether the question is about deterministic deployment, ruleset-to-hook storage, wrapper pay/cash-out delegation, or sucker deployment authority. Those are distinct sources of failure here.
+- Use this file when the task involves omnichain project launch, sucker deployment, or wrapped 721-hook composition.
+- Start here, then decide whether the issue is in launch orchestration, hook composition, or bridge-specific runtime behavior.
 
 ## Read This Next
 
 | If you need... | Open this next |
 |---|---|
-| Repo overview and launch model | [`README.md`](./README.md), [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
-| Deployment implementation | [`src/JBOmnichainDeployer.sol`](./src/JBOmnichainDeployer.sol), [`script/Deploy.s.sol`](./script/Deploy.s.sol) |
-| Runtime wrapper and config assumptions | [`references/runtime.md`](./references/runtime.md), [`references/operations.md`](./references/operations.md) |
-| Input and output types | [`src/structs/`](./src/structs/), [`src/interfaces/`](./src/interfaces/) |
-| Guard rails, attacks, and hook-composition behavior | [`test/JBOmnichainDeployerGuard.t.sol`](./test/JBOmnichainDeployerGuard.t.sol), [`test/OmnichainDeployerAttacks.t.sol`](./test/OmnichainDeployerAttacks.t.sol), [`test/OmnichainDeployerReentrancy.t.sol`](./test/OmnichainDeployerReentrancy.t.sol), [`test/Tiered721HookComposition.t.sol`](./test/Tiered721HookComposition.t.sol) |
-| Baseline deployment and pinned edge cases | [`test/JBOmnichainDeployer.t.sol`](./test/JBOmnichainDeployer.t.sol), [`test/OmnichainDeployerEdgeCases.t.sol`](./test/OmnichainDeployerEdgeCases.t.sol), [`test/TestAuditGaps.sol`](./test/TestAuditGaps.sol) |
-
-## Repo Map
-
-| Area | Where to look |
-|---|---|
-| Main contract | [`src/JBOmnichainDeployer.sol`](./src/JBOmnichainDeployer.sol) |
-| Types | [`src/structs/`](./src/structs/), [`src/interfaces/`](./src/interfaces/) |
-| Scripts | [`script/`](./script/) |
-| Tests | [`test/`](./test/) |
+| Repo overview and architecture | [`README.md`](./README.md), [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
+| Main deployer | [`src/JBOmnichainDeployer.sol`](./src/JBOmnichainDeployer.sol) |
+| Bridge runtime | [`../nana-suckers-v6/src/JBSucker.sol`](../nana-suckers-v6/src/JBSucker.sol) |
+| 721 hook runtime | [`../nana-721-hook-v6/src/JB721TiersHook.sol`](../nana-721-hook-v6/src/JB721TiersHook.sol) |
 
 ## Purpose
 
-Single-transaction deployment and wrapper layer for Juicebox projects that need a 721 hook, cross-chain sucker support, and optional extra data-hook composition from day one.
-
-## Reference Files
-
-- Open [`references/runtime.md`](./references/runtime.md) when you need hook-composition order, sucker exemptions, per-ruleset storage behavior, or the main runtime invariants.
-- Open [`references/operations.md`](./references/operations.md) when you need launch and queue behavior, permission and salt assumptions, test breadcrumbs, or the common stale-data traps.
+Orchestration and wrapper layer for launching projects with suckers and a 721 hook already wired in.
 
 ## Working Rules
 
-- Start in [`src/JBOmnichainDeployer.sol`](./src/JBOmnichainDeployer.sol) for both deployment and runtime wrapping behavior. This repo is orchestration plus a live data-hook wrapper, not a pure deploy script package.
-- Treat ruleset ID prediction, hook-carry-forward logic, and salt derivation as high-risk. Small changes there can orphan config or break deterministic deployment.
-- The deployer stores hook config per predicted ruleset ID. Same-block queue assumptions and carry-forward behavior are core correctness issues, not edge cases.
-- When a bug mentions suckers, tax-free cash outs, or mint permission, verify whether the early-return wrapper behavior is the real cause before changing downstream hooks.
-- Existing-project sucker deployment is not just “deploy clones”; it also depends on token-mapping authority landing correctly through the registry path.
-- If a task mentions 721 or custom-hook behavior, confirm whether the issue lives here or in the composed repo before patching wrapper logic.
+- Start in [`src/JBOmnichainDeployer.sol`](./src/JBOmnichainDeployer.sol).
+- Treat ruleset ID prediction as a real implementation dependency.
+- Keep wrapper behavior and the underlying 721 or sucker behavior separate in your reasoning.
