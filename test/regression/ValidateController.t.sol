@@ -50,7 +50,8 @@ contract ValidateController is Test {
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
 
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer721, permissions, projects, directory, address(0));
+        deployer =
+            new JBOmnichainDeployer(suckerRegistry, hookDeployer721, permissions, projects, directory, address(0));
 
         // Default mocks: permissions always pass.
         vm.mockCall(

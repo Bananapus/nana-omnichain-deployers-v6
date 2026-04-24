@@ -56,9 +56,7 @@ contract WeightScalingComparisonTest is Test {
         );
 
         // Deploy the omnichain deployer with mock dependencies.
-        deployer = new JBOmnichainDeployer(
-            suckerRegistry, hookDeployer, permissions, projects, directory, address(0)
-        );
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, directory, address(0));
 
         // Mock project ownership for permission checks.
         vm.mockCall(

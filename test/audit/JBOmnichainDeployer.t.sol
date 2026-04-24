@@ -61,7 +61,12 @@ contract JBOmnichainDeployerTest is Test {
 
         JBSuckerRegistry registry = new JBSuckerRegistry(directory, permissions, address(this), address(0));
         JBOmnichainDeployer deployer = new JBOmnichainDeployer(
-            IJBSuckerRegistry(address(registry)), hookDeployer, permissions, projects, IJBDirectory(address(0)), address(0)
+            IJBSuckerRegistry(address(registry)),
+            hookDeployer,
+            permissions,
+            projects,
+            IJBDirectory(address(0)),
+            address(0)
         );
 
         vm.mockCall(
