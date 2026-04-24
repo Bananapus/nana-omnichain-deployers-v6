@@ -61,7 +61,7 @@ contract JBOmnichainDeployerTest is Test {
 
         JBSuckerRegistry registry = new JBSuckerRegistry(directory, permissions, address(this), address(0));
         JBOmnichainDeployer deployer = new JBOmnichainDeployer(
-            IJBSuckerRegistry(address(registry)), hookDeployer, permissions, projects, address(0)
+            IJBSuckerRegistry(address(registry)), hookDeployer, permissions, projects, IJBDirectory(address(0)), address(0)
         );
 
         vm.mockCall(
@@ -154,8 +154,9 @@ contract JBOmnichainDeployerTest is Test {
             suckerRegistry, abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector), abi.encode(uint256(0))
         );
 
-        JBOmnichainDeployer deployer =
-            new JBOmnichainDeployer(IJBSuckerRegistry(suckerRegistry), hookDeployer, permissions, projects, address(0));
+        JBOmnichainDeployer deployer = new JBOmnichainDeployer(
+            IJBSuckerRegistry(suckerRegistry), hookDeployer, permissions, projects, directory, address(0)
+        );
 
         JBCashOutHookSpecification[] memory emptySpecs = new JBCashOutHookSpecification[](0);
         vm.mockCall(
@@ -193,9 +194,7 @@ contract JBOmnichainDeployerTest is Test {
         // With no suckers, this equals context.totalSupply (777).
         assertEq(initialTotalSupply, 777, "initial ruleset should use cross-chain totalSupply (context value)");
 
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
-        );
+        // Mock controllerOf on the deployer's immutable DIRECTORY.
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, PROJECT_ID),

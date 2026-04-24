@@ -58,13 +58,12 @@ contract CodexNemesisAudit is Test {
     }
 
     function test_poc_launchRulesetsFor_succeedsWhenProjectHasNoControllerYet() public {
-        JBOmnichainDeployer deployer =
-            new JBOmnichainDeployer(mockSuckerRegistry, hookDeployer, permissions, projects, address(0));
-
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        JBOmnichainDeployer deployer = new JBOmnichainDeployer(
+            mockSuckerRegistry, hookDeployer, permissions, projects, directory, address(0)
         );
+
         // A freshly created project with no controller yet — the M-14 fix allows address(0) through.
+        // The deployer uses its immutable DIRECTORY (set in constructor) to validate.
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, PROJECT_ID),
@@ -93,7 +92,7 @@ contract CodexNemesisAudit is Test {
 
         JBSuckerRegistry registry = new JBSuckerRegistry(directory, permissions, address(this), address(0));
         JBOmnichainDeployer deployer = new JBOmnichainDeployer(
-            IJBSuckerRegistry(address(registry)), hookDeployer, permissions, projects, address(0)
+            IJBSuckerRegistry(address(registry)), hookDeployer, permissions, projects, IJBDirectory(address(0)), address(0)
         );
 
         vm.mockCall(

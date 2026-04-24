@@ -6,6 +6,7 @@ import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB
 import {JBApprovalStatus} from "@bananapus/core-v6/src/enums/JBApprovalStatus.sol";
 import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
+import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
@@ -79,6 +80,10 @@ contract JBOmnichainDeployer is
     /// @notice Deploys and tracks suckers for projects.
     IJBSuckerRegistry public immutable SUCKER_REGISTRY;
 
+    /// @notice The directory used to validate controllers. Stored as immutable to prevent a user-provided
+    /// controller from returning a fake directory that confirms itself.
+    IJBDirectory public immutable DIRECTORY;
+
     //*********************************************************************//
     // -------------------- internal stored properties ------------------- //
     //*********************************************************************//
@@ -101,12 +106,14 @@ contract JBOmnichainDeployer is
     /// @param hookDeployer The deployer to use for project's tiered ERC-721 hooks.
     /// @param permissions The permissions to use for the contract.
     /// @param projects The projects to use for the contract.
+    /// @param directory The directory used to validate controllers against a trusted source.
     /// @param trustedForwarder The trusted forwarder for the ERC2771Context.
     constructor(
         IJBSuckerRegistry suckerRegistry,
         IJB721TiersHookDeployer hookDeployer,
         IJBPermissions permissions,
         IJBProjects projects,
+        IJBDirectory directory,
         address trustedForwarder
     )
         JBPermissioned(permissions)
@@ -115,6 +122,7 @@ contract JBOmnichainDeployer is
         PROJECTS = projects;
         SUCKER_REGISTRY = suckerRegistry;
         HOOK_DEPLOYER = hookDeployer;
+        DIRECTORY = directory;
 
         // Give the sucker registry permission to map tokens for all revnets.
         uint8[] memory permissionIds = new uint8[](1);
@@ -715,8 +723,9 @@ contract JBOmnichainDeployer is
             });
         }
 
-        // Transfer ownership of the project to the owner.
-        PROJECTS.transferFrom({from: address(this), to: owner, tokenId: projectId});
+        // Transfer ownership of the project to the owner. Uses safeTransferFrom so contract receivers
+        // get an onERC721Received callback.
+        PROJECTS.safeTransferFrom({from: address(this), to: owner, tokenId: projectId});
     }
 
     /// @notice Internal implementation of `launchRulesetsFor`.
@@ -920,13 +929,12 @@ contract JBOmnichainDeployer is
     }
 
     /// @notice Validates that the provided controller matches the project's controller in the directory.
-    /// @dev The reflexive lookup (controller.DIRECTORY().controllerOf()) is intentional — it confirms the
-    /// caller-provided controller is the one the directory recognizes for this project, preventing a
-    /// malicious controller from being passed in.
+    /// @dev Uses the immutable DIRECTORY instead of querying the controller, preventing a malicious
+    /// controller from returning a fake directory that confirms itself.
     /// @param projectId The ID of the project to validate the controller for.
     /// @param controller The controller to validate.
     function _validateController(uint256 projectId, IJBController controller) internal view {
-        address current = address(controller.DIRECTORY().controllerOf(projectId));
+        address current = address(DIRECTORY.controllerOf(projectId));
         // Allow address(0) for fresh projects that haven't launched rulesets yet.
         if (current != address(0) && current != address(controller)) {
             revert JBOmnichainDeployer_ControllerMismatch();

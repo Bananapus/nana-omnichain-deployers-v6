@@ -205,8 +205,9 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
             trustedForwarder: address(0)
         });
 
-        omnichainDeployer =
-            new JBOmnichainDeployer(suckerRegistry, hookDeployer721, jbPermissions(), jbProjects(), address(0));
+        omnichainDeployer = new JBOmnichainDeployer(
+            suckerRegistry, hookDeployer721, jbPermissions(), jbProjects(), jbDirectory(), address(0)
+        );
 
         // Allow the deployer to set first controller.
         vm.prank(multisig());

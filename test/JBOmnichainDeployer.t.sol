@@ -42,6 +42,7 @@ contract TestJBOmnichainDeployer is Test {
     IJBProjects projects = IJBProjects(makeAddr("projects"));
     IJBSuckerRegistry suckerRegistry = IJBSuckerRegistry(makeAddr("suckerRegistry"));
     IJB721TiersHookDeployer hookDeployer = IJB721TiersHookDeployer(makeAddr("hookDeployer"));
+    IJBDirectory directory = IJBDirectory(makeAddr("directory"));
 
     address projectOwner = makeAddr("projectOwner");
     address sucker = makeAddr("sucker");
@@ -63,6 +64,7 @@ contract TestJBOmnichainDeployer is Test {
             hookDeployer,
             permissions,
             projects,
+            directory,
             address(0) // trustedForwarder
         );
 
@@ -331,11 +333,7 @@ contract TestJBOmnichainDeployer is Test {
 
     function test_launchRulesetsFor_simplified_usesDefaultCurrency() public {
         IJBController controller = IJBController(makeAddr("controller"));
-        IJBDirectory directory = IJBDirectory(makeAddr("directory"));
 
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
-        );
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
@@ -369,7 +367,6 @@ contract TestJBOmnichainDeployer is Test {
     function test_queueRulesetsOf_simplified_carriesForwardHook() public {
         // First launch a project so there's a hook to carry forward.
         IJBController controller = IJBController(makeAddr("controller"));
-        IJBDirectory directory = IJBDirectory(makeAddr("directory"));
         IJBRulesets rulesets = IJBRulesets(makeAddr("rulesets"));
 
         vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
@@ -391,9 +388,6 @@ contract TestJBOmnichainDeployer is Test {
         deployer.launchProjectFor(projectOwner, "test", configs, terminals, "", _emptySuckerConfig(), controller);
 
         // Now set up mocks for queueRulesetsOf.
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
-        );
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
@@ -462,7 +456,6 @@ contract TestJBOmnichainDeployer is Test {
     function test_queueRulesetsOf_carryForward_preservesCashOutFlag() public {
         // --- Step 1: Launch a project with useDataHookForCashOut = true ---
         IJBController controller = IJBController(makeAddr("controller"));
-        IJBDirectory directory = IJBDirectory(makeAddr("directory"));
         IJBRulesets rulesets = IJBRulesets(makeAddr("rulesets"));
 
         vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
@@ -495,9 +488,6 @@ contract TestJBOmnichainDeployer is Test {
         assertTrue(initialCashOutFlag, "initial launch should store useDataHookForCashOut = true");
 
         // --- Step 2: Queue a new ruleset with no tiers (carry-forward) ---
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
-        );
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),

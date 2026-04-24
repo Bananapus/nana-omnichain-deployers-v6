@@ -52,7 +52,9 @@ contract HookOwnershipTransfer is Test {
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
 
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, address(0));
+        deployer = new JBOmnichainDeployer(
+            suckerRegistry, hookDeployer, permissions, projects, directory, address(0)
+        );
 
         // Default mocks: permissions always pass.
         vm.mockCall(
@@ -72,10 +74,7 @@ contract HookOwnershipTransfer is Test {
             abi.encode(uint256(0)) // no conflict
         );
 
-        // Mock DIRECTORY on controller and controllerOf on directory.
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
-        );
+        // Mock controllerOf on the deployer's immutable DIRECTORY.
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),

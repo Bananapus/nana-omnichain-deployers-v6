@@ -113,6 +113,7 @@ contract OmnichainDeployerEdgeCases is Test {
     IJBProjects projects = IJBProjects(makeAddr("projects"));
     IJBSuckerRegistry suckerRegistry = IJBSuckerRegistry(makeAddr("suckerRegistry"));
     IJB721TiersHookDeployer hookDeployer = IJB721TiersHookDeployer(makeAddr("hookDeployer"));
+    IJBDirectory directory = IJBDirectory(makeAddr("directory"));
 
     address projectOwner = makeAddr("projectOwner");
     address sucker = makeAddr("sucker");
@@ -131,7 +132,8 @@ contract OmnichainDeployerEdgeCases is Test {
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
 
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, address(0));
+        deployer =
+            new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, directory, address(0));
 
         vm.mockCall(
             address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, projectId), abi.encode(projectOwner)
@@ -575,12 +577,8 @@ contract OmnichainDeployerEdgeCases is Test {
     // =========================================================================
     function test_launchRulesetsFor_requiresLaunchRulesetsPermission() public {
         IJBController controller = IJBController(makeAddr("controller"));
-        IJBDirectory directory = IJBDirectory(makeAddr("directory"));
 
-        // Mock controller validation chain.
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
-        );
+        // Mock controllerOf on the deployer's immutable DIRECTORY.
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
@@ -609,13 +607,9 @@ contract OmnichainDeployerEdgeCases is Test {
         _launchProjectWithHook(address(0));
 
         IJBController controller = IJBController(makeAddr("controller"));
-        IJBDirectory directory = IJBDirectory(makeAddr("directory"));
         IJBRulesets rulesets = IJBRulesets(makeAddr("rulesets"));
 
-        // Mock controller validation chain.
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
-        );
+        // Mock controllerOf on the deployer's immutable DIRECTORY.
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
