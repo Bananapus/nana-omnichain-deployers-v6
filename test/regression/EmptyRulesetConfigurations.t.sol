@@ -37,12 +37,10 @@ contract EmptyRulesetConfigurations is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer721, permissions, projects, address(0));
+        deployer =
+            new JBOmnichainDeployer(suckerRegistry, hookDeployer721, permissions, projects, directory, address(0));
 
-        // Controller validation mocks.
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
-        );
+        // Controller validation mocks — the deployer uses its immutable DIRECTORY.
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector),

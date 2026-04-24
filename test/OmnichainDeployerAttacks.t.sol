@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
+import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
@@ -97,6 +98,7 @@ contract OmnichainDeployerAttacks is Test {
     IJBProjects projects = IJBProjects(makeAddr("projects"));
     IJBSuckerRegistry suckerRegistry = IJBSuckerRegistry(makeAddr("suckerRegistry"));
     IJB721TiersHookDeployer hookDeployer = IJB721TiersHookDeployer(makeAddr("hookDeployer"));
+    IJBDirectory directory = IJBDirectory(makeAddr("directory"));
 
     address projectOwner = makeAddr("projectOwner");
     address sucker = makeAddr("sucker");
@@ -119,7 +121,7 @@ contract OmnichainDeployerAttacks is Test {
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
 
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, address(0));
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, directory, address(0));
 
         // Default mocks.
         vm.mockCall(

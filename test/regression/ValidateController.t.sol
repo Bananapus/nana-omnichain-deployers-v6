@@ -50,7 +50,8 @@ contract ValidateController is Test {
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
 
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer721, permissions, projects, address(0));
+        deployer =
+            new JBOmnichainDeployer(suckerRegistry, hookDeployer721, permissions, projects, directory, address(0));
 
         // Default mocks: permissions always pass.
         vm.mockCall(
@@ -60,17 +61,8 @@ contract ValidateController is Test {
             address(permissions), abi.encodeWithSelector(IJBPermissions.hasPermission.selector), abi.encode(true)
         );
 
-        // Mock both controllers to return the same directory.
-        vm.mockCall(
-            address(legitimateController),
-            abi.encodeWithSelector(IJBController.DIRECTORY.selector),
-            abi.encode(directory)
-        );
-        vm.mockCall(
-            address(fakeController), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
-        );
-
         // Mock the directory to say the legitimate controller is the project's controller.
+        // The deployer now uses its immutable DIRECTORY (passed in constructor) instead of controller.DIRECTORY().
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),

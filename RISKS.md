@@ -73,3 +73,20 @@ Pre-launch controller validation is impossible because the project does not yet 
 ### 8.2 Registered suckers receive 0% cashout tax
 
 This is intentional and shares the same trust boundary as the sucker registry.
+
+## 9. Accepted Security Risks
+
+Documented risks that were reviewed and accepted.
+
+### Configuration Risks
+
+**Unvalidated extra data hooks can brick live flows.** *(Minor)*
+Extra data hooks provided by the project owner in `_setup721` configuration can fail and brick live pay/cashout flows. Accepted because this is self-inflicted misconfiguration — only the project owner can set these hooks.
+
+**Missing hook721 alias check enables double invocation.** *(Minor)*
+If the project owner configures the 721 hook as both the primary hook and as an extra data hook, it could be invoked twice. Accepted because this is self-inflicted misconfiguration — the deployer correctly processes each hook independently.
+
+### Cross-Chain Deployment
+
+**`_msgSender()` in deployment salt breaks cross-chain determinism.** *(Minor)*
+`deploySuckersFor` includes `_msgSender()` in the CREATE2 salt, which means the same deployment from different callers produces different addresses across chains. Accepted because this is intentional replay protection — prevents frontrunning of cross-chain deployments.

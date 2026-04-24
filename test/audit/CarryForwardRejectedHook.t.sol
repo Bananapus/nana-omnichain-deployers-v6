@@ -170,6 +170,7 @@ contract CarryForwardRejectedHookTest is TestBaseWorkflow {
             IJB721TiersHookDeployer(address(hookDeployer)),
             IJBPermissions(address(jbPermissions())),
             IJBProjects(address(jbProjects())),
+            IJBDirectory(address(jbDirectory())),
             trustedForwarder()
         );
 

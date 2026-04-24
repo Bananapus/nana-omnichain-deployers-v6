@@ -279,7 +279,7 @@ contract TestAuditGaps is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, address(0));
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, directory, address(0));
 
         // Default mocks.
         vm.mockCall(
@@ -292,9 +292,7 @@ contract TestAuditGaps is Test {
         vm.mockCall(
             address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
         );
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
-        );
+        // Mock controllerOf on the deployer's immutable DIRECTORY.
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
@@ -804,21 +802,9 @@ contract TestAuditGaps is Test {
 
         vm.warp(BASE_TIME + 10);
 
-        // Mock a different controller for the project.
+        // The deployer's immutable DIRECTORY returns `controller` for this project.
+        // Passing a different controller should trigger ControllerMismatch.
         IJBController wrongController = IJBController(makeAddr("wrongController"));
-        IJBDirectory wrongDirectory = IJBDirectory(makeAddr("wrongDirectory"));
-
-        vm.mockCall(
-            address(wrongController),
-            abi.encodeWithSelector(IJBController.DIRECTORY.selector),
-            abi.encode(wrongDirectory)
-        );
-        // controllerOf returns a different address than wrongController.
-        vm.mockCall(
-            address(wrongDirectory),
-            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
-            abi.encode(IERC165(makeAddr("otherController")))
-        );
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(0), false, false);

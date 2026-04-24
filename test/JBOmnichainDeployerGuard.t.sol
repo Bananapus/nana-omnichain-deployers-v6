@@ -126,6 +126,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
             IJB721TiersHookDeployer(mockHookDeployerAddr),
             IJBPermissions(address(jbPermissions())),
             IJBProjects(address(jbProjects())),
+            IJBDirectory(address(jbDirectory())),
             trustedForwarder()
         );
 
