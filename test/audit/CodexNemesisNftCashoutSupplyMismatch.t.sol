@@ -39,11 +39,7 @@ contract CodexNemesisNftCashoutSupplyMismatchTest is Test {
     CashOutHarness internal cashOutHarness;
 
     function setUp() public {
-        vm.mockCall(
-            permissions,
-            abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector),
-            abi.encode()
-        );
+        vm.mockCall(permissions, abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode());
 
         deployer = new JBOmnichainDeployer(
             IJBSuckerRegistry(suckerRegistry),
@@ -70,16 +66,16 @@ contract CodexNemesisNftCashoutSupplyMismatchTest is Test {
             uint256 effectiveSurplusValue,
         ) = deployer.beforeCashOutRecordedWith(_cashOutContext(fungibleTokenSupply));
 
-        uint256 intendedReclaim = cashOutHarness.cashOutFrom(
-            LOCAL_SURPLUS, NFT_CASH_OUT_WEIGHT, NFT_TOTAL_CASH_OUT_WEIGHT, cashOutTaxRate
+        uint256 intendedReclaim =
+            cashOutHarness.cashOutFrom(LOCAL_SURPLUS, NFT_CASH_OUT_WEIGHT, NFT_TOTAL_CASH_OUT_WEIGHT, cashOutTaxRate);
+        uint256 actualReclaim = cashOutHarness.cashOutFrom(
+            effectiveSurplusValue, effectiveCashOutCount, effectiveTotalSupply, cashOutTaxRate
         );
-        uint256 actualReclaim =
-            cashOutHarness.cashOutFrom(effectiveSurplusValue, effectiveCashOutCount, effectiveTotalSupply, cashOutTaxRate);
 
         assertEq(effectiveCashOutCount, NFT_CASH_OUT_WEIGHT);
         assertEq(effectiveTotalSupply, fungibleTokenSupply);
-        assertEq(intendedReclaim, 3.333333333333333333 ether);
-        assertEq(actualReclaim, 0.014285714285714285 ether);
+        assertEq(intendedReclaim, 3.333_333_333_333_333_333 ether);
+        assertEq(actualReclaim, 0.014_285_714_285_714_285 ether);
         assertLt(actualReclaim, intendedReclaim / 200);
     }
 
@@ -93,15 +89,15 @@ contract CodexNemesisNftCashoutSupplyMismatchTest is Test {
             uint256 effectiveSurplusValue,
         ) = deployer.beforeCashOutRecordedWith(_cashOutContext(0));
 
-        uint256 intendedReclaim = cashOutHarness.cashOutFrom(
-            LOCAL_SURPLUS, NFT_CASH_OUT_WEIGHT, NFT_TOTAL_CASH_OUT_WEIGHT, cashOutTaxRate
+        uint256 intendedReclaim =
+            cashOutHarness.cashOutFrom(LOCAL_SURPLUS, NFT_CASH_OUT_WEIGHT, NFT_TOTAL_CASH_OUT_WEIGHT, cashOutTaxRate);
+        uint256 actualReclaim = cashOutHarness.cashOutFrom(
+            effectiveSurplusValue, effectiveCashOutCount, effectiveTotalSupply, cashOutTaxRate
         );
-        uint256 actualReclaim =
-            cashOutHarness.cashOutFrom(effectiveSurplusValue, effectiveCashOutCount, effectiveTotalSupply, cashOutTaxRate);
 
         assertEq(effectiveCashOutCount, NFT_CASH_OUT_WEIGHT);
         assertEq(effectiveTotalSupply, 0);
-        assertEq(intendedReclaim, 3.333333333333333333 ether);
+        assertEq(intendedReclaim, 3.333_333_333_333_333_333 ether);
         assertEq(actualReclaim, LOCAL_SURPLUS);
         assertGt(actualReclaim, intendedReclaim);
     }
@@ -201,15 +197,7 @@ contract MockNftCashOutHook is IJBRulesetDataHook {
         hookSpecifications = new JBPayHookSpecification[](0);
     }
 
-    function hasMintPermissionFor(
-        uint256,
-        JBRuleset memory,
-        address
-    )
-        external
-        pure
-        returns (bool)
-    {
+    function hasMintPermissionFor(uint256, JBRuleset memory, address) external pure returns (bool) {
         return false;
     }
 
