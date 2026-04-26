@@ -30,6 +30,7 @@ import {JBDeployerHookConfig} from "./structs/JBDeployerHookConfig.sol";
 import {JBOmnichain721Config} from "./structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "./structs/JBSuckerDeploymentConfig.sol";
 import {JBTiered721HookConfig} from "./structs/JBTiered721HookConfig.sol";
+import {mulDiv} from "@prb/math/src/Common.sol";
 
 /// @notice Deploys, manages, and operates Juicebox projects with suckers.
 // Project NFTs sent to this contract are not recoverable. The deployer does not
@@ -546,6 +547,14 @@ contract JBOmnichainDeployer is
                 // already-split-adjusted weight would double-discount the split ratio.
                 (weight, dataHookSpecs) = extraHook.dataHook.beforePayRecordedWith(hookContext);
                 customHookCalled = true;
+
+                // The custom hook (e.g. buyback) returned a weight based on the original context.weight.
+                // If the 721 hook scaled weight down for tier splits, apply the same ratio so the terminal
+                // doesn't over-mint tokens relative to the funds actually entering the project.
+                // When issueTokensForSplits is true, tiered721Weight == context.weight and the ratio is 1x.
+                if (has721Hook && context.weight > 0 && tiered721Weight != context.weight) {
+                    weight = mulDiv(weight, tiered721Weight, context.weight);
+                }
             }
         }
 

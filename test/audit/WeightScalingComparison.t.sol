@@ -183,11 +183,12 @@ contract WeightScalingComparisonTest is Test {
     }
 
     // =========================================================================
-    // Test: Custom hook receives the 721 hook's split-adjusted weight
+    // Test: Custom hook weight is scaled by 721 split ratio
     // =========================================================================
-    // When both a 721 hook and a custom hook are configured, the custom hook
-    // should receive the 721 hook's split-adjusted weight in its context.
-    function test_customHookReceives721SplitAdjustedWeight() public {
+    // When both a 721 hook and a custom hook are configured, the custom hook's
+    // returned weight is scaled by the 721 split ratio so the terminal doesn't
+    // over-mint tokens relative to the funds entering the project.
+    function test_customHookWeightScaledBy721SplitRatio() public {
         // First re-launch with a custom hook configured.
         _launchProject(makeAddr("customHook"));
         // Update rulesetId after re-launch.
@@ -210,12 +211,12 @@ contract WeightScalingComparisonTest is Test {
             abi.encode(uint256(600), specs)
         );
 
-        // The custom hook just returns whatever weight it receives (passthrough).
-        // We mock it to return weight=600 (what the 721 hook returned).
+        // The custom hook receives context.weight = 1000 (the original, not 721's) and
+        // returns it unchanged (mint path behavior).
         vm.mockCall(
             makeAddr("customHook"),
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
-            abi.encode(uint256(600), new JBPayHookSpecification[](0))
+            abi.encode(uint256(1000), new JBPayHookSpecification[](0))
         );
 
         // Build a pay context with 1 ether and weight 1000.
@@ -228,8 +229,8 @@ contract WeightScalingComparisonTest is Test {
         // Call beforePayRecordedWith on the deployer.
         (uint256 weight,) = deployer.beforePayRecordedWith(ctx);
 
-        // The custom hook's returned weight (600) should be used.
-        assertEq(weight, 600, "Custom hook should receive and return the 721 hook's split-adjusted weight");
+        // The custom hook returned 1000, scaled by 721 split ratio 600/1000 = 600.
+        assertEq(weight, 600, "Custom hook weight scaled by 721 split ratio");
     }
 
     // =========================================================================

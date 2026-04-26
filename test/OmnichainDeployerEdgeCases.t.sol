@@ -322,9 +322,10 @@ contract OmnichainDeployerEdgeCases is Test {
         ctx.amount.value = 1 ether;
         ctx.weight = 1000;
 
-        // The custom hook's weight is used directly (no mulDiv scaling).
+        // The custom hook's weight is scaled by the 721 split ratio (500/1000 = 50%).
+        // mulDiv(type(uint256).max, 500, 1000) = type(uint256).max / 2.
         (uint256 weight,) = deployer.beforePayRecordedWith(ctx);
-        assertEq(weight, type(uint256).max, "custom hook's large weight should pass through directly");
+        assertEq(weight, type(uint256).max / 2, "custom hook's weight scaled by 721 split ratio");
     }
 
     // =========================================================================
