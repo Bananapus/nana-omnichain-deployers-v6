@@ -379,19 +379,13 @@ contract AuditFixesC2H6M14 is Test {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _rulesetConfig();
 
-        // 721 hook mock returns empty cash-out specs by default.
-        JBCashOutHookSpecification[] memory emptySpecs = new JBCashOutHookSpecification[](0);
-        vm.mockCall(
-            hookAddr,
-            abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(5000), uint256(1000), uint256(10_000), uint256(0), emptySpecs)
-        );
-
+        // Disable the 721 hook for cash-out so the deployer computes cross-chain surplus itself.
+        // These tests verify C-2 (surplus aggregation), not NFT cashout behavior.
         deployer.launchProjectFor({
             owner: projectOwner,
             projectUri: "test",
             deploy721Config: JBOmnichain721Config({
-                deployTiersHookConfig: _empty721HookConfig(), useDataHookForCashOut: true, salt: bytes32(0)
+                deployTiersHookConfig: _empty721HookConfig(), useDataHookForCashOut: false, salt: bytes32(0)
             }),
             rulesetConfigurations: configs,
             terminalConfigurations: new JBTerminalConfig[](0),
@@ -420,19 +414,13 @@ contract AuditFixesC2H6M14 is Test {
         configs[0].metadata.dataHook = extraHookAddr;
         configs[0].metadata.useDataHookForCashOut = true;
 
-        // 721 hook mock returns empty cash-out specs.
-        JBCashOutHookSpecification[] memory emptySpecs = new JBCashOutHookSpecification[](0);
-        vm.mockCall(
-            hookAddr,
-            abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(5000), uint256(1000), uint256(10_000), uint256(0), emptySpecs)
-        );
-
+        // Disable the 721 hook for cash-out so the deployer computes cross-chain surplus itself.
+        // These tests verify H-6 (extra hook forwarding), not NFT cashout behavior.
         deployer.launchProjectFor({
             owner: projectOwner,
             projectUri: "test",
             deploy721Config: JBOmnichain721Config({
-                deployTiersHookConfig: _empty721HookConfig(), useDataHookForCashOut: true, salt: bytes32(0)
+                deployTiersHookConfig: _empty721HookConfig(), useDataHookForCashOut: false, salt: bytes32(0)
             }),
             rulesetConfigurations: configs,
             terminalConfigurations: new JBTerminalConfig[](0),

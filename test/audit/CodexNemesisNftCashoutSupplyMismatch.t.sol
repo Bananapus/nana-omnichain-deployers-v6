@@ -55,7 +55,7 @@ contract CodexNemesisNftCashoutSupplyMismatchTest is Test {
         _storeTiered721Hook(address(nftHook), true);
     }
 
-    function testNftCashoutUsesFungibleSupplyInsteadOfNftCashoutWeightSupply() public {
+    function testNftCashoutUsesNftCashoutWeightSupplyNotFungibleSupply() public {
         uint256 fungibleTokenSupply = 700 ether;
         _mockSuckerRegistry(false, 0, 0);
 
@@ -72,14 +72,15 @@ contract CodexNemesisNftCashoutSupplyMismatchTest is Test {
             effectiveSurplusValue, effectiveCashOutCount, effectiveTotalSupply, cashOutTaxRate
         );
 
+        // After the fix, the deployer passes through the 721 hook's NFT-denominated values
+        // (local-only denominators) instead of using the fungible token supply.
         assertEq(effectiveCashOutCount, NFT_CASH_OUT_WEIGHT);
-        assertEq(effectiveTotalSupply, fungibleTokenSupply);
+        assertEq(effectiveTotalSupply, NFT_TOTAL_CASH_OUT_WEIGHT);
         assertEq(intendedReclaim, 3.333_333_333_333_333_333 ether);
-        assertEq(actualReclaim, 0.014_285_714_285_714_285 ether);
-        assertLt(actualReclaim, intendedReclaim / 200);
+        assertEq(actualReclaim, intendedReclaim);
     }
 
-    function testOneNftCanReceiveFullSurplusWhenFungibleSupplyIsZero() public {
+    function testNftCashoutUsesHookSupplyEvenWhenFungibleSupplyIsZero() public {
         _mockSuckerRegistry(false, 0, 0);
 
         (
@@ -95,11 +96,12 @@ contract CodexNemesisNftCashoutSupplyMismatchTest is Test {
             effectiveSurplusValue, effectiveCashOutCount, effectiveTotalSupply, cashOutTaxRate
         );
 
+        // After the fix, even when fungible supply is zero, the deployer passes through
+        // the 721 hook's NFT total cashout weight — not zero — preventing full surplus drain.
         assertEq(effectiveCashOutCount, NFT_CASH_OUT_WEIGHT);
-        assertEq(effectiveTotalSupply, 0);
+        assertEq(effectiveTotalSupply, NFT_TOTAL_CASH_OUT_WEIGHT);
         assertEq(intendedReclaim, 3.333_333_333_333_333_333 ether);
-        assertEq(actualReclaim, LOCAL_SURPLUS);
-        assertGt(actualReclaim, intendedReclaim);
+        assertEq(actualReclaim, intendedReclaim);
     }
 
     function _cashOutContext(uint256 totalSupply)
