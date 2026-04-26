@@ -195,9 +195,9 @@ contract JBOmnichainDeployerTest is Test {
             deployer.beforeCashOutRecordedWith(initialContext);
         assertEq(initialTaxRate, 1234, "initial ruleset should forward cash-outs into the 721 hook");
         assertEq(initialCashOutCount, 55, "initial ruleset should use the 721 hook cash-out count");
-        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
-        // With no suckers, this equals context.totalSupply (777).
-        assertEq(initialTotalSupply, 777, "initial ruleset should use cross-chain totalSupply (context value)");
+        // The deployer captures the 721 hook's totalSupply — NFT cash-outs use local-only denominators
+        // so holders reclaim against local surplus, not omnichain surplus. The mock returns 999.
+        assertEq(initialTotalSupply, 999, "initial ruleset should use 721 hook totalSupply (local denominator)");
 
         // Mock controllerOf on the deployer's immutable DIRECTORY.
         vm.mockCall(
@@ -259,9 +259,9 @@ contract JBOmnichainDeployerTest is Test {
         // The 721 hook is properly consulted for cash-outs in the queued ruleset.
         assertEq(queuedTaxRate, 1234, "queued ruleset should forward cash-outs into the 721 hook");
         assertEq(queuedCashOutCount, 55, "queued ruleset should use the 721 hook cash-out count");
-        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
-        // With no suckers, this equals context.totalSupply (777).
-        assertEq(queuedTotalSupply, 777, "queued ruleset should use cross-chain totalSupply (context value)");
+        // The deployer captures the 721 hook's totalSupply — NFT cash-outs use local-only denominators
+        // so holders reclaim against local surplus, not omnichain surplus. The mock returns 999.
+        assertEq(queuedTotalSupply, 999, "queued ruleset should use 721 hook totalSupply (local denominator)");
     }
 
     function _cashOutContext(uint256 rulesetId) internal pure returns (JBBeforeCashOutRecordedContext memory context) {

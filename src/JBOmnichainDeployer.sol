@@ -434,10 +434,10 @@ contract JBOmnichainDeployer is
         // If a 721 hook is set and opted into cash out handling, let it adjust the cash out parameters.
         if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
             // Forward to the 721 hook. It may change the tax rate, count, and return hook specs.
-            // We discard the inner hook's effectiveSurplusValue — this contract computes the cross-chain values.
-            // We also discard its totalSupply since this contract computes the cross-chain supply.
+            // Capture the 721 hook's totalSupply and effectiveSurplusValue — NFT cash-outs should use
+            // local-only denominators so holders reclaim against local surplus, not omnichain surplus.
             // slither-disable-next-line unused-return
-            (cashOutTaxRate, cashOutCount,,, tiered721HookSpecifications) =
+            (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, tiered721HookSpecifications) =
                 IJBRulesetDataHook(address(tiered721Config.hook)).beforeCashOutRecordedWith(context);
         }
 
@@ -541,9 +541,9 @@ contract JBOmnichainDeployer is
             if (address(extraHook.dataHook) != address(0) && extraHook.useDataHookForPay) {
                 JBBeforePayRecordedContext memory hookContext = context;
                 hookContext.amount.value = projectAmount;
-                // Pass the 721 hook's weight (which accounts for split deductions) so the data hook
-                // makes its decisions (e.g. mint-vs-swap) based on the correct post-split weight.
-                if (has721Hook) hookContext.weight = tiered721Weight;
+                // Pass the original context.weight — NOT the 721 hook's split-adjusted weight.
+                // The extra hook (e.g. buyback) applies its own weight logic; using the 721 hook's
+                // already-split-adjusted weight would double-discount the split ratio.
                 (weight, dataHookSpecs) = extraHook.dataHook.beforePayRecordedWith(hookContext);
                 customHookCalled = true;
             }
