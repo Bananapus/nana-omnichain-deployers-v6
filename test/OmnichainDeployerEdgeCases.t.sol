@@ -472,9 +472,9 @@ contract OmnichainDeployerEdgeCases is Test {
 
         assertEq(cashOutTaxRate, 2000, "Custom hook should receive and override 721-adjusted tax rate");
         assertEq(cashOutCount, 500, "Custom hook should receive and override 721-adjusted cashOutCount");
-        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
-        // With no suckers, this equals context.totalSupply.
-        assertEq(totalSupply, ctx.totalSupply, "Should return cross-chain totalSupply (context value with no suckers)");
+        // The deployer captures the 721 hook's totalSupply (9000) — NFT cash-outs use local-only
+        // denominators. The extra hook's totalSupply is discarded, preserving the 721 hook's value.
+        assertEq(totalSupply, 9000, "Should return 721 hook totalSupply (local denominator)");
         assertEq(hookSpecifications.length, 2, "721 and custom cash out specs should both be returned");
         assertEq(address(hookSpecifications[0].hook), mock721, "721 hook spec should come first");
         assertEq(hookSpecifications[0].amount, 11, "721 hook spec amount should be preserved");
