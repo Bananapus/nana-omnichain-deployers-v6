@@ -38,7 +38,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
 
-contract CodexNemesisForwardedPermissionsTest is Test {
+contract ForwardedPermissionsTest is Test {
     IJBPermissions internal permissions = IJBPermissions(makeAddr("permissions"));
     IJBProjects internal projects = IJBProjects(makeAddr("projects"));
     IJB721TiersHookDeployer internal hookDeployer = IJB721TiersHookDeployer(makeAddr("hookDeployer"));
