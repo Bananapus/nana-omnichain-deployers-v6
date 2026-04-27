@@ -7,7 +7,7 @@ import {LibClone} from "solady/src/utils/LibClone.sol";
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 
 /// @notice PoC for cross-chain deterministic-address drift caused by hashing salts through the omnichain deployer.
-contract CodexNemesisDeterministicDriftTest is Test {
+contract DeterministicDriftTest is Test {
     bytes32 internal constant DEPLOYER_SALT = bytes32("JBOmnichainDeployerV6_");
 
     function test_poc_deterministicAddressesDriftWhenDeployerAddressDiffers() external {

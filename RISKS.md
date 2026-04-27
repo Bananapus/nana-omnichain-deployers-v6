@@ -86,6 +86,11 @@ Extra data hooks provided by the project owner in `_setup721` configuration can 
 **Missing hook721 alias check enables double invocation.** *(Minor)*
 If the project owner configures the 721 hook as both the primary hook and as an extra data hook, it could be invoked twice. Accepted because this is self-inflicted misconfiguration — the deployer correctly processes each hook independently.
 
+### Hook Selection
+
+**ApprovalExpected rulesets excluded from hook carry-forward.**
+When no new tiers are provided, the deployer carries forward the 721 hook from the most recent approved ruleset. Rulesets with `ApprovalExpected` status are intentionally excluded even though they may become active. Hook selection is irreversible — if the pending ruleset is later rejected by the approval hook, we'd have locked in a hook from a ruleset that never became active. The deployer falls back to the current (already-approved) ruleset in this case.
+
 ### Cross-Chain Deployment
 
 **`_msgSender()` in deployment salt breaks cross-chain determinism.** *(Minor)*

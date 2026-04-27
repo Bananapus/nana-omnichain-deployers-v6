@@ -20,7 +20,7 @@ import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerR
 
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 
-contract CodexNemesisNftCashoutSupplyMismatchTest is Test {
+contract NftCashoutSupplyMismatchTest is Test {
     uint256 internal constant PROJECT_ID = 1;
     uint256 internal constant RULESET_ID = 123;
     uint256 internal constant NFT_CASH_OUT_WEIGHT = 1 ether;

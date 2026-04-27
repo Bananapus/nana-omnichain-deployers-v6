@@ -23,10 +23,9 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
-import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 
-contract CodexNemesisAudit is Test {
+contract OmnichainAudit is Test {
     IJBPermissions internal permissions = IJBPermissions(makeAddr("permissions"));
     IJBProjects internal projects = IJBProjects(makeAddr("projects"));
     IJB721TiersHookDeployer internal hookDeployer = IJB721TiersHookDeployer(makeAddr("hookDeployer"));

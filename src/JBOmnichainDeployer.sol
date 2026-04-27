@@ -511,6 +511,8 @@ contract JBOmnichainDeployer is
         bool hasTiered721Spec;
         // The weight returned by the 721 hook (already scaled for splits).
         uint256 tiered721Weight;
+        // The weight attributable to tier splits when issueTokensForSplits is true.
+        uint256 splitCreditWeight;
         // Whether a 721 hook is configured for this project's ruleset.
         bool has721Hook;
         if (address(tiered721Config.hook) != address(0)) {
@@ -527,6 +529,14 @@ contract JBOmnichainDeployer is
                 hasTiered721Spec = true;
                 tiered721HookSpec = tiered721HookSpecs[0];
                 totalSplitAmount = tiered721HookSpec.amount;
+
+                // Decode splitCreditWeight from the 721 hook's metadata (4th field).
+                // When issueTokensForSplits is true and splits exist, this holds the weight portion
+                // attributable to tier splits — used to prevent split credit erasure if the extra
+                // hook (e.g. buyback) returns weight=0.
+                if (tiered721HookSpec.metadata.length >= 128) {
+                    (,,, splitCreditWeight) = abi.decode(tiered721HookSpec.metadata, (address, address, bytes, uint256));
+                }
             }
         }
 
@@ -554,6 +564,14 @@ contract JBOmnichainDeployer is
                 // When issueTokensForSplits is true, tiered721Weight == context.weight and the ratio is 1x.
                 if (has721Hook && context.weight > 0 && tiered721Weight != context.weight) {
                     weight = mulDiv(weight, tiered721Weight, context.weight);
+                }
+
+                // When the extra hook returns weight=0 (e.g. buyback found no profitable swap) but tier
+                // splits exist with issueTokensForSplits=true, the split credit must still mint fungible tokens.
+                // The split credit weight is independent of buyback routing — it represents the token issuance
+                // for funds forwarded to tier split beneficiaries.
+                if (weight == 0 && splitCreditWeight > 0) {
+                    weight = splitCreditWeight;
                 }
             }
         }
@@ -822,6 +840,9 @@ contract JBOmnichainDeployer is
             {
                 // First try the latest queued ruleset — if it's been explicitly approved
                 // (or has no approval hook), its hook config should take precedence.
+                // Conservative: only use Approved or Empty status. ApprovalExpected is intentionally
+                // excluded because hook selection is irreversible — if the pending ruleset is later rejected
+                // by the approval hook, we'd have locked in a hook from a ruleset that never became active.
                 (JBRuleset memory latestQueued, JBApprovalStatus approvalStatus) =
                     controller.RULESETS().latestQueuedOf(projectId);
                 if (
