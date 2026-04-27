@@ -27,7 +27,7 @@
     "@uniswap/v4-core": "^1.0.2"
   },
   "devDependencies": {
-    "@bananapus/address-registry-v6": "^0.0.17",
+    "@bananapus/address-registry-v6": "^0.0.20",
     "@sphinx-labs/plugins": "^0.33.2"
   }
 }
