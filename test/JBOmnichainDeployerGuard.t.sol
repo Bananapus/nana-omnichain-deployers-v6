@@ -303,9 +303,10 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
 
         JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
 
-        // Should succeed without reverting.
         JBOmnichain721Config memory empty721;
-        deployer.queueRulesetsOf(projectId, empty721, rulesets, "queue", IJBController(address(jbController())));
+        (uint256 rulesetId,) =
+            deployer.queueRulesetsOf(projectId, empty721, rulesets, "queue", IJBController(address(jbController())));
+        assertGt(rulesetId, 0, "Queued ruleset ID must be non-zero");
     }
 
     /// @notice Queue rulesets reverts when called in the same block as launch
@@ -363,6 +364,8 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
 
         // Now should succeed.
         JBOmnichain721Config memory empty721b;
-        deployer.queueRulesetsOf(projectId, empty721b, rulesets, "ok-now", IJBController(address(jbController())));
+        (uint256 rulesetId,) =
+            deployer.queueRulesetsOf(projectId, empty721b, rulesets, "ok-now", IJBController(address(jbController())));
+        assertGt(rulesetId, 0, "Queued ruleset ID must be non-zero after warping past conflict");
     }
 }

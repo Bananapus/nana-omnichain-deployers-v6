@@ -52,7 +52,6 @@ contract CrossChainDeployerHandler is Test {
     uint256 public ghostMockedRemoteSupply;
     uint256 public ghostMockedRemoteSurplus;
     bool public ghostSuckerCashOutTaxAlwaysZero = true;
-    bool public ghostCrossChainInflationReducesReclaim = true;
 
     // ───────────────────────── Ghost variables — ruleset queuing
     uint256 public ghostRulesetsQueued;

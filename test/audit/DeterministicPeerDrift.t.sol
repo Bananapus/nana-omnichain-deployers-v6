@@ -34,7 +34,7 @@ contract DeterministicPeerDriftTest is Test {
             userSalt: USER_SALT
         });
 
-        assertNotEq(predictedA, predictedB, "different omnichain deployers must not change peer address");
+        assertNotEq(predictedA, predictedB, "peer addresses must differ when omnichain deployer differs");
     }
 
     function test_sameUserSameExplicitSalt_butDifferentRegistry_breaksPeerSymmetry() public pure {
@@ -56,7 +56,7 @@ contract DeterministicPeerDriftTest is Test {
             userSalt: USER_SALT
         });
 
-        assertNotEq(predictedA, predictedB, "different registries must not change peer address");
+        assertNotEq(predictedA, predictedB, "peer addresses must differ when registry differs");
     }
 
     function _predictedSuckerAddress(

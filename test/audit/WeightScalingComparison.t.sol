@@ -147,9 +147,7 @@ contract WeightScalingComparisonTest is Test {
         // The correct behavior is weight = 500 (no re-scaling).
         assertEq(weight, 500, "Weight should be 500 (721 hook's split-adjusted weight used directly)");
 
-        // Verify the weight is NOT the mulDiv-scaled value.
-        // mulDiv(500, 0.5 ether, 1 ether) = 250, which would be wrong.
-        assertTrue(weight != 250, "Weight must not be 250 (mulDiv re-scaled value)");
+        // No need to check weight != 250 — assertEq(weight, 500) above already proves it.
     }
 
     // =========================================================================
