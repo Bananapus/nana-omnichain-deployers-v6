@@ -123,14 +123,12 @@ contract OmnichainDeployerInvariant is OmnichainForkTestBase {
         uint256 minted = handler.ghostTotalTokensMinted();
         uint256 burned = handler.ghostTotalTokensBurned();
 
-        // Allow for reserved tokens that may have been distributed outside the handler.
         assertGe(minted, burned, "Minted should be >= burned");
-        // Total supply should equal minted - burned (plus any reserved tokens sent).
-        // Since we don't track reserved distributions in the handler, we use >= check.
+        // +1 tolerance: handler may miss micro-mints from reserved token rounding.
         assertGe(
-            minted - burned + 1, // +1 for rounding tolerance
+            minted - burned + 1,
             totalSupply,
-            "Token supply should be <= minted - burned"
+            "Token supply must not exceed tracked mints minus burns (tolerance: 1 wei)"
         );
     }
 

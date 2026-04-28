@@ -16,11 +16,16 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 ///
 /// Run with: FOUNDRY_PROFILE=fork forge test --match-contract TestOmnichainCashOutFork -vvv
 contract TestOmnichainCashOutFork is OmnichainForkTestBase {
+    uint256 projectId;
+
+    function setUp() public override {
+        super.setUp();
+        (projectId,) = _deploy721WithBuyback(5000);
+        _setupPool(projectId, 10_000 ether);
+    }
+
     /// @notice Sucker address gets 0% tax on cash-out (full pro-rata reclaim).
     function test_fork_omnichain_cashOut_suckerExempt() public {
-        (uint256 projectId,) = _deploy721WithBuyback(5000);
-        _setupPool(projectId, 10_000 ether);
-
         address sucker = makeAddr("sucker");
         vm.deal(sucker, 100 ether);
 
@@ -50,14 +55,14 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
         vm.prank(sucker);
         uint256 reclaimedAmount = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: sucker,
-                projectId: projectId,
-                cashOutCount: suckerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(sucker),
-                metadata: ""
-            });
+            holder: sucker,
+            projectId: projectId,
+            cashOutCount: suckerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(sucker),
+            metadata: ""
+        });
 
         // Full pro-rata reclaim.
         uint256 expectedReclaim = (surplus * suckerTokens) / totalSupply;
@@ -67,9 +72,6 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
     /// @notice Deploy with 721 hook + useDataHookForCashOut: fungible cashout reverts
     ///         because the 721 hook can't handle ERC-20 token cashouts.
     function test_fork_omnichain_cashOut_721HookRevertsForFungible() public {
-        (uint256 projectId,) = _deploy721WithBuyback(5000);
-        _setupPool(projectId, 10_000 ether);
-
         // Pay to get tokens (no tier metadata, so payer gets fungible tokens).
         vm.prank(payer);
         jbMultiTerminal().pay{value: 5 ether}({
@@ -91,20 +93,20 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
         vm.expectRevert();
         jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
     }
 
     /// @notice Deploy with 721 hook + useDataHookForCashOut=false: fungible cashout succeeds
     ///         with original tax rate applied (721 hook not invoked for cashout).
     function test_fork_omnichain_cashOut_721HookNotUsedForCashOut() public {
-        (uint256 projectId,) = _deploy721WithBuyback(5000, false);
+        (projectId,) = _deploy721WithBuyback(5000, false);
         _setupPool(projectId, 10_000 ether);
 
         // Pay to get tokens (no tier metadata, so payer gets fungible tokens).
@@ -127,14 +129,14 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
         vm.prank(payer);
         uint256 reclaimedAmount = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
 
         // Pro-rata share with 50% tax applied.
         uint256 proRataShare = surplus; // cashing out all tokens
@@ -144,7 +146,7 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
 
     /// @notice Plain project (no hooks) — original values returned unchanged.
     function test_fork_omnichain_cashOut_noHooksPassthrough() public {
-        uint256 projectId = _deployPlain(5000);
+        projectId = _deployPlain(5000);
 
         // Pay to get tokens.
         vm.prank(payer);
@@ -165,14 +167,14 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
         vm.prank(payer);
         uint256 reclaimedAmount = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
 
         // With 50% tax and cashing out all supply, bonding curve gives 100% of surplus.
         // But the terminal takes a 2.5% fee on the reclaimed amount.

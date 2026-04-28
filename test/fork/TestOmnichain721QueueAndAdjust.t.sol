@@ -242,11 +242,11 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             .setPermissionsFor(
                 multisig(),
                 JBPermissionsData({
-                    operator: address(omnichainDeployer),
-                    // forge-lint: disable-next-line(unsafe-typecast)
-                    projectId: uint64(projectId),
-                    permissionIds: queuePerms
-                })
+                operator: address(omnichainDeployer),
+                // forge-lint: disable-next-line(unsafe-typecast)
+                projectId: uint64(projectId),
+                permissionIds: queuePerms
+            })
             );
     }
 }

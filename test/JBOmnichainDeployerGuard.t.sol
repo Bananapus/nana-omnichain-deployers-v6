@@ -263,11 +263,11 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
             .setPermissionsFor(
                 owner,
                 JBPermissionsData({
-                    operator: address(deployer),
-                    // forge-lint: disable-next-line(unsafe-typecast)
-                    projectId: uint64(projectId),
-                    permissionIds: permissionIds
-                })
+                operator: address(deployer),
+                // forge-lint: disable-next-line(unsafe-typecast)
+                projectId: uint64(projectId),
+                permissionIds: permissionIds
+            })
             );
     }
 
@@ -303,9 +303,10 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
 
         JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
 
-        // Should succeed without reverting.
         JBOmnichain721Config memory empty721;
-        deployer.queueRulesetsOf(projectId, empty721, rulesets, "queue", IJBController(address(jbController())));
+        (uint256 rulesetId,) =
+            deployer.queueRulesetsOf(projectId, empty721, rulesets, "queue", IJBController(address(jbController())));
+        assertGt(rulesetId, 0, "Queued ruleset ID must be non-zero");
     }
 
     /// @notice Queue rulesets reverts when called in the same block as launch
@@ -363,6 +364,41 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
 
         // Now should succeed.
         JBOmnichain721Config memory empty721b;
-        deployer.queueRulesetsOf(projectId, empty721b, rulesets, "ok-now", IJBController(address(jbController())));
+        (uint256 rulesetId,) =
+            deployer.queueRulesetsOf(projectId, empty721b, rulesets, "ok-now", IJBController(address(jbController())));
+        assertGt(rulesetId, 0, "Queued ruleset ID must be non-zero after warping past conflict");
+    }
+
+    /// @notice When no new tiers are provided and no latestQueued exists (single launch ruleset that
+    ///         became the current ruleset), the hook is carried forward from the current ruleset (lines 862-864).
+    function test_queueRulesetsOf_carriesForwardFromCurrent_whenNoLatestQueued() public {
+        // Launch with 1 ruleset — this deploys a 721 hook stored for the launch ruleset.
+        uint256 projectId = _launchProject(1);
+        uint256 launchRulesetId = block.timestamp;
+        _grantDeployerQueuePermission(projectId);
+
+        // Verify the 721 hook was stored for the launch ruleset.
+        (IJB721TiersHook launchHook,) = deployer.tiered721HookOf(projectId, launchRulesetId);
+        assertEq(address(launchHook), mockHookAddr, "Launch ruleset should have 721 hook stored");
+
+        // Warp forward so the launched ruleset is the current active one and the guard passes.
+        vm.warp(block.timestamp + 1 days);
+
+        // Queue a new ruleset with NO new tiers → triggers carry-forward logic.
+        JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
+        JBOmnichain721Config memory empty721;
+        (uint256 queuedRulesetId,) = deployer.queueRulesetsOf(
+            projectId, empty721, rulesets, "carry-forward", IJBController(address(jbController()))
+        );
+
+        assertGt(queuedRulesetId, 0, "Queued ruleset ID must be non-zero");
+
+        // Verify the hook was carried forward to the new queued ruleset.
+        (IJB721TiersHook carriedHook,) = deployer.tiered721HookOf(projectId, queuedRulesetId);
+        assertEq(
+            address(carriedHook),
+            address(launchHook),
+            "Queued ruleset should carry forward the 721 hook from the current ruleset"
+        );
     }
 }

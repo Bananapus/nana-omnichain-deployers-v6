@@ -472,7 +472,8 @@ contract OmnichainDeployerEdgeCases is Test {
         ) = deployer.beforeCashOutRecordedWith(ctx);
 
         assertEq(cashOutTaxRate, 2000, "Custom hook should receive and override 721-adjusted tax rate");
-        assertEq(cashOutCount, 500, "Custom hook should receive and override 721-adjusted cashOutCount");
+        // After the security fix, the 721 hook's cashOutCount is preserved — the extra hook cannot override it.
+        assertEq(cashOutCount, 700, "721 hook cashOutCount must be preserved (extra hook cannot override NFT pricing)");
         // The deployer captures the 721 hook's totalSupply (9000) — NFT cash-outs use local-only
         // denominators. The extra hook's totalSupply is discarded, preserving the 721 hook's value.
         assertEq(totalSupply, 9000, "Should return 721 hook totalSupply (local denominator)");

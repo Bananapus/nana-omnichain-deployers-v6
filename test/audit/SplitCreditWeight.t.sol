@@ -27,11 +27,11 @@ import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 
-/// @title WeightScalingComparisonTest
-/// @notice Verifies the omnichain deployer uses the 721 hook's weight directly
-///         (already split-adjusted) instead of re-scaling with mulDiv.
-contract WeightScalingComparisonTest is Test {
-    // The deployer under test.
+/// @title SplitCreditWeightTest
+/// @notice Tests the splitCreditWeight decode + fallback logic in JBOmnichainDeployer.beforePayRecordedWith
+///         (lines 545-583). Covers the scenario where issueTokensForSplits=true and a buyback hook
+///         returns weight=0, requiring the split credit weight to preserve minting for split beneficiaries.
+contract SplitCreditWeightTest is Test {
     JBOmnichainDeployer deployer;
 
     // Mock addresses for external dependencies.
@@ -62,7 +62,7 @@ contract WeightScalingComparisonTest is Test {
         vm.mockCall(
             address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, projectId), abi.encode(projectOwner)
         );
-        // Mock hasPermission to always return true for simplicity.
+        // Mock hasPermission to always return true.
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.hasPermission.selector), abi.encode(true)
         );
@@ -72,7 +72,7 @@ contract WeightScalingComparisonTest is Test {
             address(suckerRegistry), abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false)
         );
 
-        // Default: no remote supply or surplus (non-omnichain project).
+        // Default: no remote supply or surplus.
         vm.mockCall(
             address(suckerRegistry),
             abi.encodeWithSelector(IJBSuckerRegistry.remoteTotalSupplyOf.selector),
@@ -93,142 +93,226 @@ contract WeightScalingComparisonTest is Test {
         // Mock transferOwnershipToProject on the hook.
         vm.mockCall(hookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector), abi.encode());
 
-        // Default mock: 721 hook returns context weight and empty specs (no splits).
+        // Default mock: 721 hook returns context weight and empty specs.
         vm.mockCall(
             hookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
             abi.encode(uint256(1000), new JBPayHookSpecification[](0))
         );
 
-        // Launch the project so hook configs are stored.
-        _launchProject(address(0));
-        // The first ruleset ID is block.timestamp.
+        // Launch the project so hook configs are stored (with a custom extra hook for pay).
+        _launchProject(makeAddr("buybackHook"));
         rulesetId = block.timestamp;
     }
 
     // =========================================================================
-    // Test: 721 hook's split-adjusted weight is used directly, not re-scaled
+    // Test 1: Buyback returns weight=0 → splitCreditWeight fallback fires
     // =========================================================================
-    // Scenario: 721 hook returns a weight that already accounts for 50% split
-    // deductions (e.g., weight=500 from original 1000). The deployer should use
-    // 500 directly, NOT re-compute weight * projectAmount / totalAmount.
-    function test_721HookWeightUsedDirectly_notReScaled() public {
-        // Create a mock 721 hook that simulates split-adjusted weight.
-        address mock721 = makeAddr("mock721WithSplits");
-        // Store the mock 721 hook for this project's ruleset.
+    /// @notice When the extra hook (buyback) returns weight=0 but splitCreditWeight > 0 in the 721
+    ///         hook's metadata, the deployer falls back to splitCreditWeight (lines 581-582).
+    function test_buybackReturnsZero_fallbackToSplitCreditWeight() public {
+        address mock721 = makeAddr("mock721_splitCredit");
+        address buyback = makeAddr("buybackHook");
+
+        // Store the 721 hook for this project's ruleset.
         _storeTiered721Hook(mock721);
 
-        // Configure the 721 hook to return:
-        // - weight = 500 (split-adjusted: original 1000 cut in half by 50% splits)
-        // - specs with 0.5 ether split amount (50% of 1 ether payment)
+        // 721 hook returns weight == context.weight (issueTokensForSplits=true behavior)
+        // with a spec whose metadata encodes splitCreditWeight=300.
+        uint256 contextWeight = 1000;
+        uint256 splitCredit = 300;
         JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](1);
-        // The spec claims 0.5 ether for tier splits.
-        specs[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 0.5 ether, metadata: ""});
+        specs[0] = JBPayHookSpecification({
+            hook: IJBPayHook(mock721),
+            noop: false,
+            amount: 0.5 ether,
+            metadata: abi.encode(address(0), address(0), bytes(""), splitCredit)
+        });
 
-        // Mock the 721 hook to return weight=500 (already adjusted for splits).
         vm.mockCall(
             mock721,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
-            abi.encode(uint256(500), specs)
+            abi.encode(contextWeight, specs)
         );
 
-        // Build a pay context with 1 ether payment and context weight 1000.
+        // Buyback hook returns weight=0 (no profitable swap found).
+        vm.mockCall(
+            buyback,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(0), new JBPayHookSpecification[](0))
+        );
+
         JBBeforePayRecordedContext memory ctx = _makePayContext();
-        // Set context weight to 1000 (the base weight before splits).
-        ctx.weight = 1000;
-        // Set payment amount to 1 ether.
+        ctx.weight = contextWeight;
         ctx.amount.value = 1 ether;
 
-        // Call beforePayRecordedWith on the deployer.
         (uint256 weight,) = deployer.beforePayRecordedWith(ctx);
 
-        // The deployer should use the 721 hook's weight (500) directly.
-        // If it re-scaled with mulDiv, it would compute: 500 * 0.5e18 / 1e18 = 250.
-        // The correct behavior is weight = 500 (no re-scaling).
-        assertEq(weight, 500, "Weight should be 500 (721 hook's split-adjusted weight used directly)");
-
-        // No need to check weight != 250 — assertEq(weight, 500) above already proves it.
+        assertEq(weight, splitCredit, "Should fall back to splitCreditWeight when buyback returns 0");
     }
 
     // =========================================================================
-    // Test: Context weight returned when 721 hook has no splits
+    // Test 2: Buyback returns non-zero → no fallback, use buyback weight
     // =========================================================================
-    // When the 721 hook returns the context weight unchanged (no splits),
-    // the deployer should pass it through directly.
-    function test_721HookWeightPassthrough_noSplits() public {
-        // Create a mock 721 hook with no split deductions.
-        address mock721 = makeAddr("mock721NoSplits");
-        // Store the mock 721 hook for this project's ruleset.
+    /// @notice When the extra hook returns a non-zero weight, the splitCreditWeight fallback
+    ///         does not fire (line 581 condition is false).
+    function test_buybackReturnsNonZero_noFallback() public {
+        address mock721 = makeAddr("mock721_noFallback");
+        address buyback = makeAddr("buybackHook");
+
         _storeTiered721Hook(mock721);
 
-        // Mock the 721 hook to return weight=7777 and no specs (no splits).
+        uint256 contextWeight = 1000;
+        JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](1);
+        specs[0] = JBPayHookSpecification({
+            hook: IJBPayHook(mock721),
+            noop: false,
+            amount: 0.5 ether,
+            metadata: abi.encode(address(0), address(0), bytes(""), uint256(300))
+        });
+
+        // 721 hook returns context weight (issueTokensForSplits=true).
         vm.mockCall(
             mock721,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
-            abi.encode(uint256(7777), new JBPayHookSpecification[](0))
+            abi.encode(contextWeight, specs)
         );
 
-        // Build a pay context with weight 7777.
-        JBBeforePayRecordedContext memory ctx = _makePayContext();
-        // Set context weight to 7777.
-        ctx.weight = 7777;
+        // Buyback returns weight=800 (profitable swap found).
+        vm.mockCall(
+            buyback,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(800), new JBPayHookSpecification[](0))
+        );
 
-        // Call beforePayRecordedWith on the deployer.
+        JBBeforePayRecordedContext memory ctx = _makePayContext();
+        ctx.weight = contextWeight;
+        ctx.amount.value = 1 ether;
+
         (uint256 weight,) = deployer.beforePayRecordedWith(ctx);
 
-        // The deployer should return the 721 hook's weight directly.
-        assertEq(weight, 7777, "Weight should be 7777 (passed through from 721 hook)");
+        // tiered721Weight == context.weight → no mulDiv scaling → weight stays 800.
+        assertEq(weight, 800, "Should use buyback weight directly when non-zero");
     }
 
     // =========================================================================
-    // Test: Custom hook weight is scaled by 721 split ratio
+    // Test 3: No extra hook → 721 weight used directly
     // =========================================================================
-    // When both a 721 hook and a custom hook are configured, the custom hook's
-    // returned weight is scaled by the 721 split ratio so the terminal doesn't
-    // over-mint tokens relative to the funds entering the project.
-    function test_customHookWeightScaledBy721SplitRatio() public {
-        // First re-launch with a custom hook configured.
-        _launchProject(makeAddr("customHook"));
-        // Update rulesetId after re-launch.
-        rulesetId = block.timestamp;
+    /// @notice When no extra hook is configured, the 721 hook's weight is used directly (line 589).
+    function test_noExtraHook_721WeightDirect() public {
+        // Clear the extra hook stored during setUp by zeroing its storage slot.
+        _clearExtraDataHook();
 
-        // Create a mock 721 hook with split-adjusted weight.
-        address mock721 = makeAddr("mock721ForCustom");
-        // Store the mock 721 hook for this project's ruleset.
+        address mock721 = makeAddr("mock721_directWeight");
         _storeTiered721Hook(mock721);
 
-        // 721 hook returns weight=600 and 0.4 ether split.
+        uint256 contextWeight = 1000;
         JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](1);
-        // The spec claims 0.4 ether for tier splits.
-        specs[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 0.4 ether, metadata: ""});
+        specs[0] = JBPayHookSpecification({
+            hook: IJBPayHook(mock721),
+            noop: false,
+            amount: 0.3 ether,
+            metadata: abi.encode(address(0), address(0), bytes(""), uint256(300))
+        });
 
-        // Mock the 721 hook: weight=600 (split-adjusted), specs with 0.4 ether split.
         vm.mockCall(
             mock721,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
-            abi.encode(uint256(600), specs)
+            abi.encode(contextWeight, specs)
         );
 
-        // The custom hook receives context.weight = 1000 (the original, not 721's) and
-        // returns it unchanged (mint path behavior).
-        vm.mockCall(
-            makeAddr("customHook"),
-            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
-            abi.encode(uint256(1000), new JBPayHookSpecification[](0))
-        );
-
-        // Build a pay context with 1 ether and weight 1000.
         JBBeforePayRecordedContext memory ctx = _makePayContext();
-        // Set context weight to 1000 (base weight).
-        ctx.weight = 1000;
-        // Set payment amount to 1 ether.
+        ctx.weight = contextWeight;
         ctx.amount.value = 1 ether;
 
-        // Call beforePayRecordedWith on the deployer.
         (uint256 weight,) = deployer.beforePayRecordedWith(ctx);
 
-        // The custom hook returned 1000, scaled by 721 split ratio 600/1000 = 600.
-        assertEq(weight, 600, "Custom hook weight scaled by 721 split ratio");
+        assertEq(weight, contextWeight, "Should use 721 hook weight directly when no extra hook");
+    }
+
+    // =========================================================================
+    // Test 4: Short metadata → decode skipped, splitCreditWeight stays 0
+    // =========================================================================
+    /// @notice When the 721 hook's spec metadata is shorter than 128 bytes, the splitCreditWeight
+    ///         decode is skipped (line 545 guard). If buyback returns 0, weight stays 0.
+    function test_shortMetadata_decodeSkipped() public {
+        address mock721 = makeAddr("mock721_shortMeta");
+        address buyback = makeAddr("buybackHook");
+
+        _storeTiered721Hook(mock721);
+
+        uint256 contextWeight = 700;
+        JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](1);
+        // Short metadata (32 bytes < 128): splitCreditWeight decode will be skipped.
+        specs[0] = JBPayHookSpecification({
+            hook: IJBPayHook(mock721), noop: false, amount: 0.3 ether, metadata: abi.encode(uint256(42))
+        });
+
+        vm.mockCall(
+            mock721,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(contextWeight, specs)
+        );
+
+        // Buyback returns weight=0.
+        vm.mockCall(
+            buyback,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(0), new JBPayHookSpecification[](0))
+        );
+
+        JBBeforePayRecordedContext memory ctx = _makePayContext();
+        ctx.weight = contextWeight;
+        ctx.amount.value = 1 ether;
+
+        (uint256 weight,) = deployer.beforePayRecordedWith(ctx);
+
+        // splitCreditWeight = 0 (decode skipped), buyback returned 0 → no fallback → weight = 0.
+        assertEq(weight, 0, "Weight should be 0 when metadata too short for splitCreditWeight decode");
+    }
+
+    // =========================================================================
+    // Test 5: splitCreditWeight=0 → no fallback even when buyback returns 0
+    // =========================================================================
+    /// @notice When splitCreditWeight is explicitly 0 in metadata, the fallback condition
+    ///         (line 581) is false even when buyback returns weight=0.
+    function test_splitCreditWeightZero_noFallback() public {
+        address mock721 = makeAddr("mock721_zeroCredit");
+        address buyback = makeAddr("buybackHook");
+
+        _storeTiered721Hook(mock721);
+
+        uint256 contextWeight = 700;
+        JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](1);
+        // Metadata encodes splitCreditWeight=0.
+        specs[0] = JBPayHookSpecification({
+            hook: IJBPayHook(mock721),
+            noop: false,
+            amount: 0.3 ether,
+            metadata: abi.encode(address(0), address(0), bytes(""), uint256(0))
+        });
+
+        vm.mockCall(
+            mock721,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(contextWeight, specs)
+        );
+
+        // Buyback returns weight=0.
+        vm.mockCall(
+            buyback,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(0), new JBPayHookSpecification[](0))
+        );
+
+        JBBeforePayRecordedContext memory ctx = _makePayContext();
+        ctx.weight = contextWeight;
+        ctx.amount.value = 1 ether;
+
+        (uint256 weight,) = deployer.beforePayRecordedWith(ctx);
+
+        // splitCreditWeight=0 → fallback condition false → weight stays 0.
+        assertEq(weight, 0, "Weight should be 0 when splitCreditWeight is explicitly 0");
     }
 
     // =========================================================================
@@ -237,26 +321,26 @@ contract WeightScalingComparisonTest is Test {
 
     /// @dev Launches a project through the deployer with an optional custom hook.
     function _launchProject(address customHook) internal {
-        // Mock external calls needed for project launch.
         IJBController controller = IJBController(makeAddr("controller"));
-        // Mock projects.count to return 41 so next project ID is 42.
         vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
-        // Mock launchProjectFor to return the expected project ID.
         vm.mockCall(
             address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
         );
-        // Mock project NFT transfer.
         vm.mockCall(
             address(projects),
             abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
             abi.encode()
         );
+        // Mock safeTransferFrom for project NFT.
+        vm.mockCall(
+            address(projects),
+            abi.encodeWithSelector(bytes4(keccak256("safeTransferFrom(address,address,uint256)"))),
+            abi.encode()
+        );
 
-        // Build ruleset config with optional custom hook for pay.
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(customHook, customHook != address(0), false);
 
-        // Launch with empty 721 config (deployer still creates a hook).
         JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
             projectOwner,
@@ -270,15 +354,20 @@ contract WeightScalingComparisonTest is Test {
         );
     }
 
+    /// @dev Clears the extra data hook from storage (slot 0: _extraDataHookOf).
+    function _clearExtraDataHook() internal {
+        bytes32 outerSlot = keccak256(abi.encode(projectId, uint256(0)));
+        bytes32 innerSlot = keccak256(abi.encode(rulesetId, outerSlot));
+        vm.store(address(deployer), innerSlot, bytes32(0));
+    }
+
     /// @dev Stores a mock 721 hook in the deployer's storage via vm.store.
+    ///      _tiered721HookOf is at storage slot 1 (second mapping after _extraDataHookOf at slot 0).
     function _storeTiered721Hook(address hook721) internal {
-        // _tiered721HookOf is at base slot 1 (second storage variable).
-        // Mapping layout: keccak256(rulesetId . keccak256(projectId . 1))
         bytes32 outerSlot = keccak256(abi.encode(projectId, uint256(1)));
         bytes32 innerSlot = keccak256(abi.encode(rulesetId, outerSlot));
-        // Pack: address (160 bits) | useDataHookForCashOut bool (1 bit at position 160).
+        // Pack: address (160 bits) | useDataHookForCashOut (1 byte at bit 160).
         bytes32 value = bytes32(uint256(uint160(hook721)) | (uint256(1) << 160));
-        // Write to deployer's storage.
         vm.store(address(deployer), innerSlot, value);
         // Verify the hook was stored correctly.
         (IJB721TiersHook storedHook,) = deployer.tiered721HookOf(projectId, rulesetId);
@@ -315,7 +404,6 @@ contract WeightScalingComparisonTest is Test {
         pure
         returns (JBRulesetConfig memory)
     {
-        // Build a minimal ruleset config.
         JBRulesetConfig memory config;
         config.metadata = JBRulesetMetadata({
             reservedPercent: 0,
@@ -341,10 +429,9 @@ contract WeightScalingComparisonTest is Test {
         return config;
     }
 
-    /// @dev Returns an empty sucker deployment config (no suckers).
+    /// @dev Returns an empty sucker deployment config.
     function _emptySuckerConfig() internal pure returns (JBSuckerDeploymentConfig memory config) {
         config.deployerConfigurations = new JBSuckerDeployerConfig[](0);
-        // salt = 0 means skip sucker deployment.
         config.salt = bytes32(0);
     }
 }

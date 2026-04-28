@@ -22,15 +22,22 @@ import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.
 ///
 /// Run with: FOUNDRY_PROFILE=fork forge test --match-contract TestOmnichainStressFork -vvv
 contract TestOmnichainStressFork is OmnichainForkTestBase {
+    // Shared project: 721 hook (useDataHookForCashOut=true) + buyback + V4 pool.
+    uint256 projectId;
+    IJB721TiersHook hook;
+
+    function setUp() public override {
+        super.setUp();
+        (projectId, hook) = _deploy721WithBuyback(5000);
+        _setupPool(projectId, 10_000 ether);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Multi-pay-hook interaction tests
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice 721 tier split (30%) + buyback custom hook. Verify merged specs and weight scaling.
     function test_fork_multiPay_721SplitsPlusCustomHookSpecs() public {
-        (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000);
-        _setupPool(projectId, 10_000 ether);
-
         address metadataTarget = hook.METADATA_ID_TARGET();
         bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
 
@@ -60,9 +67,6 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
 
     /// @notice Weight = 0 when tier splits take the full payment amount.
     function test_fork_multiPay_weightZeroWhenFullSplit() public {
-        (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000);
-        _setupPool(projectId, 10_000 ether);
-
         address metadataTarget = hook.METADATA_ID_TARGET();
         bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
 
@@ -85,9 +89,6 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
 
     /// @notice No tier metadata — no splits, full weight applied.
     function test_fork_multiPay_noTierMetadata_noSplit() public {
-        (uint256 projectId,) = _deploy721WithBuyback(5000);
-        _setupPool(projectId, 10_000 ether);
-
         // Pay without tier metadata — 721 hook returns no specs, full weight.
         vm.prank(payer);
         uint256 tokensReceived = jbMultiTerminal().pay{value: 1 ether}({
@@ -110,9 +111,6 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
     /// @notice 721 hook with useDataHookForCashOut: fungible cashout reverts because
     ///         the 721 hook can't handle ERC-20 token cashouts.
     function test_fork_cashOut_721ProjectWithNFT_revertsForFungible() public {
-        (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000);
-        _setupPool(projectId, 10_000 ether);
-
         address metadataTarget = hook.METADATA_ID_TARGET();
         bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
 
@@ -137,21 +135,18 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.expectRevert();
         jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
     }
 
     /// @notice 721 hook with useDataHookForCashOut: fungible-only cashout reverts.
     function test_fork_cashOut_fungibleOnly_revertsWith721Hook() public {
-        (uint256 projectId,) = _deploy721WithBuyback(5000);
-        _setupPool(projectId, 10_000 ether);
-
         // Pay without tier metadata — get only fungible tokens.
         vm.prank(payer);
         jbMultiTerminal().pay{value: 5 ether}({
@@ -171,14 +166,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.expectRevert();
         jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -187,7 +182,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
 
     /// @notice 721 hook with useDataHookForCashOut=false: fungible cashout succeeds with tax.
     function test_fork_cashOut_721Project_noCashOutHook_succeeds() public {
-        (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000, false);
+        (projectId, hook) = _deploy721WithBuyback(5000, false);
         _setupPool(projectId, 10_000 ether);
 
         address metadataTarget = hook.METADATA_ID_TARGET();
@@ -214,14 +209,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.prank(payer);
         uint256 reclaimed = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
 
         assertGt(reclaimed, 0, "Should reclaim some ETH");
         assertLt(reclaimed, surplus, "Should get less than full surplus due to tax");
@@ -229,7 +224,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
 
     /// @notice 721 hook with useDataHookForCashOut=false: fungible-only cashout succeeds.
     function test_fork_cashOut_fungibleOnly_noCashOutHook_succeeds() public {
-        (uint256 projectId,) = _deploy721WithBuyback(5000, false);
+        (projectId,) = _deploy721WithBuyback(5000, false);
         _setupPool(projectId, 10_000 ether);
 
         vm.prank(payer);
@@ -250,14 +245,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.prank(payer);
         uint256 reclaimed = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
 
         assertGt(reclaimed, 0, "Should reclaim some ETH");
         assertLt(reclaimed, surplus, "Should be less than surplus due to tax and fees");
@@ -265,7 +260,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
 
     /// @notice 721 hook with useDataHookForCashOut=false: fee calculation after splits.
     function test_fork_feeCalculation_cashOutAfterSplits_noCashOutHook() public {
-        (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000, false);
+        (projectId, hook) = _deploy721WithBuyback(5000, false);
         _setupPool(projectId, 10_000 ether);
 
         address metadataTarget = hook.METADATA_ID_TARGET();
@@ -290,14 +285,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.prank(payer);
         uint256 reclaimed = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
 
         assertGt(reclaimed, 0, "Should get some reclaim");
         assertLt(reclaimed, terminalBalance, "Reclaim should be less than terminal balance due to tax + fee");
@@ -310,7 +305,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
     /// @notice Cash out with reserved tokens pending — verify surplus calculation accounts for them.
     function test_fork_cashOut_withReservedTokens() public {
         // Deploy a project with 10% reserved rate and 50% tax.
-        uint256 projectId = _deployPlainWithReservedPercent(5000, 1000);
+        projectId = _deployPlainWithReservedPercent(5000, 1000);
 
         // Pay to get tokens.
         vm.prank(payer);
@@ -336,14 +331,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.prank(payer);
         uint256 reclaimed = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
 
         // With 50% tax and pending reserved tokens inflating supply, reclaim should be less
         // than full surplus.
@@ -353,7 +348,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
 
     /// @notice Multiple payers cash out proportionally.
     function test_fork_cashOut_multiplePayers_proportional() public {
-        uint256 projectId = _deployPlain(5000);
+        projectId = _deployPlain(5000);
 
         address payer1 = makeAddr("payer1");
         address payer2 = makeAddr("payer2");
@@ -410,14 +405,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.prank(payer1);
         uint256 reclaimed1 = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer1,
-                projectId: projectId,
-                cashOutCount: tokens1,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer1),
-                metadata: ""
-            });
+            holder: payer1,
+            projectId: projectId,
+            cashOutCount: tokens1,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer1),
+            metadata: ""
+        });
 
         // Payer1 has 1/6 of supply with 50% tax.
         assertGt(reclaimed1, 0, "Payer1 should reclaim something");
@@ -427,14 +422,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.prank(payer2);
         uint256 reclaimed2 = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer2,
-                projectId: projectId,
-                cashOutCount: tokens2,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer2),
-                metadata: ""
-            });
+            holder: payer2,
+            projectId: projectId,
+            cashOutCount: tokens2,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer2),
+            metadata: ""
+        });
 
         assertGt(reclaimed2, 0, "Payer2 should reclaim something");
         // Payer2 now has 2/5 of remaining supply (tokens3 = 3/5 still outstanding).
@@ -452,9 +447,6 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
 
     /// @notice 721 hook with useDataHookForCashOut: cashout after split-payment also reverts for fungible.
     function test_fork_feeCalculation_cashOutAfterSplits_reverts() public {
-        (uint256 projectId, IJB721TiersHook hook) = _deploy721WithBuyback(5000);
-        _setupPool(projectId, 10_000 ether);
-
         address metadataTarget = hook.METADATA_ID_TARGET();
         bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
 
@@ -477,14 +469,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.expectRevert();
         jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
     }
 
     // ─────────────────────────────────────────────────────────────────────────

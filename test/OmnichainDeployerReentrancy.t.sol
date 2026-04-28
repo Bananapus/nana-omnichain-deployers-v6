@@ -240,14 +240,14 @@ contract OmnichainDeployerReentrancy is OmnichainForkTestBase {
         vm.prank(address(hook));
         try jbMultiTerminal()
             .cashOutTokensOf({
-                holder: address(hook),
-                projectId: projectId,
-                cashOutCount: hookTokens / 2,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(address(hook)),
-                metadata: ""
-            }) {
+            holder: address(hook),
+            projectId: projectId,
+            cashOutCount: hookTokens / 2,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(address(hook)),
+            metadata: ""
+        }) {
             // If it succeeds, check conservation.
             uint256 surplusAfter = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);
             uint256 remainingTokens = jbTokens().totalBalanceOf(address(hook), projectId);

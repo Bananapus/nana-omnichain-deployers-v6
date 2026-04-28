@@ -453,16 +453,23 @@ contract JBOmnichainDeployer is
             // Build a mutable copy of the context with the latest values (possibly updated by the 721 hook).
             JBBeforeCashOutRecordedContext memory hookContext = context;
             hookContext.cashOutTaxRate = cashOutTaxRate;
-            hookContext.cashOutCount = cashOutCount;
             hookContext.totalSupply = totalSupply;
             hookContext.surplus.value = effectiveSurplusValue;
 
-            // Forward to the extra hook. It may further change the tax rate, count, and return hook specs.
-            // We discard the inner hook's effectiveSurplusValue — this contract computes the cross-chain values.
-            // We also discard its totalSupply since this contract computes the cross-chain supply.
-            // slither-disable-next-line unused-return
-            (cashOutTaxRate, cashOutCount,,, extraHookSpecifications) =
-                extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
+            // Forward to the extra hook. It may further change the tax rate and return hook specs.
+            // We always discard totalSupply and effectiveSurplusValue — this contract computes
+            // cross-chain values for both. When the 721 hook is active, we also discard cashOutCount
+            // because the 721 hook redefines both cashOutCount and totalSupply as NFT cash-out weights
+            // (sum of tier prices), not fungible token counts. Letting the extra hook override
+            // cashOutCount would corrupt NFT pricing in the bonding curve.
+            if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
+                // slither-disable-next-line unused-return
+                (cashOutTaxRate,,,, extraHookSpecifications) = extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
+            } else {
+                // slither-disable-next-line unused-return
+                (cashOutTaxRate, cashOutCount,,, extraHookSpecifications) =
+                    extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
+            }
         }
 
         // If neither hook returned any specifications, return the adjusted values with no hook specs.
