@@ -24,6 +24,10 @@ import {JBDeployerHookConfig} from "../../src/structs/JBDeployerHookConfig.sol";
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 import {JBTiered721HookConfig} from "../../src/structs/JBTiered721HookConfig.sol";
 
+/// @notice Tests that a malicious extra data hook cannot zero out the 721 hook's cashOutCount.
+/// The 721 hook returns NFT-specific cashOutCount based on tier weights. Without the fix,
+/// an extra hook's beforeCashOutRecordedWith call could overwrite this value, zeroing out
+/// the NFT holder's reclaim amount.
 contract ExtraCashOutHookZeroReclaimTest is Test {
     uint256 internal constant PROJECT_ID = 1;
     uint256 internal constant RULESET_ID = 100;
@@ -31,13 +35,22 @@ contract ExtraCashOutHookZeroReclaimTest is Test {
     uint256 internal constant NFT_TOTAL_WEIGHT = 100 ether;
     uint256 internal constant LOCAL_SURPLUS = 50 ether;
 
-    function testExtraCashOutHookCanZeroNftReclaimAfter721RewritesCashOutCount() external {
+    Harness deployer;
+    Mock721CashOutHook nftHook;
+
+    function setUp() public {
         MockPermissions permissions = new MockPermissions();
         MockSuckerRegistry suckers = new MockSuckerRegistry();
-        Harness deployer = new Harness(IJBPermissions(address(permissions)), IJBSuckerRegistry(address(suckers)));
+        deployer = new Harness(IJBPermissions(address(permissions)), IJBSuckerRegistry(address(suckers)));
+        nftHook = new Mock721CashOutHook();
+    }
 
-        Mock721CashOutHook nftHook = new Mock721CashOutHook();
-        MockExtraCashOutHook extraHook = new MockExtraCashOutHook();
+    /// @notice Prove the bug: a malicious extra hook that returns cashOutCount=0 would have
+    /// zeroed out the 721 hook's NFT-specific cashOutCount before the fix was applied.
+    /// After the fix, the 721 hook's cashOutCount is preserved so NFT holders reclaim correctly.
+    function test_extraHookCannotZeroCashOutCount() external {
+        // Deploy a malicious extra hook that returns cashOutCount = 0.
+        MaliciousExtraCashOutHook maliciousHook = new MaliciousExtraCashOutHook();
 
         deployer.setTiered721HookOf({
             projectId: PROJECT_ID,
@@ -48,11 +61,127 @@ contract ExtraCashOutHookZeroReclaimTest is Test {
             projectId: PROJECT_ID,
             rulesetId: RULESET_ID,
             config: JBDeployerHookConfig({
+                dataHook: IJBRulesetDataHook(address(maliciousHook)),
+                useDataHookForPay: false,
+                useDataHookForCashOut: true
+            })
+        });
+
+        JBBeforeCashOutRecordedContext memory context = _makeContext();
+
+        (
+            uint256 cashOutTaxRate,
+            uint256 effectiveCashOutCount,
+            uint256 effectiveTotalSupply,
+            uint256 effectiveSurplusValue,
+            JBCashOutHookSpecification[] memory specs
+        ) = deployer.beforeCashOutRecordedWith(context);
+
+        // The 721 hook's cashOutCount must be preserved despite the malicious extra hook returning 0.
+        assertEq(effectiveCashOutCount, NFT_CASH_OUT_WEIGHT, "721 hook cashOutCount must be preserved");
+
+        // The extra hook's cashOutTaxRate IS allowed to override (only cashOutCount is protected).
+        assertEq(cashOutTaxRate, JBConstants.MAX_CASH_OUT_TAX_RATE / 2, "extra hook can set cashOutTaxRate");
+
+        // 721 hook uses local-only denominators.
+        assertEq(effectiveTotalSupply, NFT_TOTAL_WEIGHT, "totalSupply from 721 hook");
+        assertEq(effectiveSurplusValue, LOCAL_SURPLUS, "surplus from 721 hook");
+
+        // Both hooks returned specs.
+        assertEq(specs.length, 2, "should merge both hook specs");
+
+        // Reclaim must be non-zero: NFT holder is entitled to their share of surplus.
+        uint256 reclaim = JBCashOuts.cashOutFrom({
+            surplus: effectiveSurplusValue,
+            cashOutCount: effectiveCashOutCount,
+            totalSupply: effectiveTotalSupply,
+            cashOutTaxRate: cashOutTaxRate
+        });
+        assertGt(reclaim, 0, "NFT holder reclaim must be non-zero");
+    }
+
+    /// @notice When the extra hook passes through cashOutCount unchanged, the fix should
+    /// still preserve the 721 hook's value (no regression for well-behaved hooks).
+    function test_benignExtraHookPreservesCashOutCount() external {
+        // Deploy a benign extra hook that passes through context.cashOutCount.
+        BenignExtraCashOutHook benignHook = new BenignExtraCashOutHook();
+
+        deployer.setTiered721HookOf({
+            projectId: PROJECT_ID,
+            rulesetId: RULESET_ID,
+            config: JBTiered721HookConfig({hook: IJB721TiersHook(address(nftHook)), useDataHookForCashOut: true})
+        });
+        deployer.setExtraDataHookOf({
+            projectId: PROJECT_ID,
+            rulesetId: RULESET_ID,
+            config: JBDeployerHookConfig({
+                dataHook: IJBRulesetDataHook(address(benignHook)), useDataHookForPay: false, useDataHookForCashOut: true
+            })
+        });
+
+        JBBeforeCashOutRecordedContext memory context = _makeContext();
+
+        (, uint256 effectiveCashOutCount,,,) = deployer.beforeCashOutRecordedWith(context);
+
+        // cashOutCount must be the 721 hook's value, not the extra hook's pass-through.
+        assertEq(effectiveCashOutCount, NFT_CASH_OUT_WEIGHT, "721 hook cashOutCount preserved with benign extra hook");
+    }
+
+    /// @notice When only an extra hook is active (no 721 hook for cash-outs), the extra hook's
+    /// cashOutCount should be used as-is (no restoration).
+    function test_extraHookAloneSetsOwnCashOutCount() external {
+        uint256 extraHookCashOutCount = 42 ether;
+        ExtraOnlyCashOutHook extraHook = new ExtraOnlyCashOutHook(extraHookCashOutCount);
+
+        // No 721 hook configured.
+        deployer.setExtraDataHookOf({
+            projectId: PROJECT_ID,
+            rulesetId: RULESET_ID,
+            config: JBDeployerHookConfig({
                 dataHook: IJBRulesetDataHook(address(extraHook)), useDataHookForPay: false, useDataHookForCashOut: true
             })
         });
 
-        JBBeforeCashOutRecordedContext memory context = JBBeforeCashOutRecordedContext({
+        JBBeforeCashOutRecordedContext memory context = _makeContext();
+
+        (, uint256 effectiveCashOutCount,,,) = deployer.beforeCashOutRecordedWith(context);
+
+        // Without a 721 hook, the extra hook's cashOutCount should be used directly.
+        assertEq(effectiveCashOutCount, extraHookCashOutCount, "extra hook alone should set cashOutCount");
+    }
+
+    /// @notice When the 721 hook exists but useDataHookForCashOut is false, the extra hook's
+    /// cashOutCount should be used (no restoration since 721 hook didn't participate).
+    function test_721HookNotUsedForCashOut_extraHookSetsCount() external {
+        uint256 extraHookCashOutCount = 77 ether;
+        ExtraOnlyCashOutHook extraHook = new ExtraOnlyCashOutHook(extraHookCashOutCount);
+
+        deployer.setTiered721HookOf({
+            projectId: PROJECT_ID,
+            rulesetId: RULESET_ID,
+            // useDataHookForCashOut = false: 721 hook exists but is NOT used for cash-outs.
+            config: JBTiered721HookConfig({hook: IJB721TiersHook(address(nftHook)), useDataHookForCashOut: false})
+        });
+        deployer.setExtraDataHookOf({
+            projectId: PROJECT_ID,
+            rulesetId: RULESET_ID,
+            config: JBDeployerHookConfig({
+                dataHook: IJBRulesetDataHook(address(extraHook)), useDataHookForPay: false, useDataHookForCashOut: true
+            })
+        });
+
+        JBBeforeCashOutRecordedContext memory context = _makeContext();
+
+        (, uint256 effectiveCashOutCount,,,) = deployer.beforeCashOutRecordedWith(context);
+
+        // 721 hook was not used for cash-outs, so extra hook's cashOutCount should be respected.
+        assertEq(
+            effectiveCashOutCount, extraHookCashOutCount, "extra hook cashOutCount used when 721 not active for cashout"
+        );
+    }
+
+    function _makeContext() internal pure returns (JBBeforeCashOutRecordedContext memory) {
+        return JBBeforeCashOutRecordedContext({
             terminal: address(0x1),
             holder: address(0x2),
             projectId: PROJECT_ID,
@@ -65,30 +194,12 @@ contract ExtraCashOutHookZeroReclaimTest is Test {
             beneficiaryIsFeeless: false,
             metadata: ""
         });
-
-        (
-            uint256 cashOutTaxRate,
-            uint256 effectiveCashOutCount,
-            uint256 effectiveTotalSupply,
-            uint256 effectiveSurplusValue,
-            JBCashOutHookSpecification[] memory specs
-        ) = deployer.beforeCashOutRecordedWith(context);
-
-        assertEq(cashOutTaxRate, JBConstants.MAX_CASH_OUT_TAX_RATE);
-        assertEq(effectiveCashOutCount, NFT_CASH_OUT_WEIGHT);
-        assertEq(effectiveTotalSupply, NFT_TOTAL_WEIGHT);
-        assertEq(effectiveSurplusValue, LOCAL_SURPLUS);
-        assertEq(specs.length, 2);
-
-        uint256 reclaim = JBCashOuts.cashOutFrom({
-            surplus: effectiveSurplusValue,
-            cashOutCount: effectiveCashOutCount,
-            totalSupply: effectiveTotalSupply,
-            cashOutTaxRate: cashOutTaxRate
-        });
-        assertEq(reclaim, 0);
     }
 }
+
+// ============================================================================
+// Test harness and mocks
+// ============================================================================
 
 contract Harness is JBOmnichainDeployer {
     constructor(
@@ -132,6 +243,7 @@ contract MockSuckerRegistry {
     }
 }
 
+/// @notice 721 hook that returns NFT-specific cashOutCount and totalSupply.
 contract Mock721CashOutHook {
     uint256 internal constant NFT_CASH_OUT_WEIGHT = 10 ether;
     uint256 internal constant NFT_TOTAL_WEIGHT = 100 ether;
@@ -156,7 +268,31 @@ contract Mock721CashOutHook {
     }
 }
 
-contract MockExtraCashOutHook {
+/// @notice Malicious extra hook that returns cashOutCount = 0, attempting to zero out NFT reclaim.
+contract MaliciousExtraCashOutHook {
+    function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
+        external
+        pure
+        returns (
+            uint256 cashOutTaxRate,
+            uint256 cashOutCount,
+            uint256 totalSupply,
+            uint256 effectiveSurplusValue,
+            JBCashOutHookSpecification[] memory hookSpecifications
+        )
+    {
+        hookSpecifications = new JBCashOutHookSpecification[](1);
+        hookSpecifications[0] =
+            JBCashOutHookSpecification({hook: IJBCashOutHook(address(0xB0B)), noop: false, amount: 0, metadata: ""});
+
+        // Malicious: return cashOutCount = 0 to try to zero out NFT holder reclaim.
+        // Uses a 50% tax rate (not MAX) so that reclaim is non-zero when cashOutCount is preserved.
+        return (JBConstants.MAX_CASH_OUT_TAX_RATE / 2, 0, context.totalSupply, 0, hookSpecifications);
+    }
+}
+
+/// @notice Benign extra hook that passes through context.cashOutCount unchanged.
+contract BenignExtraCashOutHook {
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
         external
         pure
@@ -174,16 +310,31 @@ contract MockExtraCashOutHook {
 
         return (JBConstants.MAX_CASH_OUT_TAX_RATE, context.cashOutCount, context.totalSupply, 0, hookSpecifications);
     }
+}
 
-    function beforePayRecordedWith(JBBeforePayRecordedContext calldata)
-        external
-        pure
-        returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
-    {
-        return (0, hookSpecifications);
+/// @notice Extra hook that sets a specific cashOutCount (used when no 721 hook is active).
+contract ExtraOnlyCashOutHook {
+    uint256 internal immutable _cashOutCount;
+
+    constructor(uint256 cashOutCount_) {
+        _cashOutCount = cashOutCount_;
     }
 
-    function hasMintPermissionFor(uint256, JBRuleset memory, address) external pure returns (bool) {
-        return false;
+    function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
+        external
+        view
+        returns (
+            uint256 cashOutTaxRate,
+            uint256 cashOutCount,
+            uint256 totalSupply,
+            uint256 effectiveSurplusValue,
+            JBCashOutHookSpecification[] memory hookSpecifications
+        )
+    {
+        hookSpecifications = new JBCashOutHookSpecification[](1);
+        hookSpecifications[0] =
+            JBCashOutHookSpecification({hook: IJBCashOutHook(address(0xB0B)), noop: false, amount: 0, metadata: ""});
+
+        return (context.cashOutTaxRate, _cashOutCount, context.totalSupply, context.surplus.value, hookSpecifications);
     }
 }

@@ -445,6 +445,9 @@ contract JBOmnichainDeployer is
         // Will hold the extra data hook's cash out specifications.
         JBCashOutHookSpecification[] memory extraHookSpecifications;
 
+        // Save the 721 hook's cashOutCount before the extra hook can overwrite it.
+        uint256 tiered721CashOutCount = cashOutCount;
+
         // Look up any extra data hook configured for this project's ruleset.
         JBDeployerHookConfig memory extraHook = _extraDataHookOf[context.projectId][context.rulesetId];
 
@@ -463,6 +466,11 @@ contract JBOmnichainDeployer is
             // slither-disable-next-line unused-return
             (cashOutTaxRate, cashOutCount,,, extraHookSpecifications) =
                 extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
+
+            // Restore the 721 hook's cashOutCount — the extra hook should not override NFT pricing.
+            if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
+                cashOutCount = tiered721CashOutCount;
+            }
         }
 
         // If neither hook returned any specifications, return the adjusted values with no hook specs.
