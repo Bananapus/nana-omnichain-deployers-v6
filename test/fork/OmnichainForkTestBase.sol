@@ -161,6 +161,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
 
     address payer = makeAddr("payer");
     address splitBeneficiary = makeAddr("splitBeneficiary");
+    uint256 private _deploySaltNonce;
 
     uint104 constant TIER_PRICE = 1 ether;
     uint32 constant SPLIT_PERCENT = 300_000_000; // 30%
@@ -356,7 +357,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
                 deployTiersHookConfig: _build721Config(),
                 useDataHookForCashOut: use721ForCashOut,
                 // forge-lint: disable-next-line(unsafe-typecast)
-                salt: bytes32("OMNI_721")
+                salt: bytes32(++_deploySaltNonce)
             }),
             rulesetConfigurations: rulesets,
             terminalConfigurations: tc,

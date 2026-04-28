@@ -14,6 +14,11 @@ runs = 1024
 depth = 100
 fail_on_revert = false
 
+[profile.fork.invariant]
+runs = 256
+depth = 50
+fail_on_revert = false
+
 [lint]
 exclude_lints = ["pascal-case-struct", "mixed-case-variable"]
 [fmt]
