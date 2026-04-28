@@ -445,9 +445,6 @@ contract JBOmnichainDeployer is
         // Will hold the extra data hook's cash out specifications.
         JBCashOutHookSpecification[] memory extraHookSpecifications;
 
-        // Save the 721 hook's cashOutCount before the extra hook can overwrite it.
-        uint256 tiered721CashOutCount = cashOutCount;
-
         // Look up any extra data hook configured for this project's ruleset.
         JBDeployerHookConfig memory extraHook = _extraDataHookOf[context.projectId][context.rulesetId];
 
@@ -456,20 +453,22 @@ contract JBOmnichainDeployer is
             // Build a mutable copy of the context with the latest values (possibly updated by the 721 hook).
             JBBeforeCashOutRecordedContext memory hookContext = context;
             hookContext.cashOutTaxRate = cashOutTaxRate;
-            hookContext.cashOutCount = cashOutCount;
             hookContext.totalSupply = totalSupply;
             hookContext.surplus.value = effectiveSurplusValue;
 
-            // Forward to the extra hook. It may further change the tax rate, count, and return hook specs.
-            // We discard the inner hook's effectiveSurplusValue — this contract computes the cross-chain values.
-            // We also discard its totalSupply since this contract computes the cross-chain supply.
-            // slither-disable-next-line unused-return
-            (cashOutTaxRate, cashOutCount,,, extraHookSpecifications) =
-                extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
-
-            // Restore the 721 hook's cashOutCount — the extra hook should not override NFT pricing.
+            // Forward to the extra hook. It may further change the tax rate and return hook specs.
+            // We always discard totalSupply and effectiveSurplusValue (this contract computes cross-chain values).
+            // When the 721 hook is active, we also discard cashOutCount — the 721 hook redefines it as
+            // NFT cash-out weight (sum of tier prices), not a fungible token count. Letting the extra hook
+            // override it would corrupt NFT pricing in the bonding curve.
             if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
-                cashOutCount = tiered721CashOutCount;
+                // slither-disable-next-line unused-return
+                (cashOutTaxRate,,,, extraHookSpecifications) =
+                    extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
+            } else {
+                // slither-disable-next-line unused-return
+                (cashOutTaxRate, cashOutCount,,, extraHookSpecifications) =
+                    extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
             }
         }
 
