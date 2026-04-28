@@ -457,10 +457,11 @@ contract JBOmnichainDeployer is
             hookContext.surplus.value = effectiveSurplusValue;
 
             // Forward to the extra hook. It may further change the tax rate and return hook specs.
-            // We always discard totalSupply and effectiveSurplusValue (this contract computes cross-chain values).
-            // When the 721 hook is active, we also discard cashOutCount — the 721 hook redefines it as
-            // NFT cash-out weight (sum of tier prices), not a fungible token count. Letting the extra hook
-            // override it would corrupt NFT pricing in the bonding curve.
+            // We always discard totalSupply and effectiveSurplusValue — this contract computes
+            // cross-chain values for both. When the 721 hook is active, we also discard cashOutCount
+            // because the 721 hook redefines both cashOutCount and totalSupply as NFT cash-out weights
+            // (sum of tier prices), not fungible token counts. Letting the extra hook override
+            // cashOutCount would corrupt NFT pricing in the bonding curve.
             if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
                 // slither-disable-next-line unused-return
                 (cashOutTaxRate,,,, extraHookSpecifications) =
