@@ -263,11 +263,11 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
             .setPermissionsFor(
                 owner,
                 JBPermissionsData({
-                    operator: address(deployer),
-                    // forge-lint: disable-next-line(unsafe-typecast)
-                    projectId: uint64(projectId),
-                    permissionIds: permissionIds
-                })
+                operator: address(deployer),
+                // forge-lint: disable-next-line(unsafe-typecast)
+                projectId: uint64(projectId),
+                permissionIds: permissionIds
+            })
             );
     }
 
@@ -387,8 +387,9 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         // Queue a new ruleset with NO new tiers → triggers carry-forward logic.
         JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
         JBOmnichain721Config memory empty721;
-        (uint256 queuedRulesetId,) =
-            deployer.queueRulesetsOf(projectId, empty721, rulesets, "carry-forward", IJBController(address(jbController())));
+        (uint256 queuedRulesetId,) = deployer.queueRulesetsOf(
+            projectId, empty721, rulesets, "carry-forward", IJBController(address(jbController()))
+        );
 
         assertGt(queuedRulesetId, 0, "Queued ruleset ID must be non-zero");
 

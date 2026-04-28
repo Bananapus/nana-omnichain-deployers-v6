@@ -464,8 +464,7 @@ contract JBOmnichainDeployer is
             // cashOutCount would corrupt NFT pricing in the bonding curve.
             if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
                 // slither-disable-next-line unused-return
-                (cashOutTaxRate,,,, extraHookSpecifications) =
-                    extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
+                (cashOutTaxRate,,,, extraHookSpecifications) = extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
             } else {
                 // slither-disable-next-line unused-return
                 (cashOutTaxRate, cashOutCount,,, extraHookSpecifications) =

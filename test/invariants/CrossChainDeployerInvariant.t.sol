@@ -140,7 +140,11 @@ contract CrossChainDeployerInvariant is OmnichainForkTestBase {
 
         assertGe(minted, burned, "Minted >= burned");
         // +1 tolerance: handler may miss micro-mints from reserved token rounding.
-        assertGe(minted - burned + 1, totalSupply, "Token supply must not exceed tracked mints minus burns (tolerance: 1 wei)");
+        assertGe(
+            minted - burned + 1,
+            totalSupply,
+            "Token supply must not exceed tracked mints minus burns (tolerance: 1 wei)"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════

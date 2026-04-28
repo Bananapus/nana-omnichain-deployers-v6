@@ -318,11 +318,11 @@ contract CarryForwardRejectedHookTest is TestBaseWorkflow {
             .setPermissionsFor(
                 owner,
                 JBPermissionsData({
-                    operator: address(deployer),
-                    // forge-lint: disable-next-line(unsafe-typecast)
-                    projectId: uint64(projectId),
-                    permissionIds: permissionIds
-                })
+                operator: address(deployer),
+                // forge-lint: disable-next-line(unsafe-typecast)
+                projectId: uint64(projectId),
+                permissionIds: permissionIds
+            })
             );
     }
 }

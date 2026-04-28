@@ -135,14 +135,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.expectRevert();
         jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
     }
 
     /// @notice 721 hook with useDataHookForCashOut: fungible-only cashout reverts.
@@ -166,14 +166,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.expectRevert();
         jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -209,14 +209,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.prank(payer);
         uint256 reclaimed = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
 
         assertGt(reclaimed, 0, "Should reclaim some ETH");
         assertLt(reclaimed, surplus, "Should get less than full surplus due to tax");
@@ -245,14 +245,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.prank(payer);
         uint256 reclaimed = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
 
         assertGt(reclaimed, 0, "Should reclaim some ETH");
         assertLt(reclaimed, surplus, "Should be less than surplus due to tax and fees");
@@ -285,14 +285,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.prank(payer);
         uint256 reclaimed = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
 
         assertGt(reclaimed, 0, "Should get some reclaim");
         assertLt(reclaimed, terminalBalance, "Reclaim should be less than terminal balance due to tax + fee");
@@ -331,14 +331,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.prank(payer);
         uint256 reclaimed = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
 
         // With 50% tax and pending reserved tokens inflating supply, reclaim should be less
         // than full surplus.
@@ -405,14 +405,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.prank(payer1);
         uint256 reclaimed1 = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer1,
-                projectId: projectId,
-                cashOutCount: tokens1,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer1),
-                metadata: ""
-            });
+            holder: payer1,
+            projectId: projectId,
+            cashOutCount: tokens1,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer1),
+            metadata: ""
+        });
 
         // Payer1 has 1/6 of supply with 50% tax.
         assertGt(reclaimed1, 0, "Payer1 should reclaim something");
@@ -422,14 +422,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.prank(payer2);
         uint256 reclaimed2 = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer2,
-                projectId: projectId,
-                cashOutCount: tokens2,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer2),
-                metadata: ""
-            });
+            holder: payer2,
+            projectId: projectId,
+            cashOutCount: tokens2,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer2),
+            metadata: ""
+        });
 
         assertGt(reclaimed2, 0, "Payer2 should reclaim something");
         // Payer2 now has 2/5 of remaining supply (tokens3 = 3/5 still outstanding).
@@ -469,14 +469,14 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         vm.expectRevert();
         jbMultiTerminal()
             .cashOutTokensOf({
-                holder: payer,
-                projectId: projectId,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(payer),
-                metadata: ""
-            });
+            holder: payer,
+            projectId: projectId,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(payer),
+            metadata: ""
+        });
     }
 
     // ─────────────────────────────────────────────────────────────────────────

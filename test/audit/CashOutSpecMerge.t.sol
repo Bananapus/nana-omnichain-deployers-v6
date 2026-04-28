@@ -120,12 +120,8 @@ contract CashOutSpecMergeTest is Test {
 
         // 721 hook returns: taxRate=5000, cashOutCount=100, totalSupply=1000, surplus=10 ether, 1 spec.
         JBCashOutHookSpecification[] memory specs721 = new JBCashOutHookSpecification[](1);
-        specs721[0] = JBCashOutHookSpecification({
-            hook: IJBCashOutHook(mock721),
-            noop: false,
-            amount: 0.3 ether,
-            metadata: ""
-        });
+        specs721[0] =
+            JBCashOutHookSpecification({hook: IJBCashOutHook(mock721), noop: false, amount: 0.3 ether, metadata: ""});
 
         vm.mockCall(
             mock721,
@@ -138,16 +134,10 @@ contract CashOutSpecMergeTest is Test {
         // keeping the 721 hook's values (1000 and 10 ether).
         JBCashOutHookSpecification[] memory specsExtra = new JBCashOutHookSpecification[](2);
         specsExtra[0] = JBCashOutHookSpecification({
-            hook: IJBCashOutHook(makeAddr("extraSpec1")),
-            noop: false,
-            amount: 0.1 ether,
-            metadata: ""
+            hook: IJBCashOutHook(makeAddr("extraSpec1")), noop: false, amount: 0.1 ether, metadata: ""
         });
         specsExtra[1] = JBCashOutHookSpecification({
-            hook: IJBCashOutHook(makeAddr("extraSpec2")),
-            noop: false,
-            amount: 0.2 ether,
-            metadata: ""
+            hook: IJBCashOutHook(makeAddr("extraSpec2")), noop: false, amount: 0.2 ether, metadata: ""
         });
 
         vm.mockCall(
@@ -196,12 +186,8 @@ contract CashOutSpecMergeTest is Test {
 
         // 721 hook returns 1 spec.
         JBCashOutHookSpecification[] memory specs721 = new JBCashOutHookSpecification[](1);
-        specs721[0] = JBCashOutHookSpecification({
-            hook: IJBCashOutHook(mock721),
-            noop: false,
-            amount: 0.3 ether,
-            metadata: ""
-        });
+        specs721[0] =
+            JBCashOutHookSpecification({hook: IJBCashOutHook(mock721), noop: false, amount: 0.3 ether, metadata: ""});
 
         vm.mockCall(
             mock721,
@@ -236,22 +222,18 @@ contract CashOutSpecMergeTest is Test {
         vm.mockCall(
             mock721,
             abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(5000), uint256(100), uint256(1000), uint256(10 ether), new JBCashOutHookSpecification[](0))
+            abi.encode(
+                uint256(5000), uint256(100), uint256(1000), uint256(10 ether), new JBCashOutHookSpecification[](0)
+            )
         );
 
         // Extra hook returns 2 specs.
         JBCashOutHookSpecification[] memory specsExtra = new JBCashOutHookSpecification[](2);
         specsExtra[0] = JBCashOutHookSpecification({
-            hook: IJBCashOutHook(makeAddr("onlyExtra1")),
-            noop: false,
-            amount: 0.15 ether,
-            metadata: ""
+            hook: IJBCashOutHook(makeAddr("onlyExtra1")), noop: false, amount: 0.15 ether, metadata: ""
         });
         specsExtra[1] = JBCashOutHookSpecification({
-            hook: IJBCashOutHook(makeAddr("onlyExtra2")),
-            noop: false,
-            amount: 0.25 ether,
-            metadata: ""
+            hook: IJBCashOutHook(makeAddr("onlyExtra2")), noop: false, amount: 0.25 ether, metadata: ""
         });
 
         vm.mockCall(

@@ -245,10 +245,7 @@ contract SplitCreditWeightTest is Test {
         JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](1);
         // Short metadata (32 bytes < 128): splitCreditWeight decode will be skipped.
         specs[0] = JBPayHookSpecification({
-            hook: IJBPayHook(mock721),
-            noop: false,
-            amount: 0.3 ether,
-            metadata: abi.encode(uint256(42))
+            hook: IJBPayHook(mock721), noop: false, amount: 0.3 ether, metadata: abi.encode(uint256(42))
         });
 
         vm.mockCall(
