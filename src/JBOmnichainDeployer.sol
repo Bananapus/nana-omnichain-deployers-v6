@@ -453,6 +453,7 @@ contract JBOmnichainDeployer is
             // Build a mutable copy of the context with the latest values (possibly updated by the 721 hook).
             JBBeforeCashOutRecordedContext memory hookContext = context;
             hookContext.cashOutTaxRate = cashOutTaxRate;
+            hookContext.cashOutCount = cashOutCount;
             hookContext.totalSupply = totalSupply;
             hookContext.surplus.value = effectiveSurplusValue;
 
