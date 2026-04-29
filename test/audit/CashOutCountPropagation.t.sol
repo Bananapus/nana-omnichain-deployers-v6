@@ -19,10 +19,10 @@ import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerR
 
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 
-/// @notice Regression test for M-44: cashOutCount from the 721 hook must be propagated
+/// @notice Regression test: cashOutCount from the 721 hook must be propagated
 /// to the extra data hook's context. Before fix, the extra hook receives the stale
 /// context.cashOutCount instead of the 721-adjusted value.
-contract M44_CashOutCountPropagationTest is Test {
+contract CashOutCountPropagationTest is Test {
     uint256 internal constant PROJECT_ID = 1;
     uint256 internal constant RULESET_ID = 123;
 
@@ -40,7 +40,7 @@ contract M44_CashOutCountPropagationTest is Test {
     address internal directory = makeAddr("directory");
 
     JBOmnichainDeployer internal deployer;
-    Mock721HookM44 internal nftHook;
+    Mock721Hook internal nftHook;
     address internal extraHookAddr;
 
     function setUp() public {
@@ -55,7 +55,7 @@ contract M44_CashOutCountPropagationTest is Test {
             address(0)
         );
 
-        nftHook = new Mock721HookM44(ADJUSTED_CASH_OUT_COUNT, NFT_TOTAL_SUPPLY);
+        nftHook = new Mock721Hook(ADJUSTED_CASH_OUT_COUNT, NFT_TOTAL_SUPPLY);
         extraHookAddr = makeAddr("extraHook");
 
         _storeTiered721Hook(address(nftHook), true);
@@ -66,7 +66,7 @@ contract M44_CashOutCountPropagationTest is Test {
 
     /// @notice The extra data hook should receive the 721-adjusted cashOutCount,
     /// not the original context.cashOutCount.
-    function test_M44_extraHookReceivesAdjustedCashOutCount() public {
+    function test_extraHookReceivesAdjustedCashOutCount() public {
         // Build the expected context that the extra hook should receive.
         // The deployer copies the original context and patches cashOutTaxRate, totalSupply, surplus.value.
         // With the fix, it should also patch cashOutCount.
@@ -186,7 +186,7 @@ contract M44_CashOutCountPropagationTest is Test {
 }
 
 /// @notice Mock 721 hook that returns adjusted cashOutCount and totalSupply values.
-contract Mock721HookM44 is IJBRulesetDataHook {
+contract Mock721Hook is IJBRulesetDataHook {
     uint256 internal immutable _cashOutCount;
     uint256 internal immutable _totalSupply;
 
