@@ -29,6 +29,10 @@ import {JBOmnichainDeployer} from "../src/JBOmnichainDeployer.sol";
 import {JBOmnichain721Config} from "../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../src/structs/JBSuckerDeploymentConfig.sol";
 
+interface IJBControllerProjectUriForTest {
+    function setUriOf(uint256 projectId, string calldata uri) external;
+}
+
 /// @notice Mock data hook that always reverts.
 contract RevertingDataHook is IJBRulesetDataHook {
     function beforePayRecordedWith(JBBeforePayRecordedContext calldata)
@@ -126,6 +130,16 @@ contract OmnichainDeployerAttacks is Test {
         // Default mocks.
         vm.mockCall(
             address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, projectId), abi.encode(projectOwner)
+        );
+        vm.mockCall(
+            address(projects),
+            abi.encodeWithSelector(IJBProjects.createFor.selector, address(deployer)),
+            abi.encode(projectId)
+        );
+        vm.mockCall(
+            address(projects),
+            abi.encodeWithSelector(bytes4(keccak256("safeTransferFrom(address,address,uint256)"))),
+            abi.encode()
         );
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.hasPermission.selector), abi.encode(true)
@@ -317,16 +331,7 @@ contract OmnichainDeployerAttacks is Test {
 
     function _launchProjectWithHook(address hook) internal {
         IJBController controller = IJBController(makeAddr("controller"));
-
-        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
-        );
-        vm.mockCall(
-            address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
-            abi.encode()
-        );
+        _mockLaunchProjectFor(controller);
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(hook, true, true);
@@ -428,5 +433,16 @@ contract OmnichainDeployerAttacks is Test {
     function _emptySuckerConfig() internal pure returns (JBSuckerDeploymentConfig memory config) {
         config.deployerConfigurations = new JBSuckerDeployerConfig[](0);
         config.salt = bytes32(0);
+    }
+
+    function _mockLaunchProjectFor(IJBController controller) internal {
+        vm.mockCall(
+            address(controller),
+            abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
+            abi.encode(uint256(block.timestamp))
+        );
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBControllerProjectUriForTest.setUriOf.selector), abi.encode()
+        );
     }
 }

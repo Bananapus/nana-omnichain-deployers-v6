@@ -38,6 +38,10 @@ import {JBOmnichain721Config} from "../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../src/structs/JBSuckerDeploymentConfig.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 
+interface IJBControllerProjectUriForTest {
+    function setUriOf(uint256 projectId, string calldata uri) external;
+}
+
 /// @title Tiered721HookComposition
 /// @notice Tests for the separated 721 hook storage and data hook composition.
 contract Tiered721HookComposition is Test {
@@ -72,9 +76,18 @@ contract Tiered721HookComposition is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.hasPermission.selector), abi.encode(true)
         );
-        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
         vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
+            address(projects),
+            abi.encodeWithSelector(IJBProjects.createFor.selector, address(deployer)),
+            abi.encode(projectId)
+        );
+        vm.mockCall(
+            address(controller),
+            abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
+            abi.encode(uint256(block.timestamp))
+        );
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBControllerProjectUriForTest.setUriOf.selector), abi.encode()
         );
         // Mock controllerOf on the deployer's immutable DIRECTORY.
         vm.mockCall(
@@ -98,7 +111,7 @@ contract Tiered721HookComposition is Test {
         vm.mockCall(hookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector), abi.encode());
         vm.mockCall(
             address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
+            abi.encodeWithSelector(bytes4(keccak256("safeTransferFrom(address,address,uint256)"))),
             abi.encode()
         );
         vm.mockCall(

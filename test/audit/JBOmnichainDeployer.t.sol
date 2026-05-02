@@ -121,6 +121,10 @@ contract JBOmnichainDeployerTest is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
+        JBOmnichainDeployer deployer = new JBOmnichainDeployer(
+            IJBSuckerRegistry(suckerRegistry), hookDeployer, permissions, projects, directory, address(0)
+        );
+
         vm.mockCall(
             address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, PROJECT_ID), abi.encode(projectOwner)
         );
@@ -139,14 +143,21 @@ contract JBOmnichainDeployerTest is Test {
             abi.encode(uint256(1000), new JBPayHookSpecification[](0))
         );
         vm.mockCall(
-            address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(PROJECT_ID - 1))
+            address(projects),
+            abi.encodeWithSelector(IJBProjects.createFor.selector, address(deployer)),
+            abi.encode(PROJECT_ID)
         );
         vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(PROJECT_ID)
+            address(controller),
+            abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
+            abi.encode(uint256(block.timestamp))
+        );
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(bytes4(keccak256("setUriOf(uint256,string)"))), abi.encode()
         );
         vm.mockCall(
             address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
+            abi.encodeWithSelector(bytes4(keccak256("safeTransferFrom(address,address,uint256)"))),
             abi.encode()
         );
         vm.mockCall(suckerRegistry, abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false));
@@ -157,10 +168,6 @@ contract JBOmnichainDeployerTest is Test {
         );
         vm.mockCall(
             suckerRegistry, abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector), abi.encode(uint256(0))
-        );
-
-        JBOmnichainDeployer deployer = new JBOmnichainDeployer(
-            IJBSuckerRegistry(suckerRegistry), hookDeployer, permissions, projects, directory, address(0)
         );
 
         JBCashOutHookSpecification[] memory emptySpecs = new JBCashOutHookSpecification[](0);

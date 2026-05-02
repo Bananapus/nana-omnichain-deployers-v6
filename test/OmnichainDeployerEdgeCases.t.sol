@@ -33,6 +33,10 @@ import {JBOmnichainDeployer} from "../src/JBOmnichainDeployer.sol";
 import {JBOmnichain721Config} from "../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../src/structs/JBSuckerDeploymentConfig.sol";
 
+interface IJBControllerProjectUriForTest {
+    function setUriOf(uint256 projectId, string calldata uri) external;
+}
+
 /// @notice Mock data hook that returns custom cashout values and grants mint permission.
 contract CustomCashOutHook is IJBRulesetDataHook {
     uint256 public cashOutTaxRateReturn;
@@ -138,6 +142,16 @@ contract OmnichainDeployerEdgeCases is Test {
             address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, projectId), abi.encode(projectOwner)
         );
         vm.mockCall(
+            address(projects),
+            abi.encodeWithSelector(IJBProjects.createFor.selector, address(deployer)),
+            abi.encode(projectId)
+        );
+        vm.mockCall(
+            address(projects),
+            abi.encodeWithSelector(bytes4(keccak256("safeTransferFrom(address,address,uint256)"))),
+            abi.encode()
+        );
+        vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.hasPermission.selector), abi.encode(true)
         );
 
@@ -180,16 +194,7 @@ contract OmnichainDeployerEdgeCases is Test {
     // =========================================================================
     function test_setup_revert_InvalidHook() public {
         IJBController controller = IJBController(makeAddr("controller"));
-
-        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
-        );
-        vm.mockCall(
-            address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
-            abi.encode()
-        );
+        _mockLaunchProjectFor(controller);
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(deployer), true, false);
@@ -211,23 +216,15 @@ contract OmnichainDeployerEdgeCases is Test {
     // =========================================================================
     // Error path: ProjectIdMismatch — controller returns wrong project ID
     // =========================================================================
-    function test_launch_revert_ProjectIdMismatch() public {
+    function test_launchProjectFor_usesReservedProjectId() public {
         IJBController controller = IJBController(makeAddr("controller"));
-
-        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
-        // Controller returns project ID 99 instead of expected 42.
-        vm.mockCall(
-            address(controller),
-            abi.encodeWithSelector(IJBController.launchProjectFor.selector),
-            abi.encode(uint256(99))
-        );
+        _mockLaunchProjectFor(controller);
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(0), false, false);
 
         JBOmnichain721Config memory empty721Config;
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_ProjectIdMismatch.selector);
-        deployer.launchProjectFor(
+        (uint256 returnedProjectId,,) = deployer.launchProjectFor(
             projectOwner,
             "test",
             empty721Config,
@@ -237,6 +234,8 @@ contract OmnichainDeployerEdgeCases is Test {
             _emptySuckerConfig(),
             controller
         );
+
+        assertEq(returnedProjectId, projectId, "should use reserved project ID");
     }
 
     // =========================================================================
@@ -665,16 +664,7 @@ contract OmnichainDeployerEdgeCases is Test {
 
     function _launchProjectWithHook(address hook) internal {
         IJBController controller = IJBController(makeAddr("controller"));
-
-        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
-        );
-        vm.mockCall(
-            address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
-            abi.encode()
-        );
+        _mockLaunchProjectFor(controller);
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(hook, true, false);
@@ -694,16 +684,7 @@ contract OmnichainDeployerEdgeCases is Test {
 
     function _launchProjectWithCustomCashOutHook(address hook) internal {
         IJBController controller = IJBController(makeAddr("controller"));
-
-        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
-        );
-        vm.mockCall(
-            address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
-            abi.encode()
-        );
+        _mockLaunchProjectFor(controller);
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(hook, false, true);
@@ -823,5 +804,16 @@ contract OmnichainDeployerEdgeCases is Test {
     function _emptySuckerConfig() internal pure returns (JBSuckerDeploymentConfig memory config) {
         config.deployerConfigurations = new JBSuckerDeployerConfig[](0);
         config.salt = bytes32(0);
+    }
+
+    function _mockLaunchProjectFor(IJBController controller) internal {
+        vm.mockCall(
+            address(controller),
+            abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
+            abi.encode(uint256(block.timestamp))
+        );
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBControllerProjectUriForTest.setUriOf.selector), abi.encode()
+        );
     }
 }

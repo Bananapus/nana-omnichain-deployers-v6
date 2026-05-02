@@ -32,6 +32,10 @@ import {JBSuckerDeploymentConfig} from "./structs/JBSuckerDeploymentConfig.sol";
 import {JBTiered721HookConfig} from "./structs/JBTiered721HookConfig.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
 
+interface IJBControllerProjectUri {
+    function setUriOf(uint256 projectId, string calldata uri) external;
+}
+
 /// @notice Deploys, manages, and operates Juicebox projects with suckers.
 // Project NFTs sent to this contract are not recoverable. The deployer does not
 // implement any NFT rescue mechanism beyond onERC721Received for JBProjects. This is acceptable
@@ -720,8 +724,8 @@ contract JBOmnichainDeployer is
         internal
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers)
     {
-        // Get the next project ID.
-        projectId = PROJECTS.count() + 1;
+        // Reserve the project ID up front so permissionless project creations cannot invalidate hook deployment.
+        projectId = PROJECTS.createFor(address(this));
 
         // Deploy a 721 hook and set up rulesets.
         hook = _deploy721Hook({projectId: projectId, config: deploy721Config});
@@ -732,18 +736,17 @@ contract JBOmnichainDeployer is
             use721ForCashOut: deploy721Config.useDataHookForCashOut
         });
 
-        // Launch the project, and sanity check the project ID.
-        // slither-disable-next-line reentrancy-benign
-        if (
-            projectId
-                != controller.launchProjectFor({
-                    owner: address(this),
-                    projectUri: projectUri,
-                    rulesetConfigurations: rulesetConfigurations,
-                    terminalConfigurations: terminalConfigurations,
-                    memo: memo
-                })
-        ) revert JBOmnichainDeployer_ProjectIdMismatch();
+        // Launch the rulesets for the reserved project.
+        // slither-disable-next-line unused-return
+        controller.launchRulesetsFor({
+            projectId: projectId,
+            rulesetConfigurations: rulesetConfigurations,
+            terminalConfigurations: terminalConfigurations,
+            memo: memo
+        });
+        if (bytes(projectUri).length != 0) {
+            IJBControllerProjectUri(address(controller)).setUriOf({projectId: projectId, uri: projectUri});
+        }
 
         // Transfer the hook's ownership to the project (now that the project NFT has been minted).
         JBOwnable(address(hook)).transferOwnershipToProject(projectId);

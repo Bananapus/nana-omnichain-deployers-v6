@@ -322,14 +322,18 @@ contract SplitCreditWeightTest is Test {
     /// @dev Launches a project through the deployer with an optional custom hook.
     function _launchProject(address customHook) internal {
         IJBController controller = IJBController(makeAddr("controller"));
-        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
-        );
         vm.mockCall(
             address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
-            abi.encode()
+            abi.encodeWithSelector(IJBProjects.createFor.selector, address(deployer)),
+            abi.encode(projectId)
+        );
+        vm.mockCall(
+            address(controller),
+            abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
+            abi.encode(uint256(block.timestamp))
+        );
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(bytes4(keccak256("setUriOf(uint256,string)"))), abi.encode()
         );
         // Mock safeTransferFrom for project NFT.
         vm.mockCall(
