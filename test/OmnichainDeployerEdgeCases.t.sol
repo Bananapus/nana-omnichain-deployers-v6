@@ -596,7 +596,7 @@ contract OmnichainDeployerEdgeCases is Test {
         JBOmnichain721Config memory empty721Config;
         vm.prank(projectOwner);
         vm.expectRevert();
-        deployer.launchRulesetsFor(projectId, empty721Config, configs, new JBTerminalConfig[](0), "", controller);
+        deployer.launchRulesetsFor(projectId, "", empty721Config, configs, new JBTerminalConfig[](0), "", controller);
     }
 
     // =========================================================================

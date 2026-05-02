@@ -505,6 +505,7 @@ contract Tiered721HookComposition is Test {
         vm.prank(projectOwner);
         (, IJB721TiersHook hook) = deployer.launchRulesetsFor({
             projectId: projectId,
+            projectUri: "",
             deploy721Config: JBOmnichain721Config({
                 deployTiersHookConfig: _emptyHookConfig(), useDataHookForCashOut: false, salt: bytes32(0)
             }),

@@ -346,7 +346,7 @@ contract TestJBOmnichainDeployer is Test {
 
         vm.prank(projectOwner);
         (uint256 rulesetId_, IJB721TiersHook hook) =
-            deployer.launchRulesetsFor(projectId, configs, terminals, "", controller);
+            deployer.launchRulesetsFor(projectId, "", configs, terminals, "", controller);
 
         assertEq(rulesetId_, block.timestamp, "should return ruleset ID");
         assertEq(address(hook), hookAddr, "should deploy 721 hook");

@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {LibClone} from "solady/src/utils/LibClone.sol";
 
 contract DeterministicPeerDriftTest is Test {
+    // forge-lint: disable-next-line(unsafe-typecast)
     bytes32 internal constant USER_SALT = bytes32("nemesis-peer-drift");
 
     address internal constant USER = address(0x1111111111111111111111111111111111111111);

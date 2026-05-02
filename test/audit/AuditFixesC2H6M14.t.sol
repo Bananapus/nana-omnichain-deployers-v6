@@ -285,6 +285,7 @@ contract AuditFixesC2H6M14 is Test {
         vm.prank(projectOwner);
         deployer.launchRulesetsFor(
             PROJECT_ID,
+            "",
             JBOmnichain721Config({
                 deployTiersHookConfig: _empty721HookConfig(), useDataHookForCashOut: false, salt: bytes32(0)
             }),
@@ -314,6 +315,7 @@ contract AuditFixesC2H6M14 is Test {
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector);
         deployer.launchRulesetsFor(
             PROJECT_ID,
+            "",
             JBOmnichain721Config({
                 deployTiersHookConfig: _empty721HookConfig(), useDataHookForCashOut: false, salt: bytes32(0)
             }),
@@ -346,6 +348,7 @@ contract AuditFixesC2H6M14 is Test {
         vm.prank(projectOwner);
         deployer.launchRulesetsFor(
             PROJECT_ID,
+            "",
             JBOmnichain721Config({
                 deployTiersHookConfig: _empty721HookConfig(), useDataHookForCashOut: false, salt: bytes32(0)
             }),

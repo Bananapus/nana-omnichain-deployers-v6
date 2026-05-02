@@ -137,7 +137,7 @@ contract ValidateController is Test {
         JBOmnichain721Config memory empty721Config;
 
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector);
-        deployer.launchRulesetsFor(projectId, empty721Config, configs, terminals, "memo", fakeController);
+        deployer.launchRulesetsFor(projectId, "", empty721Config, configs, terminals, "memo", fakeController);
     }
 
     // ──────────────────── Helpers

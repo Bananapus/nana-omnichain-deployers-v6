@@ -79,6 +79,6 @@ contract EmptyRulesetConfigurations is Test {
         JBTerminalConfig[] memory terminals = new JBTerminalConfig[](0);
 
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_NoRulesetConfigurations.selector);
-        deployer.launchRulesetsFor(1, empty, terminals, "memo", controller);
+        deployer.launchRulesetsFor(1, "", empty, terminals, "memo", controller);
     }
 }
