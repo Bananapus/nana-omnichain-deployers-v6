@@ -919,11 +919,13 @@ contract JBOmnichainDeployer is
 
             // Store the 721 hook config per-ruleset.
             // slither-disable-next-line reentrancy-benign
+            // forge-lint: disable-next-line(block-timestamp)
             _tiered721HookOf[projectId][block.timestamp + i] =
                 JBTiered721HookConfig({hook: hook721, useDataHookForCashOut: use721ForCashOut});
 
             // Store custom hook from metadata (same as _setup).
             if (rulesetConfigurations[i].metadata.dataHook != address(0)) {
+                // forge-lint: disable-next-line(block-timestamp)
                 _extraDataHookOf[projectId][block.timestamp + i] = JBDeployerHookConfig({
                     dataHook: IJBRulesetDataHook(rulesetConfigurations[i].metadata.dataHook),
                     useDataHookForPay: rulesetConfigurations[i].metadata.useDataHookForPay,
