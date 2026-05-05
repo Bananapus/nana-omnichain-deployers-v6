@@ -114,6 +114,7 @@ contract ForwardedPermissionsTest is Test {
             abi.encode(
                 JBRuleset({
                     cycleNumber: 1,
+                    // forge-lint: disable-next-line(unsafe-typecast)
                     id: uint48(RULESET_ID),
                     basedOnId: 0,
                     start: uint48(block.timestamp),
@@ -163,7 +164,7 @@ contract ForwardedPermissionsTest is Test {
             )
         );
         deployer.launchRulesetsFor(
-            PROJECT_ID, configs, new JBTerminalConfig[](0), "memo", IJBController(address(controller))
+            PROJECT_ID, "", configs, new JBTerminalConfig[](0), "memo", IJBController(address(controller))
         );
     }
 

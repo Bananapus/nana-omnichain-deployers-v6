@@ -285,6 +285,7 @@ contract AuditFixesC2H6M14 is Test {
         vm.prank(projectOwner);
         deployer.launchRulesetsFor(
             PROJECT_ID,
+            "",
             JBOmnichain721Config({
                 deployTiersHookConfig: _empty721HookConfig(), useDataHookForCashOut: false, salt: bytes32(0)
             }),
@@ -314,6 +315,7 @@ contract AuditFixesC2H6M14 is Test {
         vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector);
         deployer.launchRulesetsFor(
             PROJECT_ID,
+            "",
             JBOmnichain721Config({
                 deployTiersHookConfig: _empty721HookConfig(), useDataHookForCashOut: false, salt: bytes32(0)
             }),
@@ -346,6 +348,7 @@ contract AuditFixesC2H6M14 is Test {
         vm.prank(projectOwner);
         deployer.launchRulesetsFor(
             PROJECT_ID,
+            "",
             JBOmnichain721Config({
                 deployTiersHookConfig: _empty721HookConfig(), useDataHookForCashOut: false, salt: bytes32(0)
             }),
@@ -362,14 +365,21 @@ contract AuditFixesC2H6M14 is Test {
 
     function _launchProject() internal {
         vm.mockCall(
-            address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(PROJECT_ID - 1))
+            address(projects),
+            abi.encodeWithSelector(IJBProjects.createFor.selector, address(deployer)),
+            abi.encode(PROJECT_ID)
         );
         vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(PROJECT_ID)
+            address(controller),
+            abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
+            abi.encode(uint256(block.timestamp))
+        );
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(bytes4(keccak256("setUriOf(uint256,string)"))), abi.encode()
         );
         vm.mockCall(
             address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
+            abi.encodeWithSelector(bytes4(keccak256("safeTransferFrom(address,address,uint256)"))),
             abi.encode()
         );
 
@@ -394,14 +404,21 @@ contract AuditFixesC2H6M14 is Test {
 
     function _launchProjectWithExtraHook(address extraHookAddr) internal {
         vm.mockCall(
-            address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(PROJECT_ID - 1))
+            address(projects),
+            abi.encodeWithSelector(IJBProjects.createFor.selector, address(deployer)),
+            abi.encode(PROJECT_ID)
         );
         vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(PROJECT_ID)
+            address(controller),
+            abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
+            abi.encode(uint256(block.timestamp))
+        );
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(bytes4(keccak256("setUriOf(uint256,string)"))), abi.encode()
         );
         vm.mockCall(
             address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
+            abi.encodeWithSelector(bytes4(keccak256("safeTransferFrom(address,address,uint256)"))),
             abi.encode()
         );
 

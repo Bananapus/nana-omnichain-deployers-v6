@@ -189,7 +189,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
             jbRulesets(),
             hookStore,
             jbSplits(),
-            new JB721CheckpointsDeployer(),
+            new JB721CheckpointsDeployer(hookStore),
             address(0)
         );
         addressRegistry = new JBAddressRegistry();

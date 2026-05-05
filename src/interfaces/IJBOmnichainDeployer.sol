@@ -100,6 +100,7 @@ interface IJBOmnichainDeployer {
 
     /// @notice Launches new rulesets for a project with a 721 tiers hook attached.
     /// @param projectId The ID of the project to launch the rulesets for.
+    /// @param projectUri The project's metadata URI. Pass an empty string to leave it unchanged.
     /// @param deploy721Config The 721 hook deployment config (hook config + cash-out flag + salt).
     /// @param rulesetConfigurations The rulesets to launch. Custom data hooks are read from each ruleset's metadata.
     /// @param terminalConfigurations The terminals to set up for the project.
@@ -109,6 +110,7 @@ interface IJBOmnichainDeployer {
     /// @return hook The 721 tiers hook that was deployed for the project.
     function launchRulesetsFor(
         uint256 projectId,
+        string calldata projectUri,
         JBOmnichain721Config memory deploy721Config,
         JBRulesetConfig[] memory rulesetConfigurations,
         JBTerminalConfig[] calldata terminalConfigurations,
@@ -120,6 +122,7 @@ interface IJBOmnichainDeployer {
 
     /// @notice Launches new rulesets for a project with a default (empty-tier) 721 hook.
     /// @param projectId The ID of the project to launch the rulesets for.
+    /// @param projectUri The project's metadata URI. Pass an empty string to leave it unchanged.
     /// @param rulesetConfigurations The rulesets to launch.
     /// @param terminalConfigurations The terminals to set up for the project.
     /// @param memo A memo to pass along to the emitted event.
@@ -128,6 +131,7 @@ interface IJBOmnichainDeployer {
     /// @return hook The 721 tiers hook that was deployed for the project.
     function launchRulesetsFor(
         uint256 projectId,
+        string calldata projectUri,
         JBRulesetConfig[] memory rulesetConfigurations,
         JBTerminalConfig[] calldata terminalConfigurations,
         string calldata memo,

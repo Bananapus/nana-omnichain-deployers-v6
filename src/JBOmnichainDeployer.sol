@@ -252,6 +252,7 @@ contract JBOmnichainDeployer is
     /// @notice Launches new rulesets for a project with a 721 tiers hook attached, using this contract as the data
     /// hook.
     /// @param projectId The ID of the project to launch the rulesets for.
+    /// @param projectUri The project's metadata URI. Pass an empty string to leave it unchanged.
     /// @param deploy721Config The 721 hook deployment config (hook config + cash-out flag + salt).
     /// @param rulesetConfigurations The rulesets to launch. Custom data hooks are read from each ruleset's metadata.
     /// @param terminalConfigurations The terminals to set up for the project.
@@ -261,6 +262,7 @@ contract JBOmnichainDeployer is
     /// @return hook The 721 tiers hook that was deployed for the project.
     function launchRulesetsFor(
         uint256 projectId,
+        string calldata projectUri,
         JBOmnichain721Config memory deploy721Config,
         JBRulesetConfig[] memory rulesetConfigurations,
         JBTerminalConfig[] calldata terminalConfigurations,
@@ -273,6 +275,7 @@ contract JBOmnichainDeployer is
     {
         return _launchRulesetsFor({
             projectId: projectId,
+            projectUri: projectUri,
             deploy721Config: deploy721Config,
             rulesetConfigurations: rulesetConfigurations,
             terminalConfigurations: terminalConfigurations,
@@ -284,6 +287,7 @@ contract JBOmnichainDeployer is
     /// @notice Launches new rulesets for a project with a default (empty-tier) 721 hook.
     /// @dev Uses `baseCurrency` from the first ruleset and `decimals = 18` for the default 721 config.
     /// @param projectId The ID of the project to launch the rulesets for.
+    /// @param projectUri The project's metadata URI. Pass an empty string to leave it unchanged.
     /// @param rulesetConfigurations The rulesets to launch.
     /// @param terminalConfigurations The terminals to set up for the project.
     /// @param memo A memo to pass along to the emitted event.
@@ -292,6 +296,7 @@ contract JBOmnichainDeployer is
     /// @return hook The 721 tiers hook that was deployed for the project.
     function launchRulesetsFor(
         uint256 projectId,
+        string calldata projectUri,
         JBRulesetConfig[] memory rulesetConfigurations,
         JBTerminalConfig[] calldata terminalConfigurations,
         string calldata memo,
@@ -303,6 +308,7 @@ contract JBOmnichainDeployer is
     {
         return _launchRulesetsFor({
             projectId: projectId,
+            projectUri: projectUri,
             deploy721Config: _default721Config(rulesetConfigurations),
             rulesetConfigurations: rulesetConfigurations,
             terminalConfigurations: terminalConfigurations,
@@ -720,11 +726,12 @@ contract JBOmnichainDeployer is
         internal
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers)
     {
-        // Get the next project ID.
-        projectId = PROJECTS.count() + 1;
+        // Reserve the project ID up front so permissionless project creations cannot invalidate hook deployment.
+        projectId = PROJECTS.createFor(address(this));
 
         // Deploy a 721 hook and set up rulesets.
         hook = _deploy721Hook({projectId: projectId, config: deploy721Config});
+        // slither-disable-next-line reentrancy-benign
         rulesetConfigurations = _setup721({
             projectId: projectId,
             rulesetConfigurations: rulesetConfigurations,
@@ -732,18 +739,16 @@ contract JBOmnichainDeployer is
             use721ForCashOut: deploy721Config.useDataHookForCashOut
         });
 
-        // Launch the project, and sanity check the project ID.
-        // slither-disable-next-line reentrancy-benign
-        if (
-            projectId
-                != controller.launchProjectFor({
-                    owner: address(this),
-                    projectUri: projectUri,
-                    rulesetConfigurations: rulesetConfigurations,
-                    terminalConfigurations: terminalConfigurations,
-                    memo: memo
-                })
-        ) revert JBOmnichainDeployer_ProjectIdMismatch();
+        // Launch the rulesets for the reserved project.
+        // slither-disable-start unused-return
+        controller.launchRulesetsFor({
+            projectId: projectId,
+            projectUri: projectUri,
+            rulesetConfigurations: rulesetConfigurations,
+            terminalConfigurations: terminalConfigurations,
+            memo: memo
+        });
+        // slither-disable-end unused-return
 
         // Transfer the hook's ownership to the project (now that the project NFT has been minted).
         JBOwnable(address(hook)).transferOwnershipToProject(projectId);
@@ -766,6 +771,7 @@ contract JBOmnichainDeployer is
     /// @notice Internal implementation of `launchRulesetsFor`.
     function _launchRulesetsFor(
         uint256 projectId,
+        string calldata projectUri,
         JBOmnichain721Config memory deploy721Config,
         JBRulesetConfig[] memory rulesetConfigurations,
         JBTerminalConfig[] calldata terminalConfigurations,
@@ -775,15 +781,19 @@ contract JBOmnichainDeployer is
         internal
         returns (uint256 rulesetId, IJB721TiersHook hook)
     {
+        address owner = PROJECTS.ownerOf(projectId);
+
         // Enforce permissions. Use LAUNCH_RULESETS (not QUEUE_RULESETS) because this function calls
         // controller.launchRulesetsFor, which sets terminals and requires the broader launch permission.
-        _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.LAUNCH_RULESETS
-        });
+        _requirePermissionFrom({account: owner, projectId: projectId, permissionId: JBPermissionIds.LAUNCH_RULESETS});
 
-        _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.SET_TERMINALS
-        });
+        _requirePermissionFrom({account: owner, projectId: projectId, permissionId: JBPermissionIds.SET_TERMINALS});
+
+        if (bytes(projectUri).length != 0) {
+            _requirePermissionFrom({
+                account: owner, projectId: projectId, permissionId: JBPermissionIds.SET_PROJECT_URI
+            });
+        }
 
         // Validate that the controller matches the project's controller in the directory.
         _validateController({projectId: projectId, controller: controller});
@@ -802,6 +812,7 @@ contract JBOmnichainDeployer is
         // Configure the rulesets.
         rulesetId = controller.launchRulesetsFor({
             projectId: projectId,
+            projectUri: projectUri,
             rulesetConfigurations: rulesetConfigurations,
             terminalConfigurations: terminalConfigurations,
             memo: memo
@@ -830,6 +841,7 @@ contract JBOmnichainDeployer is
         // Revert if the project already had rulesets queued in this block, which would make our
         // `block.timestamp + i` ruleset ID prediction incorrect.
         uint256 latestRulesetId = controller.RULESETS().latestRulesetIdOf(projectId);
+        // forge-lint: disable-next-line(block-timestamp)
         if (latestRulesetId >= block.timestamp) {
             revert JBOmnichainDeployer_RulesetIdsUnpredictable();
         }
@@ -910,11 +922,13 @@ contract JBOmnichainDeployer is
 
             // Store the 721 hook config per-ruleset.
             // slither-disable-next-line reentrancy-benign
+            // forge-lint: disable-next-line(block-timestamp)
             _tiered721HookOf[projectId][block.timestamp + i] =
                 JBTiered721HookConfig({hook: hook721, useDataHookForCashOut: use721ForCashOut});
 
             // Store custom hook from metadata (same as _setup).
             if (rulesetConfigurations[i].metadata.dataHook != address(0)) {
+                // forge-lint: disable-next-line(block-timestamp)
                 _extraDataHookOf[projectId][block.timestamp + i] = JBDeployerHookConfig({
                     dataHook: IJBRulesetDataHook(rulesetConfigurations[i].metadata.dataHook),
                     useDataHookForPay: rulesetConfigurations[i].metadata.useDataHookForPay,

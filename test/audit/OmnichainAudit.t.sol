@@ -79,7 +79,7 @@ contract OmnichainAudit is Test {
 
         vm.prank(projectOwner);
         (uint256 rulesetId,) =
-            deployer.launchRulesetsFor(PROJECT_ID, configs, new JBTerminalConfig[](0), "memo", controller);
+            deployer.launchRulesetsFor(PROJECT_ID, "", configs, new JBTerminalConfig[](0), "memo", controller);
 
         // Verify the call succeeded and returned a valid rulesetId.
         assertGt(rulesetId, 0, "launchRulesetsFor should succeed for fresh project with no controller");
@@ -126,7 +126,9 @@ contract OmnichainAudit is Test {
         );
 
         JBSuckerDeploymentConfig memory config = JBSuckerDeploymentConfig({
-            deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32("SUCKER_SALT")
+            deployerConfigurations: new JBSuckerDeployerConfig[](0),
+            // forge-lint: disable-next-line(unsafe-typecast)
+            salt: bytes32("SUCKER_SALT")
         });
 
         vm.prank(operator);

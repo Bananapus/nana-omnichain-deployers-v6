@@ -489,7 +489,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         uint16 reservedPercent
     )
         internal
-        returns (uint256 projectId)
+        returns (uint256 plainProjectId)
     {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
@@ -538,7 +538,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         config721.deployTiersHookConfig.tiersConfig.currency = uint32(uint160(JBConstants.NATIVE_TOKEN));
         config721.deployTiersHookConfig.tiersConfig.decimals = 18;
 
-        (projectId,,) = omnichainDeployer.launchProjectFor({
+        (plainProjectId,,) = omnichainDeployer.launchProjectFor({
             owner: multisig(),
             projectUri: "ipfs://reserved-test",
             deploy721Config: config721,

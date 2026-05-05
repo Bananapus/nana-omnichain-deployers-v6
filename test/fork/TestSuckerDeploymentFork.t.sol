@@ -52,6 +52,7 @@ contract TestSuckerDeploymentFork is OmnichainForkTestBase {
             deployer: opSuckerDeployer,
             directory: jbDirectory(),
             permissions: jbPermissions(),
+            prices: address(jbPrices()),
             tokens: jbTokens(),
             feeProjectId: 1,
             registry: suckerRegistry,
@@ -76,8 +77,9 @@ contract TestSuckerDeploymentFork is OmnichainForkTestBase {
         });
 
         JBSuckerDeployerConfig[] memory deployerConfigs = new JBSuckerDeployerConfig[](1);
-        deployerConfigs[0] =
-            JBSuckerDeployerConfig({deployer: IJBSuckerDeployer(address(opSuckerDeployer)), mappings: mappings});
+        deployerConfigs[0] = JBSuckerDeployerConfig({
+            deployer: IJBSuckerDeployer(address(opSuckerDeployer)), peer: bytes32(0), mappings: mappings
+        });
 
         return JBSuckerDeploymentConfig({
             deployerConfigurations: deployerConfigs,

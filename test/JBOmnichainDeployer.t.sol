@@ -34,6 +34,10 @@ import {JBOmnichain721Config} from "../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../src/structs/JBSuckerDeploymentConfig.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 
+interface IJBControllerProjectUriForTest {
+    function setUriOf(uint256 projectId, string calldata uri) external;
+}
+
 /// @notice Unit tests for JBOmnichainDeployer.
 contract TestJBOmnichainDeployer is Test {
     JBOmnichainDeployer deployer;
@@ -71,6 +75,16 @@ contract TestJBOmnichainDeployer is Test {
         // Default mocks.
         vm.mockCall(
             address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, projectId), abi.encode(projectOwner)
+        );
+        vm.mockCall(
+            address(projects),
+            abi.encodeWithSelector(IJBProjects.createFor.selector, address(deployer)),
+            abi.encode(projectId)
+        );
+        vm.mockCall(
+            address(projects),
+            abi.encodeWithSelector(bytes4(keccak256("safeTransferFrom(address,address,uint256)"))),
+            abi.encode()
         );
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.hasPermission.selector), abi.encode(true)
@@ -160,16 +174,9 @@ contract TestJBOmnichainDeployer is Test {
         // We need to call a function that stores the data hook mapping internally.
         // Since _dataHookOf is internal, we set it up via launchProjectFor.
 
-        // Mock controller.launchProjectFor.
+        // Mock controller.launchRulesetsFor for the reserved project.
         IJBController controller = IJBController(makeAddr("controller"));
-        vm.mockCall(
-            address(projects),
-            abi.encodeWithSelector(IJBProjects.count.selector),
-            abi.encode(uint256(41)) // next will be 42
-        );
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
-        );
+        _mockLaunchProjectFor(controller);
 
         // Create ruleset config with a data hook.
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
@@ -177,14 +184,7 @@ contract TestJBOmnichainDeployer is Test {
 
         JBTerminalConfig[] memory terminals = new JBTerminalConfig[](0);
 
-        // We need to mock JBSuckerDeploymentConfig (no suckers for simplicity).
         // Call launchProjectFor to store the data hook.
-        vm.mockCall(
-            address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
-            abi.encode()
-        );
-
         JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
             projectOwner, "test", empty721Config, configs, terminals, "", _emptySuckerConfig(), controller
@@ -299,15 +299,7 @@ contract TestJBOmnichainDeployer is Test {
 
     function test_launchProjectFor_simplified_usesDefaultCurrency() public {
         IJBController controller = IJBController(makeAddr("controller"));
-        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
-        );
-        vm.mockCall(
-            address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
-            abi.encode()
-        );
+        _mockLaunchProjectFor(controller);
 
         uint32 expectedCurrency = 2; // USD
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
@@ -354,7 +346,7 @@ contract TestJBOmnichainDeployer is Test {
 
         vm.prank(projectOwner);
         (uint256 rulesetId_, IJB721TiersHook hook) =
-            deployer.launchRulesetsFor(projectId, configs, terminals, "", controller);
+            deployer.launchRulesetsFor(projectId, "", configs, terminals, "", controller);
 
         assertEq(rulesetId_, block.timestamp, "should return ruleset ID");
         assertEq(address(hook), hookAddr, "should deploy 721 hook");
@@ -369,15 +361,7 @@ contract TestJBOmnichainDeployer is Test {
         IJBController controller = IJBController(makeAddr("controller"));
         IJBRulesets rulesets = IJBRulesets(makeAddr("rulesets"));
 
-        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
-        );
-        vm.mockCall(
-            address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
-            abi.encode()
-        );
+        _mockLaunchProjectFor(controller);
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(0), false, false);
@@ -458,15 +442,7 @@ contract TestJBOmnichainDeployer is Test {
         IJBController controller = IJBController(makeAddr("controller"));
         IJBRulesets rulesets = IJBRulesets(makeAddr("rulesets"));
 
-        vm.mockCall(address(projects), abi.encodeWithSelector(IJBProjects.count.selector), abi.encode(uint256(41)));
-        vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBController.launchProjectFor.selector), abi.encode(projectId)
-        );
-        vm.mockCall(
-            address(projects),
-            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint256)"))),
-            abi.encode()
-        );
+        _mockLaunchProjectFor(controller);
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(0), false, false);
@@ -635,5 +611,16 @@ contract TestJBOmnichainDeployer is Test {
     function _emptySuckerConfig() internal pure returns (JBSuckerDeploymentConfig memory config) {
         config.deployerConfigurations = new JBSuckerDeployerConfig[](0);
         config.salt = bytes32(0);
+    }
+
+    function _mockLaunchProjectFor(IJBController controller) internal {
+        vm.mockCall(
+            address(controller),
+            abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
+            abi.encode(uint256(block.timestamp))
+        );
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBControllerProjectUriForTest.setUriOf.selector), abi.encode()
+        );
     }
 }
