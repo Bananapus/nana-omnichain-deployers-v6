@@ -32,11 +32,17 @@ import {JBSuckerDeploymentConfig} from "./structs/JBSuckerDeploymentConfig.sol";
 import {JBTiered721HookConfig} from "./structs/JBTiered721HookConfig.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
 
-/// @notice Deploys, manages, and operates Juicebox projects with suckers.
-// Project NFTs sent to this contract are not recoverable. The deployer does not
-// implement any NFT rescue mechanism beyond onERC721Received for JBProjects. This is acceptable
-// because the deployer should never own project NFTs — it creates projects and transfers ownership
-// in the same transaction.
+/// @notice One-stop deployer and data hook wrapper for omnichain Juicebox projects. Launches a project with a tiered
+/// 721 hook and cross-chain suckers in a single transaction, then inserts itself as every ruleset's data hook so it can
+/// coordinate between the 721 hook, an optional extra hook (e.g. buyback), and the sucker registry at pay/cash-out
+/// time. At pay time it merges weight and hook specifications from both the 721 hook and the extra hook. At cash-out
+/// time it
+/// computes cross-chain total supply and surplus (so the bonding curve reflects all chains), grants suckers 0% cash-out
+/// tax, and delegates tax-rate adjustments to the underlying hooks.
+/// @dev Project NFTs sent to this contract are not recoverable. The deployer does not implement any NFT rescue
+/// mechanism beyond `onERC721Received` for `JBProjects`. This is acceptable because the deployer should never own
+/// project NFTs —
+/// it creates projects and transfers ownership in the same transaction.
 contract JBOmnichainDeployer is
     ERC2771Context,
     JBPermissioned,
@@ -142,10 +148,12 @@ contract JBOmnichainDeployer is
     // ---------------------- external transactions ---------------------- //
     //*********************************************************************//
 
-    /// @notice Deploy new suckers for an existing project.
-    /// @dev Only the juicebox's owner or an operator with `JBPermissionIds.DEPLOY_SUCKERS` can call this entrypoint.
-    /// The downstream registry call also maps the configured tokens on each newly created sucker, so the same
-    /// end-to-end operation depends on the project's token-mapping authority being arranged for the registry.
+    /// @notice Deploy new cross-chain suckers for an existing project. Each sucker enables token bridging between this
+    /// chain and a peer chain. The registry also maps configured tokens on each new sucker in the same call.
+    /// @dev Only the project's owner or an operator with `JBPermissionIds.DEPLOY_SUCKERS` can call this. The salt
+    /// includes `msg.sender` for replay protection — the same sender must call on both chains for deterministic
+    /// address
+    /// matching.
     /// @param projectId The ID of the project to deploy suckers for.
     /// @param suckerDeploymentConfiguration The suckers to set up for the project.
     function deploySuckersFor(
@@ -388,8 +396,13 @@ contract JBOmnichainDeployer is
     // ------------------------- external views -------------------------- //
     //*********************************************************************//
 
-    /// @notice Allow cash outs from suckers without a tax, and compute cross-chain tax supply for non-sucker cash outs.
-    /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a cash out.
+    /// @notice Called by the terminal before recording a cash out. Suckers get 0% tax so bridged tokens redeem at face
+    /// value. For all other holders, this function aggregates total supply and surplus across all peer chains so the
+    /// bonding curve reflects the project's global state, then delegates to the 721 hook and extra hook for further
+    /// adjustments.
+    /// @dev Part of `IJBRulesetDataHook`. The 721 hook's returned `totalSupply` and `effectiveSurplusValue` are used
+    /// when it handles cash outs (NFT redemptions use local denominators). Otherwise this contract's cross-chain values
+    /// take precedence.
     /// @param context Standard Juicebox cash out context. See `JBBeforeCashOutRecordedContext`.
     /// @return cashOutTaxRate The cash out tax rate, which influences the amount of terminal tokens which get cashed
     /// out.
@@ -503,8 +516,13 @@ contract JBOmnichainDeployer is
         return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
     }
 
-    /// @notice Forward the call to the original data hook.
-    /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a payment.
+    /// @notice Called by the terminal before recording a payment. Coordinates the 721 hook (which handles tier-based
+    /// NFT minting and split deductions) with the extra hook (e.g. buyback, which may swap for a better token price).
+    /// Merges
+    /// their weight adjustments and hook specifications into a single response for the terminal.
+    /// @dev Part of `IJBRulesetDataHook`. The 721 hook's weight already accounts for tier-split deductions. The extra
+    /// hook receives the post-split amount so it only routes funds actually entering the project. If both return
+    /// specifications, the 721 spec comes first.
     /// @param context Standard Juicebox payment context. See `JBBeforePayRecordedContext`.
     /// @return weight The weight which project tokens are minted relative to. This can be used to customize how many
     /// tokens get minted by a payment.
@@ -624,8 +642,9 @@ contract JBOmnichainDeployer is
         return _extraDataHookOf[projectId][rulesetId];
     }
 
-    /// @notice A flag indicating whether an address has permission to mint a project's tokens on-demand.
-    /// @dev A project's data hook can allow any address to mint its tokens.
+    /// @notice Returns whether an address may mint a project's tokens on-demand. Suckers always get mint permission (so
+    /// bridged tokens can be minted on the destination chain). Otherwise delegates to the extra data hook.
+    /// @dev Part of `IJBRulesetDataHook`. The 721 hook never grants mint permission, so only the extra hook is checked.
     /// @param projectId The ID of the project whose token can be minted.
     /// @param ruleset The ruleset to check the token minting permission of.
     /// @param addr The address to check the token minting permission of.
@@ -899,9 +918,11 @@ contract JBOmnichainDeployer is
         });
     }
 
-    /// @notice Sets up a project's rulesets with a 721 hook.
+    /// @notice Wires up each ruleset so this contract acts as the data hook wrapper. Stores the 721 hook and any extra
+    /// data hook (from the ruleset's metadata) in per-project/per-ruleset mappings, then overwrites each ruleset's
+    /// metadata to point at this contract with both pay and cash-out delegation enabled.
     /// @dev Stores the 721 hook in `_tiered721HookOf` per-ruleset and any custom hook (from metadata) in
-    /// `_extraDataHookOf`.
+    /// `_extraDataHookOf`. Ruleset IDs are predicted as `block.timestamp + i`.
     /// @param projectId The ID of the project to set up.
     /// @param rulesetConfigurations The rulesets to set up.
     /// @param hook721 The 721 tiers hook.

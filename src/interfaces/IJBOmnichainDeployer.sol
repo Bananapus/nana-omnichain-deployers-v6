@@ -9,7 +9,10 @@ import {JBDeployerHookConfig} from "../structs/JBDeployerHookConfig.sol";
 import {JBOmnichain721Config} from "../structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../structs/JBSuckerDeploymentConfig.sol";
 
-/// @notice Deploys Juicebox projects with omnichain sucker support.
+/// @notice Interface for the omnichain deployer — a one-stop contract that launches Juicebox projects with a tiered
+/// 721
+/// hook and cross-chain suckers, then serves as the data hook wrapper that coordinates pay/cash-out logic across all
+/// chains.
 interface IJBOmnichainDeployer {
     /// @notice Get the extra data hook for a project and ruleset.
     /// @param projectId The ID of the project to get the extra data hook for.
