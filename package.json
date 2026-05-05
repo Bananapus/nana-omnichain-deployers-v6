@@ -1,6 +1,6 @@
 {
   "name": "@bananapus/omnichain-deployers-v6",
-  "version": "0.0.35",
+  "version": "0.0.36",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -16,7 +16,7 @@
     "src/"
   ],
   "engines": {
-    "node": ">=20.0.0"
+    "node": "25.9.0"
   },
   "scripts": {
     "test": "forge test",
@@ -30,7 +30,7 @@
     "@bananapus/core-v6": "0.0.39",
     "@bananapus/ownable-v6": "0.0.24",
     "@bananapus/permission-ids-v6": "0.0.22",
-    "@bananapus/suckers-v6": "0.0.32",
+    "@bananapus/suckers-v6": "0.0.34",
     "@openzeppelin/contracts": "5.6.1"
   },
   "devDependencies": {
