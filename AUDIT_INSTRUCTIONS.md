@@ -25,5 +25,5 @@ In scope:
 ## Verification
 
 - `npm install`
-- `forge build`
-- `forge test`
+- `forge build --deny notes`
+- `forge test --deny notes --fail-fast --summary --detailed --skip "*/script/**"`

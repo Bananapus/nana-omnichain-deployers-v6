@@ -731,6 +731,7 @@ contract JBOmnichainDeployer is
 
         // Deploy a 721 hook and set up rulesets.
         hook = _deploy721Hook({projectId: projectId, config: deploy721Config});
+        // slither-disable-next-line reentrancy-benign
         rulesetConfigurations = _setup721({
             projectId: projectId,
             rulesetConfigurations: rulesetConfigurations,
@@ -739,7 +740,7 @@ contract JBOmnichainDeployer is
         });
 
         // Launch the rulesets for the reserved project.
-        // slither-disable-next-line unused-return
+        // slither-disable-start unused-return
         controller.launchRulesetsFor({
             projectId: projectId,
             projectUri: projectUri,
@@ -747,6 +748,7 @@ contract JBOmnichainDeployer is
             terminalConfigurations: terminalConfigurations,
             memo: memo
         });
+        // slither-disable-end unused-return
 
         // Transfer the hook's ownership to the project (now that the project NFT has been minted).
         JBOwnable(address(hook)).transferOwnershipToProject(projectId);
@@ -839,6 +841,7 @@ contract JBOmnichainDeployer is
         // Revert if the project already had rulesets queued in this block, which would make our
         // `block.timestamp + i` ruleset ID prediction incorrect.
         uint256 latestRulesetId = controller.RULESETS().latestRulesetIdOf(projectId);
+        // forge-lint: disable-next-line(block-timestamp)
         if (latestRulesetId >= block.timestamp) {
             revert JBOmnichainDeployer_RulesetIdsUnpredictable();
         }

@@ -1,6 +1,6 @@
 # Changelog
 
-## v6 post-audit (M-11 fix)
+## v6 carry-forward hook fix
 
 - **Carry-forward hook selection improved.** `queueRulesetsOf` now checks `latestQueuedOf(projectId)` before falling back to `currentOf(projectId)` when carrying forward a 721 hook. Previously it only read `currentOf`, which could miss a recently queued (and approved) ruleset's hook config. The source ruleset must have approval status `Approved` or `Empty` and a stored hook config in the deployer.
 - The `useDataHookForCashOut` flag is preserved from whichever source ruleset is selected during carry-forward.
