@@ -327,10 +327,10 @@ contract JBOmnichainDeployer is
 
     /// @dev Make sure this contract can only receive project NFTs minted from `JBProjects` (not transferred).
     function onERC721Received(address, address from, uint256, bytes calldata) external view returns (bytes4) {
-        // Make sure the 721 received is from the `JBProjects` contract.
-        if (msg.sender != address(PROJECTS)) revert JBOmnichainDeployer_UnexpectedNFTReceived();
-        // Only accept mints (from == address(0)), not transfers of existing project NFTs.
-        if (from != address(0)) revert JBOmnichainDeployer_UnexpectedNFTReceived();
+        // Only accept mints (from == address(0)) from the `JBProjects` contract, not arbitrary transfers.
+        if (msg.sender != address(PROJECTS) || from != address(0)) {
+            revert JBOmnichainDeployer_UnexpectedNFTReceived();
+        }
 
         return IERC721Receiver.onERC721Received.selector;
     }
