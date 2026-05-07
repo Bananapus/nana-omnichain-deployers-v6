@@ -200,7 +200,11 @@ contract OmnichainDeployerEdgeCases is Test {
         configs[0] = _makeRulesetConfig(address(deployer), true, false);
 
         JBOmnichain721Config memory empty721Config;
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_InvalidHook.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_InvalidHook.selector, address(deployer), projectId, 1
+            )
+        );
         deployer.launchProjectFor(
             projectOwner,
             "test",
@@ -654,7 +658,11 @@ contract OmnichainDeployerEdgeCases is Test {
         // But no hook was stored for rulesetId=50 via this deployer.
         JBOmnichain721Config memory empty721Config;
         vm.prank(projectOwner);
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_InvalidHook.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_InvalidHook.selector, address(0), projectId, 50
+            )
+        );
         deployer.queueRulesetsOf(projectId, empty721Config, configs, "", controller);
     }
 
