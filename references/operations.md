@@ -24,5 +24,5 @@
 ## Useful Proof Points
 
 - [`test/JBOmnichainDeployer.t.sol`](../test/JBOmnichainDeployer.t.sol) for baseline deploy and queue flows.
-- [`test/TestAuditGaps.sol`](../test/TestAuditGaps.sol) for pinned edge cases.
+- [`test/TestRegressionGaps.sol`](../test/TestRegressionGaps.sol) for pinned edge cases.
 - [`test/Tiered721HookComposition.t.sol`](../test/Tiered721HookComposition.t.sol) when cross-repo integration behavior matters more than isolated unit logic.

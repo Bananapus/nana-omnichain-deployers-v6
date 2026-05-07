@@ -8,7 +8,7 @@ User journeys: [USER_JOURNEYS.md](./USER_JOURNEYS.md)
 Skills: [SKILLS.md](./SKILLS.md)  
 Risks: [RISKS.md](./RISKS.md)  
 Administration: [ADMINISTRATION.md](./ADMINISTRATION.md)  
-Audit instructions: [AUDIT_INSTRUCTIONS.md](./AUDIT_INSTRUCTIONS.md)
+Review instructions: [REVIEW_GUIDE.md](./REVIEW_GUIDE.md)
 
 ## Overview
 
@@ -90,7 +90,7 @@ src/
   interfaces/
   structs/
 test/
-  unit, attack, invariant, fork, audit, and regression coverage
+  unit, attack, invariant, fork, review, and regression coverage
 script/
   Deploy.s.sol
   helpers/

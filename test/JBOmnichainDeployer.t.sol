@@ -431,10 +431,10 @@ contract TestJBOmnichainDeployer is Test {
     }
 
     //*********************************************************************//
-    // --- NEW-M-3: Carry-forward preserves useDataHookForCashOut ------- //
+    // --- NEW-Carry-forward preserves useDataHookForCashOut ------- //
     //*********************************************************************//
 
-    /// @notice Regression test for NEW-M-3: when queuing a ruleset that carries forward the previous
+    /// @notice Regression test for NEW-when queuing a ruleset that carries forward the previous
     /// 721 hook (no new tiers), the `useDataHookForCashOut` flag must be preserved from the prior
     /// ruleset rather than defaulting to `false`.
     function test_queueRulesetsOf_carryForward_preservesCashOutFlag() public {

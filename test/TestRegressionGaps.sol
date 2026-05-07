@@ -249,11 +249,11 @@ contract ZeroWeightHook is IJBRulesetDataHook {
 // Test contract
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// @title TestAuditGaps
-/// @notice Tests for two audit gaps:
+/// @title TestRegressionGaps
+/// @notice Tests for two regression gaps:
 ///   1. Hook failure adversarial -- behavior when hooks fail or return unexpected data
 ///   2. Rapid ruleset queueing -- rapid sequential ruleset queue operations
-contract TestAuditGaps is Test {
+contract TestRegressionGaps is Test {
     JBOmnichainDeployer deployer;
 
     IJBPermissions permissions = IJBPermissions(makeAddr("permissions"));

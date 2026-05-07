@@ -55,24 +55,26 @@ contract JBOmnichainDeployer is
     //*********************************************************************//
 
     /// @notice Thrown when the provided controller does not match the project's controller in the directory.
-    error JBOmnichainDeployer_ControllerMismatch();
+    error JBOmnichainDeployer_ControllerMismatch(
+        uint256 projectId, address expectedController, address actualController
+    );
 
-    /// @notice Thrown when a data hook is set to this contract.
-    error JBOmnichainDeployer_InvalidHook();
+    /// @notice Thrown when a data hook is invalid for the project ruleset being configured.
+    error JBOmnichainDeployer_InvalidHook(address hook, uint256 projectId, uint256 rulesetId);
 
     /// @notice Thrown when an empty `rulesetConfigurations` array is passed to a simplified overload that needs at
     /// least one ruleset to derive a default 721 config.
-    error JBOmnichainDeployer_NoRulesetConfigurations();
-
-    /// @notice Thrown when the project ID returned by the controller does not match the expected project ID.
-    error JBOmnichainDeployer_ProjectIdMismatch();
+    error JBOmnichainDeployer_NoRulesetConfigurations(uint256 rulesetConfigurationCount);
 
     /// @notice Thrown when queueing rulesets for a project whose latest ruleset was already queued in the same block.
     /// @dev Ruleset IDs are predicted as `block.timestamp + i`. This prediction fails if
     /// `latestRulesetIdOf >= block.timestamp`, which can only happen if rulesets were already queued in the same block.
-    error JBOmnichainDeployer_RulesetIdsUnpredictable();
+    error JBOmnichainDeployer_RulesetIdsUnpredictable(
+        uint256 projectId, uint256 latestRulesetId, uint256 currentTimestamp
+    );
 
-    error JBOmnichainDeployer_UnexpectedNFTReceived();
+    /// @notice Thrown when this contract receives a project NFT from an unexpected sender or transfer.
+    error JBOmnichainDeployer_UnexpectedNFTReceived(address caller, address from, uint256 tokenId);
 
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
@@ -172,7 +174,6 @@ contract JBOmnichainDeployer is
         // Deploy the suckers.
         // Note: the salt includes `_msgSender()` for replay protection. Cross-chain deterministic
         // address matching requires using the same sender address on each chain.
-        // slither-disable-next-line unused-return
         suckers = SUCKER_REGISTRY.deploySuckersFor({
             projectId: projectId,
             salt: keccak256(abi.encode(suckerDeploymentConfiguration.salt, _msgSender())),
@@ -326,10 +327,10 @@ contract JBOmnichainDeployer is
     }
 
     /// @dev Make sure this contract can only receive project NFTs minted from `JBProjects` (not transferred).
-    function onERC721Received(address, address from, uint256, bytes calldata) external view returns (bytes4) {
+    function onERC721Received(address, address from, uint256 tokenId, bytes calldata) external view returns (bytes4) {
         // Only accept mints (from == address(0)) from the `JBProjects` contract, not arbitrary transfers.
         if (msg.sender != address(PROJECTS) || from != address(0)) {
-            revert JBOmnichainDeployer_UnexpectedNFTReceived();
+            revert JBOmnichainDeployer_UnexpectedNFTReceived({caller: msg.sender, from: from, tokenId: tokenId});
         }
 
         return IERC721Receiver.onERC721Received.selector;
@@ -458,7 +459,6 @@ contract JBOmnichainDeployer is
             // Forward to the 721 hook. It may change the tax rate, count, and return hook specs.
             // Capture the 721 hook's totalSupply and effectiveSurplusValue — NFT cash-outs should use
             // local-only denominators so holders reclaim against local surplus, not omnichain surplus.
-            // slither-disable-next-line unused-return
             (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, tiered721HookSpecifications) =
                 IJBRulesetDataHook(address(tiered721Config.hook)).beforeCashOutRecordedWith(context);
         }
@@ -485,10 +485,8 @@ contract JBOmnichainDeployer is
             // (sum of tier prices), not fungible token counts. Letting the extra hook override
             // cashOutCount would corrupt NFT pricing in the bonding curve.
             if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
-                // slither-disable-next-line unused-return
                 (cashOutTaxRate,,,, extraHookSpecifications) = extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
             } else {
-                // slither-disable-next-line unused-return
                 (cashOutTaxRate, cashOutCount,,, extraHookSpecifications) =
                     extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
             }
@@ -554,7 +552,6 @@ contract JBOmnichainDeployer is
             has721Hook = true;
             // Call the 721 hook directly — useDataHookForPay is always true for 721 hooks.
             JBPayHookSpecification[] memory tiered721HookSpecs;
-            // slither-disable-next-line unused-return
             (tiered721Weight, tiered721HookSpecs) =
                 IJBRulesetDataHook(address(tiered721Config.hook)).beforePayRecordedWith(context);
             // The 721 hook returns a single spec (itself) whose amount is the total split amount.
@@ -752,7 +749,6 @@ contract JBOmnichainDeployer is
 
         // Deploy a 721 hook and set up rulesets.
         hook = _deploy721Hook({projectId: projectId, config: deploy721Config});
-        // slither-disable-next-line reentrancy-benign
         rulesetConfigurations = _setup721({
             projectId: projectId,
             rulesetConfigurations: rulesetConfigurations,
@@ -761,7 +757,6 @@ contract JBOmnichainDeployer is
         });
 
         // Launch the rulesets for the reserved project.
-        // slither-disable-start unused-return
         controller.launchRulesetsFor({
             projectId: projectId,
             projectUri: projectUri,
@@ -769,14 +764,12 @@ contract JBOmnichainDeployer is
             terminalConfigurations: terminalConfigurations,
             memo: memo
         });
-        // slither-disable-end unused-return
 
         // Transfer the hook's ownership to the project (now that the project NFT has been minted).
         JBOwnable(address(hook)).transferOwnershipToProject(projectId);
 
         // Deploy the suckers (if applicable).
         if (suckerDeploymentConfiguration.salt != bytes32(0)) {
-            // slither-disable-next-line unused-return
             suckers = SUCKER_REGISTRY.deploySuckersFor({
                 projectId: projectId,
                 salt: keccak256(abi.encode(suckerDeploymentConfiguration.salt, _msgSender())),
@@ -822,7 +815,6 @@ contract JBOmnichainDeployer is
         // Deploy a 721 hook, transfer its ownership to the project, and set up rulesets.
         hook = _deploy721Hook({projectId: projectId, config: deploy721Config});
         JBOwnable(address(hook)).transferOwnershipToProject(projectId);
-        // slither-disable-next-line reentrancy-benign
         rulesetConfigurations = _setup721({
             projectId: projectId,
             rulesetConfigurations: rulesetConfigurations,
@@ -863,8 +855,11 @@ contract JBOmnichainDeployer is
         // `block.timestamp + i` ruleset ID prediction incorrect.
         uint256 latestRulesetId = controller.RULESETS().latestRulesetIdOf(projectId);
         // forge-lint: disable-next-line(block-timestamp)
-        if (latestRulesetId >= block.timestamp) {
-            revert JBOmnichainDeployer_RulesetIdsUnpredictable();
+        uint256 currentTimestamp = block.timestamp;
+        if (latestRulesetId >= currentTimestamp) {
+            revert JBOmnichainDeployer_RulesetIdsUnpredictable({
+                projectId: projectId, latestRulesetId: latestRulesetId, currentTimestamp: currentTimestamp
+            });
         }
 
         // Deploy a new 721 hook if tiers are provided, otherwise carry forward the existing hook.
@@ -901,12 +896,15 @@ contract JBOmnichainDeployer is
             hook = previousConfig.hook;
             // Revert if no hook exists to carry forward — this means no tiers were provided and
             // no previous ruleset had a 721 hook deployed through this contract.
-            if (address(hook) == address(0)) revert JBOmnichainDeployer_InvalidHook();
+            if (address(hook) == address(0)) {
+                revert JBOmnichainDeployer_InvalidHook({
+                    hook: address(hook), projectId: projectId, rulesetId: sourceRulesetId
+                });
+            }
             // Preserve the previous ruleset's cash-out flag when carrying forward.
             use721ForCashOut = previousConfig.useDataHookForCashOut;
         }
 
-        // slither-disable-next-line reentrancy-benign
         rulesetConfigurations = _setup721({
             projectId: projectId,
             rulesetConfigurations: rulesetConfigurations,
@@ -940,19 +938,23 @@ contract JBOmnichainDeployer is
         returns (JBRulesetConfig[] memory)
     {
         for (uint256 i; i < rulesetConfigurations.length; i++) {
+            // forge-lint: disable-next-line(block-timestamp)
+            uint256 rulesetId = block.timestamp + i;
+
             // Validate no self-reference.
-            if (rulesetConfigurations[i].metadata.dataHook == address(this)) revert JBOmnichainDeployer_InvalidHook();
+            if (rulesetConfigurations[i].metadata.dataHook == address(this)) {
+                revert JBOmnichainDeployer_InvalidHook({
+                    hook: rulesetConfigurations[i].metadata.dataHook, projectId: projectId, rulesetId: rulesetId
+                });
+            }
 
             // Store the 721 hook config per-ruleset.
-            // slither-disable-next-line reentrancy-benign
-            // forge-lint: disable-next-line(block-timestamp)
-            _tiered721HookOf[projectId][block.timestamp + i] =
+            _tiered721HookOf[projectId][rulesetId] =
                 JBTiered721HookConfig({hook: hook721, useDataHookForCashOut: use721ForCashOut});
 
             // Store custom hook from metadata (same as _setup).
             if (rulesetConfigurations[i].metadata.dataHook != address(0)) {
-                // forge-lint: disable-next-line(block-timestamp)
-                _extraDataHookOf[projectId][block.timestamp + i] = JBDeployerHookConfig({
+                _extraDataHookOf[projectId][rulesetId] = JBDeployerHookConfig({
                     dataHook: IJBRulesetDataHook(rulesetConfigurations[i].metadata.dataHook),
                     useDataHookForPay: rulesetConfigurations[i].metadata.useDataHookForPay,
                     useDataHookForCashOut: rulesetConfigurations[i].metadata.useDataHookForCashOut
@@ -986,7 +988,11 @@ contract JBOmnichainDeployer is
         pure
         returns (JBOmnichain721Config memory config)
     {
-        if (rulesetConfigurations.length == 0) revert JBOmnichainDeployer_NoRulesetConfigurations();
+        if (rulesetConfigurations.length == 0) {
+            revert JBOmnichainDeployer_NoRulesetConfigurations({
+                rulesetConfigurationCount: rulesetConfigurations.length
+            });
+        }
         config.deployTiersHookConfig.tiersConfig.currency = rulesetConfigurations[0].metadata.baseCurrency;
         config.deployTiersHookConfig.tiersConfig.decimals = 18;
     }
@@ -1012,7 +1018,9 @@ contract JBOmnichainDeployer is
         address current = address(DIRECTORY.controllerOf(projectId));
         // Allow address(0) for fresh projects that haven't launched rulesets yet.
         if (current != address(0) && current != address(controller)) {
-            revert JBOmnichainDeployer_ControllerMismatch();
+            revert JBOmnichainDeployer_ControllerMismatch({
+                projectId: projectId, expectedController: current, actualController: address(controller)
+            });
         }
     }
 }

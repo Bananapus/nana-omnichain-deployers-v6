@@ -6,7 +6,7 @@ import {LibClone} from "solady/src/utils/LibClone.sol";
 
 contract DeterministicPeerDriftTest is Test {
     // forge-lint: disable-next-line(unsafe-typecast)
-    bytes32 internal constant USER_SALT = bytes32("nemesis-peer-drift");
+    bytes32 internal constant USER_SALT = bytes32("regression-peer-drift");
 
     address internal constant USER = address(0x1111111111111111111111111111111111111111);
     address internal constant OMNICHAIN_DEPLOYER_A = address(0x2222222222222222222222222222222222222222);

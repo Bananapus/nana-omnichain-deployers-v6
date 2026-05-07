@@ -31,9 +31,9 @@ import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 
-/// @title AuditFixesC2H6M14
-/// @notice Tests verifying the correctness of audit fixes C-2, H-6, and M-14.
-contract AuditFixesC2H6M14 is Test {
+/// @title OmnichainRegressionFixes
+/// @notice Tests verifying the correctness of regression fixes and .
+contract OmnichainRegressionFixes is Test {
     JBOmnichainDeployer deployer;
 
     IJBPermissions permissions = IJBPermissions(makeAddr("permissions"));
@@ -94,11 +94,11 @@ contract AuditFixesC2H6M14 is Test {
     }
 
     //*********************************************************************//
-    // --- C-2: remoteSurplusOf uses context.surplus.decimals ------------ //
+    // --- remoteSurplusOf uses context.surplus.decimals ------------ //
     //*********************************************************************//
 
     /// @notice Verifies that remoteSurplusOf is called with the decimals from context.surplus (not hardcoded 18).
-    function test_C2_remoteSurplus_usesCorrectDecimals() public {
+    function test_remoteSurplusUsesCorrectDecimals() public {
         _launchProject();
         uint256 rulesetId = block.timestamp;
 
@@ -134,14 +134,12 @@ contract AuditFixesC2H6M14 is Test {
 
         // The effective surplus should be local (1_000_000) + remote (500_000) = 1_500_000.
         assertEq(
-            effectiveSurplusValue,
-            1_500_000,
-            "C-2: effective surplus should include remote surplus in 6-decimal precision"
+            effectiveSurplusValue, 1_500_000, "effective surplus should include remote surplus in 6-decimal precision"
         );
     }
 
     /// @notice Verifies that remoteSurplusOf is called with the currency from context.surplus (not the token address).
-    function test_C2_remoteSurplus_usesCorrectCurrency() public {
+    function test_remoteSurplusUsesCorrectCurrency() public {
         _launchProject();
         uint256 rulesetId = block.timestamp;
 
@@ -178,14 +176,12 @@ contract AuditFixesC2H6M14 is Test {
 
         // Effective surplus = local (10 ether) + remote (3 ether) = 13 ether.
         assertEq(
-            effectiveSurplusValue,
-            13 ether,
-            "C-2: effective surplus should use currency from context, not token address"
+            effectiveSurplusValue, 13 ether, "effective surplus should use currency from context, not token address"
         );
     }
 
     //*********************************************************************//
-    // --- H-6: Extra hook receives effectiveSurplusValue in context ----- //
+    // --- Extra hook receives effectiveSurplusValue in context ----- //
     //*********************************************************************//
 
     /// @notice Verifies that the extra cash-out hook receives the cross-chain effectiveSurplusValue
@@ -193,7 +189,7 @@ contract AuditFixesC2H6M14 is Test {
     /// @dev The fix ensures hookContext.surplus.value = effectiveSurplusValue (cross-chain adjusted).
     ///      We verify this by mocking the extra hook to return a specific value only when called
     ///      with the correct surplus.value, confirming the deployer passes the right parameter.
-    function test_H6_extraHook_receivesCrossChainSurplus() public {
+    function test_extraHookReceivesCrossChainSurplus() public {
         address extraHookAddr = makeAddr("extraHook");
 
         _launchProjectWithExtraHook(extraHookAddr);
@@ -233,25 +229,25 @@ contract AuditFixesC2H6M14 is Test {
         (uint256 cashOutTaxRate,, uint256 totalSupply, uint256 effectiveSurplusValue,) =
             deployer.beforeCashOutRecordedWith(context);
 
-        // H-6 fix: The deployer must return the cross-chain effective surplus, not just local.
+        // fix: The deployer must return the cross-chain effective surplus, not just local.
         assertEq(
             effectiveSurplusValue,
             expectedEffectiveSurplus,
-            "H-6: effectiveSurplusValue must be cross-chain (local + remote)"
+            "effectiveSurplusValue must be cross-chain (local + remote)"
         );
 
         // The deployer computes cross-chain totalSupply = local + remote.
-        assertEq(totalSupply, context.totalSupply + remoteTotalSupply, "H-6: totalSupply must include remote supply");
+        assertEq(totalSupply, context.totalSupply + remoteTotalSupply, "totalSupply must include remote supply");
 
         // The extra hook's tax rate should be forwarded.
-        assertEq(cashOutTaxRate, 5000, "H-6: cashOutTaxRate should come from extra hook");
+        assertEq(cashOutTaxRate, 5000, "cashOutTaxRate should come from extra hook");
 
         // Now verify that the extra hook was actually called (not skipped).
         // If it wasn't called, the 721 hook's return would be used instead.
         // The 721 hook mock returns (5000, 1000, ...) and the extra hook mock also returns (5000, 1000, ...).
-        // We verify H-6 specifically by confirming effectiveSurplusValue reflects cross-chain values.
+        // We verify specifically by confirming effectiveSurplusValue reflects cross-chain values.
         // The deployer code sets `hookContext.surplus.value = effectiveSurplusValue` before calling
-        // the extra hook — that's the H-6 fix. If it used local surplus instead,
+        // the extra hook — that's the fix. If it used local surplus instead,
         // the effectiveSurplusValue would still be correct (it's computed before the extra hook call),
         // but the extra hook would receive wrong data. We verify the call happens:
         vm.expectCall(extraHookAddr, abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector));
@@ -260,11 +256,11 @@ contract AuditFixesC2H6M14 is Test {
     }
 
     //*********************************************************************//
-    // --- M-14: _validateController allows address(0) for fresh projects  //
+    // --- _validateController allows address(0) for fresh projects  //
     //*********************************************************************//
 
     /// @notice Fresh project with address(0) controller in directory passes validation.
-    function test_M14_freshProject_zeroControllerPasses() public {
+    function test_freshProjectZeroControllerPasses() public {
         // Directory returns address(0) for this project (fresh, never launched).
         // The deployer uses its immutable DIRECTORY (set in constructor) to validate.
         vm.mockCall(
@@ -297,7 +293,7 @@ contract AuditFixesC2H6M14 is Test {
     }
 
     /// @notice Existing project with wrong controller still reverts.
-    function test_M14_existingProject_wrongControllerReverts() public {
+    function test_existingProjectWrongControllerReverts() public {
         address wrongController = makeAddr("wrongController");
 
         // Directory returns a different controller address (not `controller`).
@@ -327,7 +323,7 @@ contract AuditFixesC2H6M14 is Test {
     }
 
     /// @notice Existing project with correct controller passes validation.
-    function test_M14_existingProject_correctControllerPasses() public {
+    function test_existingProjectCorrectControllerPasses() public {
         // Directory returns the same controller we're passing in.
         // The deployer uses its immutable DIRECTORY (set in constructor) to validate.
         vm.mockCall(
@@ -387,7 +383,7 @@ contract AuditFixesC2H6M14 is Test {
         configs[0] = _rulesetConfig();
 
         // Disable the 721 hook for cash-out so the deployer computes cross-chain surplus itself.
-        // These tests verify C-2 (surplus aggregation), not NFT cashout behavior.
+        // These tests verify (surplus aggregation), not NFT cashout behavior.
         deployer.launchProjectFor({
             owner: projectOwner,
             projectUri: "test",
@@ -429,7 +425,7 @@ contract AuditFixesC2H6M14 is Test {
         configs[0].metadata.useDataHookForCashOut = true;
 
         // Disable the 721 hook for cash-out so the deployer computes cross-chain surplus itself.
-        // These tests verify H-6 (extra hook forwarding), not NFT cashout behavior.
+        // These tests verify (extra hook forwarding), not NFT cashout behavior.
         deployer.launchProjectFor({
             owner: projectOwner,
             projectUri: "test",

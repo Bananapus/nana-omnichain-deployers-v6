@@ -1,8 +1,8 @@
-# Audit Instructions
+# Review Guide
 
-Audit this repo as an orchestration layer that composes 721 hooks, suckers, and optional extra data hooks.
+Review this repo as an orchestration layer that composes 721 hooks, suckers, and optional extra data hooks.
 
-## Audit Objective
+## Review Objective
 
 Find issues that:
 
