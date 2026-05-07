@@ -99,7 +99,14 @@ contract ValidateController is Test {
         configs[0] = _makeRulesetConfig();
         JBOmnichain721Config memory empty721Config;
 
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector,
+                projectId,
+                address(legitimateController),
+                address(fakeController)
+            )
+        );
         deployer.queueRulesetsOf(projectId, empty721Config, configs, "memo", fakeController);
     }
 
@@ -136,7 +143,14 @@ contract ValidateController is Test {
         JBTerminalConfig[] memory terminals = new JBTerminalConfig[](0);
         JBOmnichain721Config memory empty721Config;
 
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector,
+                projectId,
+                address(legitimateController),
+                address(fakeController)
+            )
+        );
         deployer.launchRulesetsFor(projectId, "", empty721Config, configs, terminals, "memo", fakeController);
     }
 

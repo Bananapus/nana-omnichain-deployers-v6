@@ -308,7 +308,14 @@ contract OmnichainRegressionFixes is Test {
         configs[0] = _rulesetConfig();
 
         vm.prank(projectOwner);
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector,
+                PROJECT_ID,
+                wrongController,
+                address(controller)
+            )
+        );
         deployer.launchRulesetsFor(
             PROJECT_ID,
             "",

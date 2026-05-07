@@ -556,7 +556,14 @@ contract TestRegressionGaps is Test {
         configs[0] = _makeRulesetConfig(address(0), false, false);
 
         vm.prank(projectOwner);
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector,
+                projectId,
+                BASE_TIME,
+                BASE_TIME
+            )
+        );
         JBOmnichain721Config memory empty721;
         deployer.queueRulesetsOf(projectId, empty721, configs, "", controller);
     }
@@ -626,7 +633,14 @@ contract TestRegressionGaps is Test {
         configs2[0] = _makeRulesetConfig(address(0), false, false);
 
         vm.prank(projectOwner);
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector,
+                projectId,
+                firstQueueTime,
+                firstQueueTime
+            )
+        );
         JBOmnichain721Config memory empty721b;
         deployer.queueRulesetsOf(projectId, empty721b, configs2, "", controller);
 
@@ -679,7 +693,14 @@ contract TestRegressionGaps is Test {
         queueConfigs[0] = _makeRulesetConfig(address(0), false, false);
 
         vm.prank(projectOwner);
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector,
+                projectId,
+                BASE_TIME + 2,
+                BASE_TIME
+            )
+        );
         JBOmnichain721Config memory empty721;
         deployer.queueRulesetsOf(projectId, empty721, queueConfigs, "", controller);
     }
@@ -823,7 +844,14 @@ contract TestRegressionGaps is Test {
         configs[0] = _makeRulesetConfig(address(0), false, false);
 
         vm.prank(projectOwner);
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector,
+                projectId,
+                address(controller),
+                address(wrongController)
+            )
+        );
         JBOmnichain721Config memory empty721;
         deployer.queueRulesetsOf(projectId, empty721, configs, "", wrongController);
     }
@@ -840,7 +868,14 @@ contract TestRegressionGaps is Test {
         configs[0] = _makeRulesetConfig(address(0), false, false);
 
         vm.prank(projectOwner);
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector,
+                projectId,
+                BASE_TIME,
+                BASE_TIME
+            )
+        );
         // Use the simplified overload (no deploy721Config parameter).
         deployer.queueRulesetsOf(projectId, configs, "", controller);
     }
