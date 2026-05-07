@@ -318,7 +318,14 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         // Same block: latestRulesetIdOf == block.timestamp, so >= holds.
         JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
 
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector,
+                projectId,
+                jbController().RULESETS().latestRulesetIdOf(projectId),
+                block.timestamp
+            )
+        );
         JBOmnichain721Config memory empty721;
         deployer.queueRulesetsOf(projectId, empty721, rulesets, "queue", IJBController(address(jbController())));
     }
@@ -340,7 +347,14 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         // Now latestRulesetIdOf == block.timestamp (from the direct queue).
         // Deployer queue in the same block should revert.
         JBRulesetConfig[] memory deployerRulesets = _makeRulesetConfigs(1);
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector,
+                projectId,
+                jbController().RULESETS().latestRulesetIdOf(projectId),
+                block.timestamp
+            )
+        );
         JBOmnichain721Config memory empty721;
         deployer.queueRulesetsOf(
             projectId, empty721, deployerRulesets, "deployer-queue", IJBController(address(jbController()))
@@ -355,7 +369,14 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
 
         // Verify we can't queue in the same block (latestRulesetIdOf = block.timestamp + 1 >= block.timestamp).
         JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_RulesetIdsUnpredictable.selector,
+                projectId,
+                jbController().RULESETS().latestRulesetIdOf(projectId),
+                block.timestamp
+            )
+        );
         JBOmnichain721Config memory empty721;
         deployer.queueRulesetsOf(projectId, empty721, rulesets, "too-early", IJBController(address(jbController())));
 

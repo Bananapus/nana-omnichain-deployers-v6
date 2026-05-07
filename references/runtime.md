@@ -25,4 +25,4 @@
 - [`test/Tiered721HookComposition.t.sol`](../test/Tiered721HookComposition.t.sol) for hook-composition behavior.
 - [`test/JBOmnichainDeployerGuard.t.sol`](../test/JBOmnichainDeployerGuard.t.sol) and [`test/OmnichainDeployerAttacks.t.sol`](../test/OmnichainDeployerAttacks.t.sol) for safety properties.
 - [`test/OmnichainDeployerReentrancy.t.sol`](../test/OmnichainDeployerReentrancy.t.sol) for wrapper security assumptions.
-- [`test/OmnichainDeployerEdgeCases.t.sol`](../test/OmnichainDeployerEdgeCases.t.sol), [`test/JBOmnichainDeployer.t.sol`](../test/JBOmnichainDeployer.t.sol), and [`test/TestAuditGaps.sol`](../test/TestAuditGaps.sol) for edge behavior.
+- [`test/OmnichainDeployerEdgeCases.t.sol`](../test/OmnichainDeployerEdgeCases.t.sol), [`test/JBOmnichainDeployer.t.sol`](../test/JBOmnichainDeployer.t.sol), and [`test/TestRegressionGaps.sol`](../test/TestRegressionGaps.sol) for edge behavior.

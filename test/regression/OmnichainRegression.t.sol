@@ -25,7 +25,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 
-contract OmnichainAudit is Test {
+contract OmnichainRegression is Test {
     IJBPermissions internal permissions = IJBPermissions(makeAddr("permissions"));
     IJBProjects internal projects = IJBProjects(makeAddr("projects"));
     IJB721TiersHookDeployer internal hookDeployer = IJB721TiersHookDeployer(makeAddr("hookDeployer"));
@@ -60,7 +60,7 @@ contract OmnichainAudit is Test {
         JBOmnichainDeployer deployer =
             new JBOmnichainDeployer(mockSuckerRegistry, hookDeployer, permissions, projects, directory, address(0));
 
-        // A freshly created project with no controller yet — the M-14 fix allows address(0) through.
+        // A freshly created project with no controller yet — the fix allows address(0) through.
         // The deployer uses its immutable DIRECTORY (set in constructor) to validate.
         vm.mockCall(
             address(directory),

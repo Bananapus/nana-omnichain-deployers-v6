@@ -6,7 +6,8 @@ import {LibClone} from "solady/src/utils/LibClone.sol";
 
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 
-/// @notice PoC for cross-chain deterministic-address drift caused by hashing salts through the omnichain deployer.
+/// @notice regression for cross-chain deterministic-address drift caused by hashing salts through the omnichain
+/// deployer.
 contract DeterministicDriftTest is Test {
     // forge-lint: disable-next-line(unsafe-typecast)
     bytes32 internal constant DEPLOYER_SALT = bytes32("JBOmnichainDeployerV6_");

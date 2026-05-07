@@ -61,7 +61,9 @@ contract EmptyRulesetConfigurations is Test {
         JBTerminalConfig[] memory terminals = new JBTerminalConfig[](0);
         JBSuckerDeploymentConfig memory suckerConfig;
 
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_NoRulesetConfigurations.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(JBOmnichainDeployer.JBOmnichainDeployer_NoRulesetConfigurations.selector, 0)
+        );
         deployer.launchProjectFor(address(this), "uri", empty, terminals, "memo", suckerConfig, controller);
     }
 
@@ -69,7 +71,9 @@ contract EmptyRulesetConfigurations is Test {
     function test_queueRulesetsOf_revertsOnEmptyRulesets() public {
         JBRulesetConfig[] memory empty = new JBRulesetConfig[](0);
 
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_NoRulesetConfigurations.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(JBOmnichainDeployer.JBOmnichainDeployer_NoRulesetConfigurations.selector, 0)
+        );
         deployer.queueRulesetsOf(1, empty, "memo", controller);
     }
 
@@ -78,7 +82,9 @@ contract EmptyRulesetConfigurations is Test {
         JBRulesetConfig[] memory empty = new JBRulesetConfig[](0);
         JBTerminalConfig[] memory terminals = new JBTerminalConfig[](0);
 
-        vm.expectRevert(JBOmnichainDeployer.JBOmnichainDeployer_NoRulesetConfigurations.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(JBOmnichainDeployer.JBOmnichainDeployer_NoRulesetConfigurations.selector, 0)
+        );
         deployer.launchRulesetsFor(1, "", empty, terminals, "memo", controller);
     }
 }

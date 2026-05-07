@@ -90,7 +90,7 @@ src/
   interfaces/
   structs/
 test/
-  unit, attack, invariant, fork, audit, and regression coverage
+  unit, attack, invariant, fork, review, and regression coverage
 script/
   Deploy.s.sol
   helpers/
