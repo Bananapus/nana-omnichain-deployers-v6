@@ -8,7 +8,7 @@ This repo launches projects that are omnichain from the start.
 
 - operators launching omnichain projects
 - teams composing 721 hooks with extra data hooks
-- reviewers checking bridge-wrapper behavior
+- auditors checking bridge-wrapper behavior
 
 ## Journey 1: Launch An Omnichain Project
 
