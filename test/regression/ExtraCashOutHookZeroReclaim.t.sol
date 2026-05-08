@@ -189,7 +189,7 @@ contract ExtraCashOutHookZeroReclaimTest is Test {
             cashOutCount: 0,
             totalSupply: 1000 ether,
             surplus: JBTokenAmount({token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: 1, value: LOCAL_SURPLUS}),
-            useTotalSurplus: false,
+            scopeCashOutsToLocalBalances: true,
             cashOutTaxRate: 0,
             beneficiaryIsFeeless: false,
             metadata: ""

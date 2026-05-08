@@ -440,7 +440,7 @@ contract JBOmnichainDeployer is
         effectiveSurplusValue = context.surplus.value;
 
         // If the ruleset aggregates cross-chain state, add remote supply and surplus.
-        if (context.useTotalSurplus) {
+        if (!context.scopeCashOutsToLocalBalances) {
             totalSupply += SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
             effectiveSurplusValue += SUCKER_REGISTRY.remoteSurplusOf({
                 projectId: context.projectId,

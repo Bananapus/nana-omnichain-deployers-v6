@@ -122,7 +122,7 @@ contract NftCashoutSupplyMismatchTest is Test {
                 currency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 value: LOCAL_SURPLUS
             }),
-            useTotalSurplus: false,
+            scopeCashOutsToLocalBalances: true,
             cashOutTaxRate: 0,
             beneficiaryIsFeeless: false,
             metadata: ""

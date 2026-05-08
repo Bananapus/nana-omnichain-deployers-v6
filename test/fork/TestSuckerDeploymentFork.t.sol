@@ -174,7 +174,7 @@ contract TestSuckerDeploymentFork is OmnichainForkTestBase {
                 currency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 value: surplus
             }),
-            useTotalSurplus: false,
+            scopeCashOutsToLocalBalances: true,
             cashOutTaxRate: 5000, // 50% tax from ruleset
             beneficiaryIsFeeless: false,
             metadata: ""

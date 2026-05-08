@@ -424,7 +424,7 @@ contract SplitCreditWeightTest is Test {
             allowAddPriceFeed: false,
             ownerMustSendPayouts: false,
             holdFees: false,
-            useTotalSurplusForCashOuts: false,
+            scopeCashOutsToLocalBalances: true,
             useDataHookForPay: useForPay,
             useDataHookForCashOut: useForCashOut,
             dataHook: hook,

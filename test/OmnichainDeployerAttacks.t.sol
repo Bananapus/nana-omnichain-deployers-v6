@@ -389,7 +389,7 @@ contract OmnichainDeployerAttacks is Test {
                 decimals: 18,
                 currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
             }),
-            useTotalSurplus: false,
+            scopeCashOutsToLocalBalances: true,
             cashOutTaxRate: 5000,
             beneficiaryIsFeeless: false,
             metadata: ""
@@ -421,7 +421,7 @@ contract OmnichainDeployerAttacks is Test {
             allowAddPriceFeed: false,
             ownerMustSendPayouts: false,
             holdFees: false,
-            useTotalSurplusForCashOuts: false,
+            scopeCashOutsToLocalBalances: true,
             useDataHookForPay: useForPay,
             useDataHookForCashOut: useForCashOut,
             dataHook: hook,

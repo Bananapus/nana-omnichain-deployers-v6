@@ -84,7 +84,7 @@ contract CashOutCountPropagationTest is Test {
                 currency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 value: LOCAL_SURPLUS // 721 hook passes through surplus value
             }),
-            useTotalSurplus: false,
+            scopeCashOutsToLocalBalances: true,
             cashOutTaxRate: 5000, // 721 hook passes through
             beneficiaryIsFeeless: false,
             metadata: ""
@@ -117,7 +117,7 @@ contract CashOutCountPropagationTest is Test {
                 currency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 value: LOCAL_SURPLUS
             }),
-            useTotalSurplus: false,
+            scopeCashOutsToLocalBalances: true,
             cashOutTaxRate: 5000,
             beneficiaryIsFeeless: false,
             metadata: ""
