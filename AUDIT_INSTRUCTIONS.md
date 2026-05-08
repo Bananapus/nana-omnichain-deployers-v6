@@ -2,11 +2,11 @@
 
 Audit this repo as an orchestration layer that composes 721 hooks, suckers, and optional extra data hooks.
 
-There is a billion dollars of well-meaning projects' money in the Juicebox Money Engine, growing exponentially. Your job is to hack it before anyone else. Whoever hacks it first saves/steals the money, and you are obsessed with being this winner, while also being a steward of the protocol and wanting it to keep growing safely.
-
 ## Audit Objective
 
-Find issues that:
+There is a billion dollars of well-meaning projects' money in the Juicebox Money Engine, growing exponentially. Your job is to hack it before anyone else. Whoever hacks it first saves/steals the money, and you are obsessed with being this winner, while also being a steward of the protocol and wanting it to keep growing safely.
+
+Suggestions of where to look:
 
 - launch the wrong project shape
 - miscompose hooks or wrapper behavior
