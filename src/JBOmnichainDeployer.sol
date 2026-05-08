@@ -435,18 +435,19 @@ contract JBOmnichainDeployer is
         cashOutTaxRate = context.cashOutTaxRate;
         cashOutCount = context.cashOutCount;
 
-        // Compute the cross-chain total supply: local supply + sum of known peer chain supplies.
-        // This prevents the cash out tax from vanishing when a holder dominates the local supply.
-        totalSupply = context.totalSupply + SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
+        // Start with local values.
+        totalSupply = context.totalSupply;
+        effectiveSurplusValue = context.surplus.value;
 
-        // Compute the cross-chain surplus: local surplus + sum of known peer chain surpluses.
-        // This prevents disproportionate reclaim when tokens bridge away but surplus stays.
-        effectiveSurplusValue = context.surplus.value
-            + SUCKER_REGISTRY.remoteSurplusOf({
+        // If the ruleset aggregates cross-chain state, add remote supply and surplus.
+        if (!context.scopeCashOutsToLocalBalances) {
+            totalSupply += SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
+            effectiveSurplusValue += SUCKER_REGISTRY.remoteSurplusOf({
                 projectId: context.projectId,
                 decimals: context.surplus.decimals,
                 currency: uint256(context.surplus.currency)
             });
+        }
 
         // Will hold the 721 hook's cash out specifications (always 0 or 1 element).
         JBCashOutHookSpecification[] memory tiered721HookSpecifications;
