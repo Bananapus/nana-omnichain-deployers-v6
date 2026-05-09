@@ -20,6 +20,7 @@ import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.so
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 import {JBOwnable} from "@bananapus/ownable-v6/src/JBOwnable.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
+import {IJBPeerChainAdjustedAccounts} from "@bananapus/suckers-v6/src/interfaces/IJBPeerChainAdjustedAccounts.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -48,6 +49,7 @@ contract JBOmnichainDeployer is
     JBPermissioned,
     IJBOmnichainDeployer,
     IJBRulesetDataHook,
+    IJBPeerChainAdjustedAccounts,
     IERC721Receiver
 {
     //*********************************************************************//
@@ -691,6 +693,48 @@ contract JBOmnichainDeployer is
         return (config.hook, config.useDataHookForCashOut);
     }
 
+    /// @notice Forwards peer-chain adjusted accounts from the stored extra data hook. Suckers call this on the active
+    /// data hook (which is this deployer after wrapping) to learn about additional supply/surplus/balance that should
+    /// be included in cross-chain snapshots. Without forwarding, the extra hook's peer-chain adjustments are silently
+    /// masked, causing the bonding curve to use only local values and over-reclaiming on peer chains.
+    /// @dev Part of `IJBPeerChainAdjustedAccounts`. Uses staticcall to safely handle extra hooks that do not implement
+    /// this interface.
+    /// @param projectId The ID of the project to snapshot.
+    /// @param decimals The decimals the returned surplus and balance should use.
+    /// @param currency The currency the returned surplus and balance should be in terms of.
+    /// @return supply The extra supply to include in `sourceTotalSupply`.
+    /// @return surplus The extra surplus to include in `sourceSurplus`.
+    /// @return balance The extra balance to include in `sourceBalance`.
+    function peerChainAdjustedAccountsOf(
+        uint256 projectId,
+        uint256 decimals,
+        uint256 currency
+    )
+        external
+        view
+        override
+        returns (uint256 supply, uint256 surplus, uint256 balance)
+    {
+        // Get the current ruleset to look up the stored extra hook.
+        IJBController controller = IJBController(address(DIRECTORY.controllerOf(projectId)));
+        (JBRuleset memory ruleset,) = controller.currentRulesetOf(projectId);
+
+        // Look up the extra data hook for this project's current ruleset.
+        JBDeployerHookConfig memory extraHook = _extraDataHookOf[projectId][ruleset.id];
+        if (address(extraHook.dataHook) == address(0)) return (0, 0, 0);
+
+        // Forward via staticcall — the extra hook may or may not implement IJBPeerChainAdjustedAccounts.
+        (bool success, bytes memory data) = address(extraHook.dataHook)
+            .staticcall(
+                abi.encodeCall(
+                    IJBPeerChainAdjustedAccounts.peerChainAdjustedAccountsOf, (projectId, decimals, currency)
+                )
+            );
+        if (!success || data.length < 96) return (0, 0, 0);
+
+        return abi.decode(data, (uint256, uint256, uint256));
+    }
+
     //*********************************************************************//
     // -------------------------- public views --------------------------- //
     //*********************************************************************//
@@ -700,8 +744,9 @@ contract JBOmnichainDeployer is
     /// @return A flag indicating if the provided interface ID is supported.
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return interfaceId == type(IJBOmnichainDeployer).interfaceId
-            || interfaceId == type(IJBRulesetDataHook).interfaceId || interfaceId == type(IERC721Receiver).interfaceId
-            || interfaceId == type(IERC165).interfaceId;
+            || interfaceId == type(IJBRulesetDataHook).interfaceId
+            || interfaceId == type(IJBPeerChainAdjustedAccounts).interfaceId
+            || interfaceId == type(IERC721Receiver).interfaceId || interfaceId == type(IERC165).interfaceId;
     }
 
     //*********************************************************************//
