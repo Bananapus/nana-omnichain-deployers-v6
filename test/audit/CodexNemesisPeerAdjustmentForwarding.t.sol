@@ -127,8 +127,13 @@ contract MockController {
         _rulesetId = rulesetId;
     }
 
-    function currentRulesetOf(uint256) external view returns (JBRuleset memory ruleset, JBRulesetMetadata memory) {
+    function currentRulesetOf(uint256)
+        external
+        view
+        returns (JBRuleset memory ruleset, JBRulesetMetadata memory metadata)
+    {
         ruleset.id = _rulesetId;
+        metadata.reservedPercent = 0;
     }
 }
 
