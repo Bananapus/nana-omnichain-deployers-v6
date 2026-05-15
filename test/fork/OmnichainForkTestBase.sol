@@ -201,10 +201,10 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
             prices: jbPrices(),
             projects: jbProjects(),
             tokens: jbTokens(),
-            poolManager: poolManager,
-            oracleHook: IHooks(address(0)),
+            deployer: address(this),
             trustedForwarder: address(0)
         });
+        buybackHook.setChainSpecificConstants({poolManager: poolManager, oracleHook: IHooks(address(0))});
 
         omnichainDeployer = new JBOmnichainDeployer(
             suckerRegistry, hookDeployer721, jbPermissions(), jbProjects(), jbDirectory(), address(0)
@@ -314,6 +314,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
                 ownerMustSendPayouts: false,
                 holdFees: false,
                 scopeCashOutsToLocalBalances: true,
+                pauseCrossProjectFeeFreeInflows: false,
                 useDataHookForPay: false,
                 useDataHookForCashOut: false,
                 dataHook: address(0),
@@ -404,6 +405,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
                 ownerMustSendPayouts: false,
                 holdFees: false,
                 scopeCashOutsToLocalBalances: true,
+                pauseCrossProjectFeeFreeInflows: false,
                 useDataHookForPay: false,
                 useDataHookForCashOut: false,
                 dataHook: address(0),
