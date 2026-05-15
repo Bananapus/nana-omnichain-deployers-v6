@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.43 — Bump v6 deps to nana-core-v6 0.0.53 cohort
+
+- `@bananapus/core-v6`: `^0.0.48 → ^0.0.53` ([PR #145](https://github.com/Bananapus/nana-core-v6/pull/145) — drops `via_ir` requirement on `JBCashOutHookSpecsLib`; new `pauseCrossProjectFeeFreeInflows` ruleset metadata flag for cross-project cashout opt-out).
+- `@bananapus/721-hook-v6`: `^0.0.47 → ^0.0.50`.
+- `@bananapus/suckers-v6`: `^0.0.37 → ^0.0.46`.
+- `@bananapus/buyback-hook-v6`: `^0.0.39 → ^0.0.46`.
+- `@bananapus/permission-ids-v6`: `^0.0.23 → ^0.0.25` (new `SET_SUCKER_PEER` permission referenced by suckers 0.0.46).
+- `JBBuybackHook` constructor signature changed in 0.0.45 (V4 PoolManager + Hooks moved to a one-shot setter). Updated `OmnichainForkTestBase` to construct then call `setChainSpecificConstants`.
+- All `JBRulesetMetadata` test literals patched to include `pauseCrossProjectFeeFreeInflows: false`. `JBBeforeCashOutRecordedContext` literals are unchanged (no new fields).
+
 ## v6 carry-forward hook fix
 
 - **Carry-forward hook selection improved.** `queueRulesetsOf` now checks `latestQueuedOf(projectId)` before falling back to `currentOf(projectId)` when carrying forward a 721 hook. Previously it only read `currentOf`, which could miss a recently queued (and approved) ruleset's hook config. The source ruleset must have approval status `Approved` or `Empty` and a stored hook config in the deployer.
