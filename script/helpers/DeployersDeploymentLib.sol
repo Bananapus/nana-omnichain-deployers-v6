@@ -18,11 +18,10 @@ library DeployersDeploymentLib {
     Vm internal constant vm = Vm(VM_ADDRESS);
 
     function getDeployment(string memory path) internal returns (DeployersDeployment memory deployment) {
-        // get chainId for which we need to get the deployment.
+        // Match the current chain ID to the Sphinx network name used in deployment artifacts.
         uint256 chainId = block.chainid;
 
-        // Deploy to get the constants.
-        // TODO: get constants without deploy.
+        // `SphinxConstants` exposes Sphinx's supported chain ID to network name mapping.
         SphinxConstants sphinxConstants = new SphinxConstants();
         NetworkInfo[] memory networks = sphinxConstants.getNetworkInfoArray();
 
