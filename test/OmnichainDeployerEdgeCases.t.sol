@@ -801,7 +801,6 @@ contract OmnichainDeployerEdgeCases is Test {
             ownerMustSendPayouts: false,
             holdFees: false,
             scopeCashOutsToLocalBalances: true,
-            pauseCrossProjectFeeFreeInflows: false,
             useDataHookForPay: useForPay,
             useDataHookForCashOut: useForCashOut,
             dataHook: hook,
