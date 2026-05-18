@@ -597,7 +597,7 @@ contract JBOmnichainDeployer is
                 // doesn't over-mint tokens relative to the funds actually entering the project.
                 // When issueTokensForSplits is true, tiered721Weight == context.weight and the ratio is 1x.
                 if (has721Hook && context.weight > 0 && tiered721Weight != context.weight) {
-                    weight = mulDiv(weight, tiered721Weight, context.weight);
+                    weight = mulDiv({x: weight, y: tiered721Weight, denominator: context.weight});
                 }
 
                 // When the extra hook returns weight=0 (e.g. buyback found no profitable swap) but tier
