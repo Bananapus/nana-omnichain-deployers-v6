@@ -305,6 +305,7 @@ contract TestRegressionGaps is Test {
         vm.mockCall(
             address(controller), abi.encodeWithSelector(IJBControllerProjectUriForTest.setUriOf.selector), abi.encode()
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
         // Mock controllerOf on the deployer's immutable DIRECTORY.
         vm.mockCall(
             address(directory),
@@ -839,6 +840,9 @@ contract TestRegressionGaps is Test {
         // The deployer's immutable DIRECTORY returns `controller` for this project.
         // Passing a different controller should trigger ControllerMismatch.
         IJBController wrongController = IJBController(makeAddr("wrongController"));
+        vm.mockCall(
+            address(wrongController), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects)
+        );
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(0), false, false);

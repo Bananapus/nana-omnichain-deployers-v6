@@ -91,6 +91,7 @@ contract OmnichainRegressionFixes is Test {
             abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector),
             abi.encode(uint256(0))
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
     }
 
     //*********************************************************************//
@@ -259,8 +260,8 @@ contract OmnichainRegressionFixes is Test {
     // --- _validateController allows address(0) for fresh projects  //
     //*********************************************************************//
 
-    /// @notice Fresh project with address(0) controller in directory passes validation.
-    function test_freshProjectZeroControllerPasses() public {
+    /// @notice Fresh project with address(0) controller must register the controller during launch.
+    function test_freshProjectZeroControllerMustRegisterAfterLaunch() public {
         // Directory returns address(0) for this project (fresh, never launched).
         // The deployer uses its immutable DIRECTORY (set in constructor) to validate.
         vm.mockCall(
@@ -277,8 +278,15 @@ contract OmnichainRegressionFixes is Test {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _rulesetConfig();
 
-        // Should NOT revert — address(0) controller means fresh project.
         vm.prank(projectOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector,
+                PROJECT_ID,
+                address(0),
+                address(controller)
+            )
+        );
         deployer.launchRulesetsFor(
             PROJECT_ID,
             "",
@@ -373,6 +381,11 @@ contract OmnichainRegressionFixes is Test {
             abi.encode(PROJECT_ID)
         );
         vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, PROJECT_ID),
+            abi.encode(IERC165(address(controller)))
+        );
+        vm.mockCall(
             address(controller),
             abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
             abi.encode(uint256(block.timestamp))
@@ -410,6 +423,11 @@ contract OmnichainRegressionFixes is Test {
             address(projects),
             abi.encodeWithSelector(IJBProjects.createFor.selector, address(deployer)),
             abi.encode(PROJECT_ID)
+        );
+        vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, PROJECT_ID),
+            abi.encode(IERC165(address(controller)))
         );
         vm.mockCall(
             address(controller),

@@ -71,6 +71,12 @@ contract ValidateController is Test {
 
         // Mock RULESETS on both controllers.
         vm.mockCall(
+            address(legitimateController), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects)
+        );
+        vm.mockCall(
+            address(fakeController), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects)
+        );
+        vm.mockCall(
             address(legitimateController), abi.encodeWithSelector(IJBController.RULESETS.selector), abi.encode(rulesets)
         );
         vm.mockCall(

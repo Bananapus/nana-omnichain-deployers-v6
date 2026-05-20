@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
+import {IJBCashOutHook} from "@bananapus/core-v6/src/interfaces/IJBCashOutHook.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
@@ -86,6 +87,7 @@ contract Tiered721HookComposition is Test {
             abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
             abi.encode(uint256(block.timestamp))
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
         vm.mockCall(
             address(controller), abi.encodeWithSelector(IJBControllerProjectUriForTest.setUriOf.selector), abi.encode()
         );
@@ -363,6 +365,44 @@ contract Tiered721HookComposition is Test {
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
         vm.expectRevert();
         deployer.beforeCashOutRecordedWith(context);
+    }
+
+    function test_beforeCashOut_721CashOutSkipsExtraHook() public {
+        _launch721({dataHook: buybackHookAddr, useForPay: true, useForCashOut: true, use721ForCashOut: true});
+        JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
+        context.cashOutCount = 0;
+
+        vm.clearMockedCalls();
+        vm.mockCall(
+            address(suckerRegistry), abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector), abi.encode(false)
+        );
+        vm.mockCallRevert(
+            buybackHookAddr,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
+            bytes("extra hook must not be called")
+        );
+
+        JBCashOutHookSpecification[] memory specs = new JBCashOutHookSpecification[](1);
+        specs[0] =
+            JBCashOutHookSpecification({hook: IJBCashOutHook(hookAddr), noop: false, amount: 0, metadata: bytes("")});
+        vm.mockCall(
+            hookAddr,
+            abi.encodeCall(IJBRulesetDataHook.beforeCashOutRecordedWith, (context)),
+            abi.encode(uint256(5000), uint256(1 ether), uint256(10 ether), uint256(5 ether), specs)
+        );
+
+        (
+            uint256 taxRate,
+            uint256 cashOutCount,
+            uint256 totalSupply,,
+            JBCashOutHookSpecification[] memory returnedSpecs
+        ) = deployer.beforeCashOutRecordedWith(context);
+
+        assertEq(taxRate, 5000, "721 tax rate preserved");
+        assertEq(cashOutCount, 1 ether, "721 cash-out weight preserved");
+        assertEq(totalSupply, 10 ether, "721 total weight preserved");
+        assertEq(returnedSpecs.length, 1, "only 721 spec returned");
+        assertEq(address(returnedSpecs[0].hook), hookAddr, "721 hook spec preserved");
     }
 
     function test_beforeCashOut_721CashOutFalse_customHookHandlesCashOut() public {

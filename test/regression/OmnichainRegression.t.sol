@@ -56,17 +56,18 @@ contract OmnichainRegression is Test {
         vm.mockCall(hookAddr, abi.encodeWithSelector(IJBOwnable.transferOwnershipToProject.selector), abi.encode());
     }
 
-    function test_poc_launchRulesetsFor_succeedsWhenProjectHasNoControllerYet() public {
+    function test_poc_launchRulesetsFor_revertsWhenControllerDoesNotRegister() public {
         JBOmnichainDeployer deployer =
             new JBOmnichainDeployer(mockSuckerRegistry, hookDeployer, permissions, projects, directory, address(0));
 
-        // A freshly created project with no controller yet — the fix allows address(0) through.
-        // The deployer uses its immutable DIRECTORY (set in constructor) to validate.
+        // A blank project can have no controller before launch, but the selected controller must register itself in
+        // the canonical directory before returning.
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, PROJECT_ID),
             abi.encode(IERC165(address(0)))
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
         // Mock controller.launchRulesetsFor to return a rulesetId.
         vm.mockCall(
             address(controller),
@@ -78,11 +79,15 @@ contract OmnichainRegression is Test {
         configs[0] = _makeRulesetConfig();
 
         vm.prank(projectOwner);
-        (uint256 rulesetId,) =
-            deployer.launchRulesetsFor(PROJECT_ID, "", configs, new JBTerminalConfig[](0), "memo", controller);
-
-        // Verify the call succeeded and returned a valid rulesetId.
-        assertGt(rulesetId, 0, "launchRulesetsFor should succeed for fresh project with no controller");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector,
+                PROJECT_ID,
+                address(0),
+                address(controller)
+            )
+        );
+        deployer.launchRulesetsFor(PROJECT_ID, "", configs, new JBTerminalConfig[](0), "memo", controller);
     }
 
     function test_poc_deploySuckersFor_requiresHiddenPermissionForDeployerItself() public {

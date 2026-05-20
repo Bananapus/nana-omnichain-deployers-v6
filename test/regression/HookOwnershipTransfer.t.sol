@@ -63,6 +63,7 @@ contract HookOwnershipTransfer is Test {
         );
 
         // Mock RULESETS on controller.
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
         vm.mockCall(
             address(controller), abi.encodeWithSelector(IJBController.RULESETS.selector), abi.encode(rulesetsContract)
         );

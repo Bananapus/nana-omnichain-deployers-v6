@@ -61,6 +61,9 @@ contract JBOmnichainDeployer is
         uint256 projectId, address expectedController, address actualController
     );
 
+    /// @notice Thrown when the provided controller is not connected to this deployer's canonical project registry.
+    error JBOmnichainDeployer_ControllerProjectsMismatch(address expectedProjects, address actualProjects);
+
     /// @notice Thrown when a data hook is invalid for the project ruleset being configured.
     error JBOmnichainDeployer_InvalidHook(address hook, uint256 projectId, uint256 rulesetId);
 
@@ -428,7 +431,8 @@ contract JBOmnichainDeployer is
         )
     {
         // If the cash out is from a sucker, bypass all taxes and fees.
-        // Pass through the local surplus so the reclaim calculation can compute the pro-rata share.
+        // Sucker cash-outs are the bridge accounting path: the value moving out of this chain must stay proportional
+        // to this chain's local backing. Do not add remote supply/surplus here.
         if (SUCKER_REGISTRY.isSuckerOf({projectId: context.projectId, addr: context.holder})) {
             return (0, context.cashOutCount, context.totalSupply, context.surplus.value, hookSpecifications);
         }
@@ -457,8 +461,10 @@ contract JBOmnichainDeployer is
         // Look up the 721 hook configured for this project's ruleset.
         JBTiered721HookConfig memory tiered721Config = _tiered721HookOf[context.projectId][context.rulesetId];
 
+        bool hasTiered721CashOut = address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut;
+
         // If a 721 hook is set and opted into cash out handling, let it adjust the cash out parameters.
-        if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
+        if (hasTiered721CashOut) {
             // Forward to the 721 hook. It may change the tax rate, count, and return hook specs.
             // Capture the 721 hook's totalSupply and effectiveSurplusValue — NFT cash-outs should use
             // local-only denominators so holders reclaim against local surplus, not omnichain surplus.
@@ -473,7 +479,10 @@ contract JBOmnichainDeployer is
         JBDeployerHookConfig memory extraHook = _extraDataHookOf[context.projectId][context.rulesetId];
 
         // If an extra hook is set and opted into cash out handling, let it adjust the cash out parameters.
-        if (address(extraHook.dataHook) != address(0) && extraHook.useDataHookForCashOut) {
+        // NFT cash-outs are excluded: the terminal later passes the original fungible burn count to after-hooks,
+        // while the 721 hook expresses pricing as NFT cash-out weight. Generic cash-out hooks cannot safely execute
+        // against that derived count.
+        if (!hasTiered721CashOut && address(extraHook.dataHook) != address(0) && extraHook.useDataHookForCashOut) {
             // Build a mutable copy of the context with the latest values (possibly updated by the 721 hook).
             JBBeforeCashOutRecordedContext memory hookContext = context;
             hookContext.cashOutTaxRate = cashOutTaxRate;
@@ -482,17 +491,10 @@ contract JBOmnichainDeployer is
             hookContext.surplus.value = effectiveSurplusValue;
 
             // Forward to the extra hook. It may further change the tax rate and return hook specs.
-            // We always discard totalSupply and effectiveSurplusValue — this contract computes
-            // cross-chain values for both. When the 721 hook is active, we also discard cashOutCount
-            // because the 721 hook redefines both cashOutCount and totalSupply as NFT cash-out weights
-            // (sum of tier prices), not fungible token counts. Letting the extra hook override
-            // cashOutCount would corrupt NFT pricing in the bonding curve.
-            if (address(tiered721Config.hook) != address(0) && tiered721Config.useDataHookForCashOut) {
-                (cashOutTaxRate,,,, extraHookSpecifications) = extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
-            } else {
-                (cashOutTaxRate, cashOutCount,,, extraHookSpecifications) =
-                    extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
-            }
+            // We always discard totalSupply and effectiveSurplusValue — this contract computes cross-chain values
+            // for both.
+            (cashOutTaxRate, cashOutCount,,, extraHookSpecifications) =
+                extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
         }
 
         // If neither hook returned any specifications, return the adjusted values with no hook specs.
@@ -793,6 +795,10 @@ contract JBOmnichainDeployer is
         // Reserve the project ID up front so permissionless project creations cannot invalidate hook deployment.
         projectId = PROJECTS.createFor(address(this));
 
+        // Validate the selected controller before deploying project-scoped hooks. For a fresh project the directory
+        // may still have no controller, but the controller must still belong to this deployer's canonical PROJECTS.
+        _validateController({projectId: projectId, controller: controller});
+
         // Deploy a 721 hook and set up rulesets.
         hook = _deploy721Hook({projectId: projectId, config: deploy721Config});
         rulesetConfigurations = _setup721({
@@ -810,6 +816,9 @@ contract JBOmnichainDeployer is
             terminalConfigurations: terminalConfigurations,
             memo: memo
         });
+
+        // A fresh launch must leave the canonical directory pointing at the controller that performed the launch.
+        _requireCurrentController({projectId: projectId, controller: controller});
 
         // Transfer the hook's ownership to the project (now that the project NFT has been minted).
         JBOwnable(address(hook)).transferOwnershipToProject(projectId);
@@ -876,6 +885,9 @@ contract JBOmnichainDeployer is
             terminalConfigurations: terminalConfigurations,
             memo: memo
         });
+
+        // A blank project launch must leave the canonical directory pointing at the controller that performed it.
+        _requireCurrentController({projectId: projectId, controller: controller});
     }
 
     /// @notice Internal implementation of `queueRulesetsOf`.
@@ -1061,9 +1073,26 @@ contract JBOmnichainDeployer is
     /// @param projectId The ID of the project to validate the controller for.
     /// @param controller The controller to validate.
     function _validateController(uint256 projectId, IJBController controller) internal view {
+        IJBProjects controllerProjects = controller.PROJECTS();
+        if (controllerProjects != PROJECTS) {
+            revert JBOmnichainDeployer_ControllerProjectsMismatch({
+                expectedProjects: address(PROJECTS), actualProjects: address(controllerProjects)
+            });
+        }
+
         address current = address(DIRECTORY.controllerOf(projectId));
         // Allow address(0) for fresh projects that haven't launched rulesets yet.
         if (current != address(0) && current != address(controller)) {
+            revert JBOmnichainDeployer_ControllerMismatch({
+                projectId: projectId, expectedController: current, actualController: address(controller)
+            });
+        }
+    }
+
+    /// @notice Revert unless the trusted directory now records `controller` for `projectId`.
+    function _requireCurrentController(uint256 projectId, IJBController controller) internal view {
+        address current = address(DIRECTORY.controllerOf(projectId));
+        if (current != address(controller)) {
             revert JBOmnichainDeployer_ControllerMismatch({
                 projectId: projectId, expectedController: current, actualController: address(controller)
             });

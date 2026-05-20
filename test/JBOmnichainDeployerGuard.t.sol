@@ -98,6 +98,28 @@ contract MockSuckerRegistry is IJBSuckerRegistry {
     function removeSuckerDeployer(address) external override {}
 }
 
+contract FakeOmnichainController {
+    IJBProjects public immutable PROJECTS;
+
+    constructor(IJBProjects projects) {
+        PROJECTS = projects;
+    }
+
+    function launchRulesetsFor(
+        uint256,
+        string calldata,
+        JBRulesetConfig[] calldata,
+        JBTerminalConfig[] calldata,
+        string calldata
+    )
+        external
+        view
+        returns (uint256)
+    {
+        return block.timestamp;
+    }
+}
+
 contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
     JBOmnichainDeployer deployer;
     MockSuckerRegistry suckerRegistry;
@@ -291,6 +313,66 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         assertTrue(hook0.useDataHookForPay, "useDataHookForPay 0 should be true");
         assertEq(address(hook1.dataHook), mockHook, "hook 1 mismatch");
         assertTrue(hook1.useDataHookForPay, "useDataHookForPay 1 should be true");
+    }
+
+    function test_launchProjectFor_revertsWithWrongProjectsController() public {
+        FakeOmnichainController fake = new FakeOmnichainController(IJBProjects(makeAddr("wrongProjects")));
+
+        uint256 countBefore = jbProjects().count();
+        JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
+        JBTerminalConfig[] memory terminals = _makeTerminalConfigs();
+        JBOmnichain721Config memory empty721Config;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_ControllerProjectsMismatch.selector,
+                address(jbProjects()),
+                makeAddr("wrongProjects")
+            )
+        );
+        deployer.launchProjectFor(
+            owner,
+            "ipfs://test",
+            empty721Config,
+            rulesets,
+            terminals,
+            "launch",
+            _emptySuckerConfig(),
+            IJBController(address(fake))
+        );
+
+        assertEq(jbProjects().count(), countBefore, "revert should not reserve a project");
+    }
+
+    function test_launchProjectFor_revertsIfControllerDoesNotRegisterDirectory() public {
+        FakeOmnichainController fake = new FakeOmnichainController(IJBProjects(address(jbProjects())));
+
+        uint256 countBefore = jbProjects().count();
+        uint256 nextProjectId = countBefore + 1;
+        JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
+        JBTerminalConfig[] memory terminals = _makeTerminalConfigs();
+        JBOmnichain721Config memory empty721Config;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector,
+                nextProjectId,
+                address(0),
+                address(fake)
+            )
+        );
+        deployer.launchProjectFor(
+            owner,
+            "ipfs://test",
+            empty721Config,
+            rulesets,
+            terminals,
+            "launch",
+            _emptySuckerConfig(),
+            IJBController(address(fake))
+        );
+
+        assertEq(jbProjects().count(), countBefore, "revert should not keep the reserved project");
     }
 
     /// @notice Queue rulesets succeeds when called in a different block than launch.

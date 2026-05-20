@@ -104,6 +104,12 @@ contract CodexNemesisZeroSaltSuckerSkipTest is Test {
             abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
             abi.encode(uint256(1))
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, PROJECT_ID),
+            abi.encode(controller)
+        );
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.hasPermission.selector), abi.encode(true)
         );

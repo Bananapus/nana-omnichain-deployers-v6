@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {OmnichainForkTestBase} from "../fork/OmnichainForkTestBase.sol";
+import {OmnichainInvariantTestBase} from "./OmnichainInvariantTestBase.sol";
 import {CrossChainDeployerHandler} from "./handlers/CrossChainDeployerHandler.sol";
 
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
@@ -19,7 +19,7 @@ import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerR
 ///         - sendReservedTokens: distributes pending reserved tokens to splits
 ///
 /// Run with: forge test --match-contract CrossChainDeployerInvariant -vvv
-contract CrossChainDeployerInvariant is OmnichainForkTestBase {
+contract CrossChainDeployerInvariant is OmnichainInvariantTestBase {
     CrossChainDeployerHandler handler;
 
     address actor1;
@@ -33,10 +33,9 @@ contract CrossChainDeployerInvariant is OmnichainForkTestBase {
     function setUp() public override {
         super.setUp();
 
-        // Deploy project with 721 hook + buyback + 50% cashOutTaxRate.
+        // Deploy a local project with 721 hook + 50% cashOutTaxRate.
         launchRulesetId = block.timestamp;
-        (projectId, hook721) = _deploy721WithBuyback(5000);
-        _setupPool(projectId, 10_000 ether);
+        (projectId, hook721) = _deploy721Project(5000);
 
         // Create actors.
         actor1 = makeAddr("xchain_actor1");
@@ -103,24 +102,39 @@ contract CrossChainDeployerInvariant is OmnichainForkTestBase {
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
     }
 
+    /// @notice Checks every cross-chain property in one campaign.
+    /// @dev Foundry runs a full stateful campaign for each public `invariant_*`
+    /// function. Keeping one entrypoint avoids replaying the same fork-backed
+    /// handler exploration once per property while preserving all assertions.
+    function invariant_CrossChainProperties() public view {
+        _assertSuckerZeroTaxWithRemoteSupply();
+        _assertFundConservationAcrossRulesets();
+        _assertTokenSupplyWithReserved();
+        _assertDeployerNeverHoldsETH();
+        _assertHookCarryForwardPreservesHook();
+        _assertAllQueuedRulesetsHaveHookConfig();
+        _assertLaunchHookConfigImmutable();
+        _assertNoActorProfits();
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
-    //  INVARIANT 1: Sucker always gets 0% tax (regardless of remote supply)
+    //  Sucker always gets 0% tax (regardless of remote supply)
     // ═══════════════════════════════════════════════════════════════════════
 
     /// @notice Even when remote supply is inflated, suckers should always get full pro-rata reclaim.
-    function invariant_SuckerZeroTaxWithRemoteSupply() public view {
+    function _assertSuckerZeroTaxWithRemoteSupply() internal view {
         assertTrue(
             handler.ghostSuckerCashOutTaxAlwaysZero(), "Sucker should get 0% tax regardless of mocked remote supply"
         );
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    //  INVARIANT 2: Fund conservation holds across ruleset transitions
+    //  Fund conservation holds across ruleset transitions
     // ═══════════════════════════════════════════════════════════════════════
 
     /// @notice Total paid in >= total cashed out, even after queuing new rulesets
     ///         with different cashOutTaxRates and reserved percents.
-    function invariant_FundConservationAcrossRulesets() public view {
+    function _assertFundConservationAcrossRulesets() internal view {
         uint256 terminalBalance =
             jbTerminalStore().balanceOf(address(jbMultiTerminal()), projectId, JBConstants.NATIVE_TOKEN);
 
@@ -129,11 +143,11 @@ contract CrossChainDeployerInvariant is OmnichainForkTestBase {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    //  INVARIANT 3: Token supply consistency (with reserved distribution)
+    //  Token supply consistency (with reserved distribution)
     // ═══════════════════════════════════════════════════════════════════════
 
     /// @notice Minted - burned >= totalSupply. Reserved distributions are tracked as mints.
-    function invariant_TokenSupplyWithReserved() public view {
+    function _assertTokenSupplyWithReserved() internal view {
         uint256 totalSupply = jbTokens().totalSupplyOf(projectId);
         uint256 minted = handler.ghostTotalTokensMinted();
         uint256 burned = handler.ghostTotalTokensBurned();
@@ -148,30 +162,30 @@ contract CrossChainDeployerInvariant is OmnichainForkTestBase {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    //  INVARIANT 4: Deployer never holds ETH (even during ruleset queuing)
+    //  Deployer never holds ETH (even during ruleset queuing)
     // ═══════════════════════════════════════════════════════════════════════
 
-    function invariant_DeployerNeverHoldsETH() public view {
+    function _assertDeployerNeverHoldsETH() internal view {
         assertEq(address(omnichainDeployer).balance, 0, "Deployer should never hold ETH");
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    //  INVARIANT 5: Hook carryforward preserves the 721 hook
+    //  Hook carryforward preserves the 721 hook
     // ═══════════════════════════════════════════════════════════════════════
 
     /// @notice When queuing without new tiers, the returned hook must be the same as the launch hook.
-    function invariant_HookCarryForwardPreservesHook() public view {
+    function _assertHookCarryForwardPreservesHook() internal view {
         assertTrue(
             handler.ghostCarryForwardAlwaysPreservesHook(), "Carry-forward should always return the same 721 hook"
         );
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    //  INVARIANT 6: Every queued ruleset has hook config stored
+    //  Every queued ruleset has hook config stored
     // ═══════════════════════════════════════════════════════════════════════
 
     /// @notice For every ruleset queued through the deployer, tiered721HookOf must be set.
-    function invariant_AllQueuedRulesetsHaveHookConfig() public view {
+    function _assertAllQueuedRulesetsHaveHookConfig() internal view {
         uint256 count = handler.ghostQueuedRulesetCount();
         for (uint256 i; i < count; i++) {
             uint256 rulesetId = handler.ghostQueuedRulesetIds(i);
@@ -181,22 +195,22 @@ contract CrossChainDeployerInvariant is OmnichainForkTestBase {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    //  INVARIANT 7: Launch ruleset hook config is immutable
+    //  Launch ruleset hook config is immutable
     // ═══════════════════════════════════════════════════════════════════════
 
     /// @notice Queuing new rulesets must not overwrite the launch ruleset's hook config.
-    function invariant_LaunchHookConfigImmutable() public view {
+    function _assertLaunchHookConfigImmutable() internal view {
         (IJB721TiersHook storedHook,) = omnichainDeployer.tiered721HookOf(projectId, launchRulesetId);
         assertEq(address(storedHook), address(hook721), "Launch ruleset hook must remain unchanged");
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    //  INVARIANT 8: No actor profits from operations (inflows >= outflows)
+    //  No actor profits from operations (inflows >= outflows)
     // ═══════════════════════════════════════════════════════════════════════
 
     /// @notice No single actor should extract more than they contributed (accounting for fees).
     ///         This is the no-profit invariant at the per-actor level.
-    function invariant_NoActorProfits() public view {
+    function _assertNoActorProfits() internal view {
         // Check regular actors.
         address[3] memory actorsToCheck = [actor1, actor2, actor3];
         for (uint256 i; i < 3; i++) {

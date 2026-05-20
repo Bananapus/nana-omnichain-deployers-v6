@@ -441,6 +441,12 @@ contract OmnichainDeployerAttacks is Test {
             abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
             abi.encode(uint256(block.timestamp))
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
+            abi.encode(controller)
+        );
         vm.mockCall(
             address(controller), abi.encodeWithSelector(IJBControllerProjectUriForTest.setUriOf.selector), abi.encode()
         );

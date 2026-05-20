@@ -444,7 +444,7 @@ contract OmnichainDeployerEdgeCases is Test {
         assertEq(totalSupply, ctx.totalSupply, "Should return cross-chain totalSupply (context value with no suckers)");
     }
 
-    function test_beforeCashOut_merges721AndCustomHookSpecifications() public {
+    function test_beforeCashOut_721CashOutSkipsCustomHookSpecifications() public {
         customHook.setReturns(2000, 500, 8000);
         customHook.setCashOutHookSpecification(22, abi.encode(uint256(2)));
 
@@ -466,6 +466,7 @@ contract OmnichainDeployerEdgeCases is Test {
         );
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
+        ctx.cashOutCount = 0;
 
         (
             uint256 cashOutTaxRate,
@@ -474,19 +475,14 @@ contract OmnichainDeployerEdgeCases is Test {
             JBCashOutHookSpecification[] memory hookSpecifications
         ) = deployer.beforeCashOutRecordedWith(ctx);
 
-        assertEq(cashOutTaxRate, 2000, "Custom hook should receive and override 721-adjusted tax rate");
-        // After the security fix, the 721 hook's cashOutCount is preserved — the extra hook cannot override it.
+        assertEq(cashOutTaxRate, 4000, "721 hook cashOutTaxRate must be preserved");
         assertEq(cashOutCount, 700, "721 hook cashOutCount must be preserved (extra hook cannot override NFT pricing)");
-        // The deployer captures the 721 hook's totalSupply (9000) — NFT cash-outs use local-only
-        // denominators. The extra hook's totalSupply is discarded, preserving the 721 hook's value.
+        // The deployer captures the 721 hook's totalSupply (9000) — NFT cash-outs use local-only denominators.
         assertEq(totalSupply, 9000, "Should return 721 hook totalSupply (local denominator)");
-        assertEq(hookSpecifications.length, 2, "721 and custom cash out specs should both be returned");
+        assertEq(hookSpecifications.length, 1, "Only 721 cash out specs should be returned");
         assertEq(address(hookSpecifications[0].hook), mock721, "721 hook spec should come first");
         assertEq(hookSpecifications[0].amount, 11, "721 hook spec amount should be preserved");
         assertEq(hookSpecifications[0].metadata, abi.encode(uint256(1)), "721 hook metadata should be preserved");
-        assertEq(address(hookSpecifications[1].hook), address(customHook), "Custom hook spec should come second");
-        assertEq(hookSpecifications[1].amount, 22, "Custom hook spec amount should be preserved");
-        assertEq(hookSpecifications[1].metadata, abi.encode(uint256(2)), "Custom hook metadata should be preserved");
     }
 
     // =========================================================================
@@ -819,6 +815,12 @@ contract OmnichainDeployerEdgeCases is Test {
             address(controller),
             abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
             abi.encode(uint256(block.timestamp))
+        );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
+            abi.encode(controller)
         );
         vm.mockCall(
             address(controller), abi.encodeWithSelector(IJBControllerProjectUriForTest.setUriOf.selector), abi.encode()

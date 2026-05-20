@@ -229,6 +229,74 @@ contract TestJBOmnichainDeployer is Test {
         assertEq(totalSupply, context.totalSupply, "should pass through totalSupply");
     }
 
+    function test_beforeCashOutRecordedWith_suckerScopeFalseUsesLocalBacking() public {
+        // Mock sucker registry to say holder IS a sucker.
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector, projectId, sucker),
+            abi.encode(true)
+        );
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.remoteTotalSupplyOf.selector, projectId),
+            abi.encode(uint256(2500))
+        );
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(
+                IJBSuckerRegistry.remoteSurplusOf.selector,
+                projectId,
+                uint256(18),
+                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN)))
+            ),
+            abi.encode(2 ether)
+        );
+
+        JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, rulesetId, sucker);
+        context.scopeCashOutsToLocalBalances = false;
+
+        (uint256 cashOutTaxRate,, uint256 totalSupply, uint256 effectiveSurplusValue,) =
+            deployer.beforeCashOutRecordedWith(context);
+
+        assertEq(cashOutTaxRate, 0, "sucker should remain tax exempt");
+        assertEq(totalSupply, context.totalSupply, "unscoped sucker should stay local-only");
+        assertEq(effectiveSurplusValue, context.surplus.value, "unscoped sucker should stay local-only");
+    }
+
+    function test_beforeCashOutRecordedWith_suckerScopeTrueExcludesRemote() public {
+        // Mock sucker registry to say holder IS a sucker.
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.isSuckerOf.selector, projectId, sucker),
+            abi.encode(true)
+        );
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.remoteTotalSupplyOf.selector, projectId),
+            abi.encode(uint256(2500))
+        );
+        vm.mockCall(
+            address(suckerRegistry),
+            abi.encodeWithSelector(
+                IJBSuckerRegistry.remoteSurplusOf.selector,
+                projectId,
+                uint256(18),
+                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN)))
+            ),
+            abi.encode(2 ether)
+        );
+
+        JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, rulesetId, sucker);
+        context.scopeCashOutsToLocalBalances = true;
+
+        (uint256 cashOutTaxRate,, uint256 totalSupply, uint256 effectiveSurplusValue,) =
+            deployer.beforeCashOutRecordedWith(context);
+
+        assertEq(cashOutTaxRate, 0, "sucker should remain tax exempt");
+        assertEq(totalSupply, context.totalSupply, "scoped sucker should stay local-only");
+        assertEq(effectiveSurplusValue, context.surplus.value, "scoped sucker should stay local-only");
+    }
+
     function test_beforeCashOutRecordedWith_nonSuckerGetsOriginalTax() public {
         // Mock sucker registry to say holder is NOT a sucker.
         vm.mockCall(
@@ -336,6 +404,7 @@ contract TestJBOmnichainDeployer is Test {
             abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
             abi.encode(uint256(block.timestamp))
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
 
         uint32 expectedCurrency = 2; // USD
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
@@ -618,6 +687,12 @@ contract TestJBOmnichainDeployer is Test {
             address(controller),
             abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
             abi.encode(uint256(block.timestamp))
+        );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
+            abi.encode(controller)
         );
         vm.mockCall(
             address(controller), abi.encodeWithSelector(IJBControllerProjectUriForTest.setUriOf.selector), abi.encode()
