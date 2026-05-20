@@ -85,17 +85,17 @@ contract JBOmnichainDeployer is
     /// @notice The canonical controller used for every project launch and ruleset queue.
     IJBController public immutable override CONTROLLER;
 
-    /// @notice Mints ERC-721s that represent Juicebox project ownership and transfers.
-    IJBProjects public immutable PROJECTS;
+    /// @notice The directory used to confirm existing projects still use this deployer's canonical controller.
+    IJBDirectory public immutable DIRECTORY;
 
     /// @notice Deploys tiered ERC-721 hooks for projects.
     IJB721TiersHookDeployer public immutable HOOK_DEPLOYER;
 
+    /// @notice Mints ERC-721s that represent Juicebox project ownership and transfers.
+    IJBProjects public immutable PROJECTS;
+
     /// @notice Deploys and tracks suckers for projects.
     IJBSuckerRegistry public immutable SUCKER_REGISTRY;
-
-    /// @notice The directory used to confirm existing projects still use this deployer's canonical controller.
-    IJBDirectory public immutable DIRECTORY;
 
     //*********************************************************************//
     // -------------------- internal stored properties ------------------- //
