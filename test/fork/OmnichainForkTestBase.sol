@@ -204,7 +204,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
             deployer: address(this),
             trustedForwarder: address(0)
         });
-        buybackHook.setChainSpecificConstants({poolManager: poolManager, oracleHook: IHooks(address(0))});
+        buybackHook.setChainSpecificConstants({newPoolManager: poolManager, newOracleHook: IHooks(address(0))});
 
         omnichainDeployer = new JBOmnichainDeployer(
             suckerRegistry, hookDeployer721, jbPermissions(), IJBController(address(jbController())), address(0)
@@ -239,7 +239,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
             // forge-lint: disable-next-line(unsafe-typecast)
-            encodedIPFSUri: bytes32("tier1"),
+            encodedIpfsUri: bytes32("tier1"),
             category: 1,
             discountPercent: 0,
             flags: JB721TierConfigFlags({

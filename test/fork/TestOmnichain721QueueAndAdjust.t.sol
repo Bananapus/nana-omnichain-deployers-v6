@@ -66,7 +66,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
             // forge-lint: disable-next-line(unsafe-typecast)
-            encodedIPFSUri: bytes32("tier2"),
+            encodedIpfsUri: bytes32("tier2"),
             category: 2,
             discountPercent: 0,
             flags: JB721TierConfigFlags({
@@ -144,7 +144,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
             // forge-lint: disable-next-line(unsafe-typecast)
-            encodedIPFSUri: bytes32("tier3"),
+            encodedIpfsUri: bytes32("tier3"),
             category: 3,
             discountPercent: 0,
             flags: JB721TierConfigFlags({
@@ -194,7 +194,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
             // forge-lint: disable-next-line(unsafe-typecast)
-            encodedIPFSUri: bytes32("bad"),
+            encodedIpfsUri: bytes32("bad"),
             category: 4,
             discountPercent: 0,
             flags: JB721TierConfigFlags({

@@ -104,7 +104,7 @@ abstract contract OmnichainInvariantTestBase is TestBaseWorkflow {
             votingUnits: 0,
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
-            encodedIPFSUri: bytes32("tier1"),
+            encodedIpfsUri: bytes32("tier1"),
             category: 1,
             discountPercent: 0,
             flags: JB721TierConfigFlags({

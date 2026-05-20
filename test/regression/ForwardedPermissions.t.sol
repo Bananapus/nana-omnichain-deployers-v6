@@ -235,7 +235,7 @@ contract ForwardedPermissionsTest is Test {
             votingUnits: 0,
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
-            encodedIPFSUri: bytes32(0),
+            encodedIpfsUri: bytes32(0),
             category: 1,
             discountPercent: 0,
             flags: JB721TierConfigFlags({
