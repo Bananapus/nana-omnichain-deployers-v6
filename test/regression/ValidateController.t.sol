@@ -49,9 +49,17 @@ contract ValidateController is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
+        vm.mockCall(
+            address(legitimateController), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects)
+        );
+        vm.mockCall(
+            address(legitimateController),
+            abi.encodeWithSelector(IJBController.DIRECTORY.selector),
+            abi.encode(directory)
+        );
 
         deployer =
-            new JBOmnichainDeployer(suckerRegistry, hookDeployer721, permissions, projects, directory, address(0));
+            new JBOmnichainDeployer(suckerRegistry, hookDeployer721, permissions, legitimateController, address(0));
 
         // Default mocks: permissions always pass.
         vm.mockCall(
@@ -100,10 +108,18 @@ contract ValidateController is Test {
     // ──────────────────── queueRulesetsOf
     // ────────────────────
 
-    function test_queueRulesetsOf_revertsWithFakeController() public {
+    function test_queueRulesetsOf_revertsWhenDirectoryControllerDiffers() public {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig();
         JBOmnichain721Config memory empty721Config;
+
+        // The deployer is pinned to `legitimateController`, so an existing project controlled by another controller
+        // must be rejected before any rulesets are queued.
+        vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
+            abi.encode(IERC165(address(fakeController)))
+        );
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -113,7 +129,7 @@ contract ValidateController is Test {
                 address(fakeController)
             )
         );
-        deployer.queueRulesetsOf(projectId, empty721Config, configs, "memo", fakeController);
+        deployer.queueRulesetsOf(projectId, empty721Config, configs, "memo");
     }
 
     function test_queueRulesetsOf_succeedsWithLegitimateController() public {
@@ -137,17 +153,25 @@ contract ValidateController is Test {
         );
 
         // Should not revert.
-        deployer.queueRulesetsOf(projectId, config721, configs, "memo", legitimateController);
+        deployer.queueRulesetsOf(projectId, config721, configs, "memo");
     }
 
     // ──────────────────── launchRulesetsFor
     // ────────────────────
 
-    function test_launchRulesetsFor_revertsWithFakeController() public {
+    function test_launchRulesetsFor_revertsWhenDirectoryControllerDiffers() public {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig();
         JBTerminalConfig[] memory terminals = new JBTerminalConfig[](0);
         JBOmnichain721Config memory empty721Config;
+
+        // The deployer is pinned to `legitimateController`, so an existing project controlled by another controller
+        // must be rejected before its initial rulesets are launched.
+        vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
+            abi.encode(IERC165(address(fakeController)))
+        );
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -157,7 +181,7 @@ contract ValidateController is Test {
                 address(fakeController)
             )
         );
-        deployer.launchRulesetsFor(projectId, "", empty721Config, configs, terminals, "memo", fakeController);
+        deployer.launchRulesetsFor(projectId, "", empty721Config, configs, terminals, "memo");
     }
 
     // ──────────────────── Helpers

@@ -73,9 +73,13 @@ contract CodexNemesisZeroSaltSuckerSkipTest is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
 
         deployer = new JBOmnichainDeployer(
-            IJBSuckerRegistry(address(registry)), hookDeployer, permissions, projects, directory, address(0)
+            IJBSuckerRegistry(address(registry)), hookDeployer, permissions, controller, address(0)
         );
 
         vm.mockCall(
@@ -127,8 +131,7 @@ contract CodexNemesisZeroSaltSuckerSkipTest is Test {
             rulesetConfigurations: _rulesetConfigurations(),
             terminalConfigurations: new JBTerminalConfig[](0),
             memo: "launch",
-            suckerDeploymentConfiguration: suckerConfig,
-            controller: controller
+            suckerDeploymentConfiguration: suckerConfig
         });
 
         assertEq(projectId, PROJECT_ID);

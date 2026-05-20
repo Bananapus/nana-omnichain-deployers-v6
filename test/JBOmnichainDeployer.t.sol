@@ -47,6 +47,7 @@ contract TestJBOmnichainDeployer is Test {
     IJBSuckerRegistry suckerRegistry = IJBSuckerRegistry(makeAddr("suckerRegistry"));
     IJB721TiersHookDeployer hookDeployer = IJB721TiersHookDeployer(makeAddr("hookDeployer"));
     IJBDirectory directory = IJBDirectory(makeAddr("directory"));
+    IJBController controller = IJBController(makeAddr("controller"));
 
     address projectOwner = makeAddr("projectOwner");
     address sucker = makeAddr("sucker");
@@ -62,13 +63,16 @@ contract TestJBOmnichainDeployer is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
 
         deployer = new JBOmnichainDeployer(
             suckerRegistry,
             hookDeployer,
             permissions,
-            projects,
-            directory,
+            controller,
             address(0) // trustedForwarder
         );
 
@@ -175,8 +179,7 @@ contract TestJBOmnichainDeployer is Test {
         // Since _dataHookOf is internal, we set it up via launchProjectFor.
 
         // Mock controller.launchRulesetsFor for the reserved project.
-        IJBController controller = IJBController(makeAddr("controller"));
-        _mockLaunchProjectFor(controller);
+        _mockLaunchProjectFor();
 
         // Create ruleset config with a data hook.
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
@@ -186,9 +189,7 @@ contract TestJBOmnichainDeployer is Test {
 
         // Call launchProjectFor to store the data hook.
         JBOmnichain721Config memory empty721Config;
-        deployer.launchProjectFor(
-            projectOwner, "test", empty721Config, configs, terminals, "", _emptySuckerConfig(), controller
-        );
+        deployer.launchProjectFor(projectOwner, "test", empty721Config, configs, terminals, "", _emptySuckerConfig());
 
         // Now the data hook should be stored for projectId at rulesetId = block.timestamp.
         uint256 storedRulesetId = block.timestamp;
@@ -366,8 +367,7 @@ contract TestJBOmnichainDeployer is Test {
     //*********************************************************************//
 
     function test_launchProjectFor_simplified_usesDefaultCurrency() public {
-        IJBController controller = IJBController(makeAddr("controller"));
-        _mockLaunchProjectFor(controller);
+        _mockLaunchProjectFor();
 
         uint32 expectedCurrency = 2; // USD
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
@@ -377,7 +377,7 @@ contract TestJBOmnichainDeployer is Test {
         JBTerminalConfig[] memory terminals = new JBTerminalConfig[](0);
 
         (uint256 pid, IJB721TiersHook hook,) =
-            deployer.launchProjectFor(projectOwner, "test", configs, terminals, "", _emptySuckerConfig(), controller);
+            deployer.launchProjectFor(projectOwner, "test", configs, terminals, "", _emptySuckerConfig());
 
         assertEq(pid, projectId, "should return correct project ID");
         assertEq(address(hook), hookAddr, "should deploy 721 hook");
@@ -392,8 +392,6 @@ contract TestJBOmnichainDeployer is Test {
     //*********************************************************************//
 
     function test_launchRulesetsFor_simplified_usesDefaultCurrency() public {
-        IJBController controller = IJBController(makeAddr("controller"));
-
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
@@ -414,8 +412,7 @@ contract TestJBOmnichainDeployer is Test {
         JBTerminalConfig[] memory terminals = new JBTerminalConfig[](0);
 
         vm.prank(projectOwner);
-        (uint256 rulesetId_, IJB721TiersHook hook) =
-            deployer.launchRulesetsFor(projectId, "", configs, terminals, "", controller);
+        (uint256 rulesetId_, IJB721TiersHook hook) = deployer.launchRulesetsFor(projectId, "", configs, terminals, "");
 
         assertEq(rulesetId_, block.timestamp, "should return ruleset ID");
         assertEq(address(hook), hookAddr, "should deploy 721 hook");
@@ -427,10 +424,9 @@ contract TestJBOmnichainDeployer is Test {
 
     function test_queueRulesetsOf_simplified_carriesForwardHook() public {
         // First launch a project so there's a hook to carry forward.
-        IJBController controller = IJBController(makeAddr("controller"));
         IJBRulesets rulesets = IJBRulesets(makeAddr("rulesets"));
 
-        _mockLaunchProjectFor(controller);
+        _mockLaunchProjectFor();
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(0), false, false);
@@ -438,7 +434,7 @@ contract TestJBOmnichainDeployer is Test {
 
         // Launch the project to store the hook at block.timestamp.
         uint256 launchTimestamp = block.timestamp;
-        deployer.launchProjectFor(projectOwner, "test", configs, terminals, "", _emptySuckerConfig(), controller);
+        deployer.launchProjectFor(projectOwner, "test", configs, terminals, "", _emptySuckerConfig());
 
         // Now set up mocks for queueRulesetsOf.
         vm.mockCall(
@@ -491,8 +487,7 @@ contract TestJBOmnichainDeployer is Test {
         newConfigs[0] = _makeRulesetConfig(address(0), false, false);
 
         vm.prank(projectOwner);
-        (uint256 queuedRulesetId, IJB721TiersHook hook) =
-            deployer.queueRulesetsOf(projectId, newConfigs, "", controller);
+        (uint256 queuedRulesetId, IJB721TiersHook hook) = deployer.queueRulesetsOf(projectId, newConfigs, "");
 
         assertEq(queuedRulesetId, expectedQueuedId, "should return queued ruleset ID");
         // With empty tiers the hook is carried forward from the launch.
@@ -508,10 +503,9 @@ contract TestJBOmnichainDeployer is Test {
     /// ruleset rather than defaulting to `false`.
     function test_queueRulesetsOf_carryForward_preservesCashOutFlag() public {
         // --- Step 1: Launch a project with useDataHookForCashOut = true ---
-        IJBController controller = IJBController(makeAddr("controller"));
         IJBRulesets rulesets = IJBRulesets(makeAddr("rulesets"));
 
-        _mockLaunchProjectFor(controller);
+        _mockLaunchProjectFor();
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(0), false, false);
@@ -524,9 +518,7 @@ contract TestJBOmnichainDeployer is Test {
         JBTerminalConfig[] memory terminals = new JBTerminalConfig[](0);
 
         uint256 launchTimestamp = block.timestamp;
-        deployer.launchProjectFor(
-            projectOwner, "test", deploy721Config, configs, terminals, "", _emptySuckerConfig(), controller
-        );
+        deployer.launchProjectFor(projectOwner, "test", deploy721Config, configs, terminals, "", _emptySuckerConfig());
 
         // Verify the initial launch stored useDataHookForCashOut = true.
         (, bool initialCashOutFlag) = deployer.tiered721HookOf(projectId, launchTimestamp);
@@ -581,8 +573,7 @@ contract TestJBOmnichainDeployer is Test {
         newConfigs[0] = _makeRulesetConfig(address(0), false, false);
 
         vm.prank(projectOwner);
-        (uint256 queuedRulesetId, IJB721TiersHook hook) =
-            deployer.queueRulesetsOf(projectId, newConfigs, "", controller);
+        (uint256 queuedRulesetId, IJB721TiersHook hook) = deployer.queueRulesetsOf(projectId, newConfigs, "");
 
         // --- Step 3: Verify the new ruleset preserved useDataHookForCashOut = true ---
         assertEq(queuedRulesetId, expectedQueuedId, "should return queued ruleset ID");
@@ -682,7 +673,7 @@ contract TestJBOmnichainDeployer is Test {
         config.salt = bytes32(0);
     }
 
-    function _mockLaunchProjectFor(IJBController controller) internal {
+    function _mockLaunchProjectFor() internal {
         vm.mockCall(
             address(controller),
             abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),

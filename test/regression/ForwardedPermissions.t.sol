@@ -77,7 +77,7 @@ contract ForwardedPermissionsTest is Test {
             trustedForwarder: address(0)
         });
 
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, directory, address(0));
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, controller, address(0));
 
         vm.mockCall(
             address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, PROJECT_ID), abi.encode(projectOwner)
@@ -163,9 +163,7 @@ contract ForwardedPermissionsTest is Test {
                 JBPermissionIds.LAUNCH_RULESETS
             )
         );
-        deployer.launchRulesetsFor(
-            PROJECT_ID, "", configs, new JBTerminalConfig[](0), "memo", IJBController(address(controller))
-        );
+        deployer.launchRulesetsFor(PROJECT_ID, "", configs, new JBTerminalConfig[](0), "memo");
     }
 
     function test_poc_queueRulesetsOf_revertsUnlessDeployerContractIsAuthorized() external {
@@ -212,7 +210,7 @@ contract ForwardedPermissionsTest is Test {
                 JBPermissionIds.QUEUE_RULESETS
             )
         );
-        deployer.queueRulesetsOf(PROJECT_ID, _configWithTier(), configs, "memo", IJBController(address(controller)));
+        deployer.queueRulesetsOf(PROJECT_ID, _configWithTier(), configs, "memo");
     }
 
     function _configWithTier() internal pure returns (JBOmnichain721Config memory config) {

@@ -56,13 +56,10 @@ contract JBOmnichainDeployer is
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
 
-    /// @notice Thrown when the provided controller does not match the project's controller in the directory.
+    /// @notice Thrown when a project is not using this deployer's canonical controller.
     error JBOmnichainDeployer_ControllerMismatch(
         uint256 projectId, address expectedController, address actualController
     );
-
-    /// @notice Thrown when the provided controller is not connected to this deployer's canonical project registry.
-    error JBOmnichainDeployer_ControllerProjectsMismatch(address expectedProjects, address actualProjects);
 
     /// @notice Thrown when a data hook is invalid for the project ruleset being configured.
     error JBOmnichainDeployer_InvalidHook(address hook, uint256 projectId, uint256 rulesetId);
@@ -85,6 +82,9 @@ contract JBOmnichainDeployer is
     // --------------- public immutable stored properties ---------------- //
     //*********************************************************************//
 
+    /// @notice The canonical controller used for every project launch and ruleset queue.
+    IJBController public immutable override CONTROLLER;
+
     /// @notice Mints ERC-721s that represent Juicebox project ownership and transfers.
     IJBProjects public immutable PROJECTS;
 
@@ -94,8 +94,7 @@ contract JBOmnichainDeployer is
     /// @notice Deploys and tracks suckers for projects.
     IJBSuckerRegistry public immutable SUCKER_REGISTRY;
 
-    /// @notice The directory used to validate controllers. Stored as immutable to prevent a user-provided
-    /// controller from returning a fake directory that confirms itself.
+    /// @notice The directory used to confirm existing projects still use this deployer's canonical controller.
     IJBDirectory public immutable DIRECTORY;
 
     //*********************************************************************//
@@ -119,24 +118,23 @@ contract JBOmnichainDeployer is
     /// @param suckerRegistry The registry to use for deploying and tracking each project's suckers.
     /// @param hookDeployer The deployer to use for project's tiered ERC-721 hooks.
     /// @param permissions The permissions to use for the contract.
-    /// @param projects The projects to use for the contract.
-    /// @param directory The directory used to validate controllers against a trusted source.
+    /// @param controller The controller to use for every project launch and ruleset queue.
     /// @param trustedForwarder The trusted forwarder for the ERC2771Context.
     constructor(
         IJBSuckerRegistry suckerRegistry,
         IJB721TiersHookDeployer hookDeployer,
         IJBPermissions permissions,
-        IJBProjects projects,
-        IJBDirectory directory,
+        IJBController controller,
         address trustedForwarder
     )
         JBPermissioned(permissions)
         ERC2771Context(trustedForwarder)
     {
-        PROJECTS = projects;
+        CONTROLLER = controller;
+        PROJECTS = controller.PROJECTS();
         SUCKER_REGISTRY = suckerRegistry;
         HOOK_DEPLOYER = hookDeployer;
-        DIRECTORY = directory;
+        DIRECTORY = controller.DIRECTORY();
 
         // Give the sucker registry permission to map tokens for all revnets.
         uint8[] memory permissionIds = new uint8[](1);
@@ -196,7 +194,6 @@ contract JBOmnichainDeployer is
     /// @param memo A memo to pass along to the emitted event.
     /// @param suckerDeploymentConfiguration The suckers to set up for the project. Suckers facilitate cross-chain
     /// token transfers between peer projects on different networks.
-    /// @param controller The controller to use for launching the project.
     /// @return projectId The ID of the newly launched project.
     /// @return hook The 721 tiers hook that was deployed for the project.
     /// @return suckers The addresses of the deployed suckers.
@@ -207,8 +204,7 @@ contract JBOmnichainDeployer is
         JBRulesetConfig[] memory rulesetConfigurations,
         JBTerminalConfig[] calldata terminalConfigurations,
         string calldata memo,
-        JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
-        IJBController controller
+        JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         external
         override
@@ -221,8 +217,7 @@ contract JBOmnichainDeployer is
             rulesetConfigurations: rulesetConfigurations,
             terminalConfigurations: terminalConfigurations,
             memo: memo,
-            suckerDeploymentConfiguration: suckerDeploymentConfiguration,
-            controller: controller
+            suckerDeploymentConfiguration: suckerDeploymentConfiguration
         });
     }
 
@@ -234,7 +229,6 @@ contract JBOmnichainDeployer is
     /// @param terminalConfigurations The terminals to set up for the project.
     /// @param memo A memo to pass along to the emitted event.
     /// @param suckerDeploymentConfiguration The suckers to set up for the project.
-    /// @param controller The controller to use for launching the project.
     /// @return projectId The ID of the newly launched project.
     /// @return hook The 721 tiers hook that was deployed for the project.
     /// @return suckers The addresses of the deployed suckers.
@@ -244,8 +238,7 @@ contract JBOmnichainDeployer is
         JBRulesetConfig[] memory rulesetConfigurations,
         JBTerminalConfig[] calldata terminalConfigurations,
         string calldata memo,
-        JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
-        IJBController controller
+        JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         external
         override
@@ -258,8 +251,7 @@ contract JBOmnichainDeployer is
             rulesetConfigurations: rulesetConfigurations,
             terminalConfigurations: terminalConfigurations,
             memo: memo,
-            suckerDeploymentConfiguration: suckerDeploymentConfiguration,
-            controller: controller
+            suckerDeploymentConfiguration: suckerDeploymentConfiguration
         });
     }
 
@@ -271,7 +263,6 @@ contract JBOmnichainDeployer is
     /// @param rulesetConfigurations The rulesets to launch. Custom data hooks are read from each ruleset's metadata.
     /// @param terminalConfigurations The terminals to set up for the project.
     /// @param memo A memo to pass along to the emitted event.
-    /// @param controller The controller to use for launching the rulesets.
     /// @return rulesetId The ID of the newly launched rulesets.
     /// @return hook The 721 tiers hook that was deployed for the project.
     function launchRulesetsFor(
@@ -280,8 +271,7 @@ contract JBOmnichainDeployer is
         JBOmnichain721Config memory deploy721Config,
         JBRulesetConfig[] memory rulesetConfigurations,
         JBTerminalConfig[] calldata terminalConfigurations,
-        string calldata memo,
-        IJBController controller
+        string calldata memo
     )
         external
         override
@@ -293,8 +283,7 @@ contract JBOmnichainDeployer is
             deploy721Config: deploy721Config,
             rulesetConfigurations: rulesetConfigurations,
             terminalConfigurations: terminalConfigurations,
-            memo: memo,
-            controller: controller
+            memo: memo
         });
     }
 
@@ -305,7 +294,6 @@ contract JBOmnichainDeployer is
     /// @param rulesetConfigurations The rulesets to launch.
     /// @param terminalConfigurations The terminals to set up for the project.
     /// @param memo A memo to pass along to the emitted event.
-    /// @param controller The controller to use for launching the rulesets.
     /// @return rulesetId The ID of the newly launched rulesets.
     /// @return hook The 721 tiers hook that was deployed for the project.
     function launchRulesetsFor(
@@ -313,8 +301,7 @@ contract JBOmnichainDeployer is
         string calldata projectUri,
         JBRulesetConfig[] memory rulesetConfigurations,
         JBTerminalConfig[] calldata terminalConfigurations,
-        string calldata memo,
-        IJBController controller
+        string calldata memo
     )
         external
         override
@@ -326,8 +313,7 @@ contract JBOmnichainDeployer is
             deploy721Config: _default721Config(rulesetConfigurations),
             rulesetConfigurations: rulesetConfigurations,
             terminalConfigurations: terminalConfigurations,
-            memo: memo,
-            controller: controller
+            memo: memo
         });
     }
 
@@ -348,15 +334,13 @@ contract JBOmnichainDeployer is
     /// @param deploy721Config The 721 hook deployment config (hook config + cash-out flag + salt).
     /// @param rulesetConfigurations The rulesets to queue. Custom data hooks are read from each ruleset's metadata.
     /// @param memo A memo to pass along to the emitted event.
-    /// @param controller The controller to use for queuing the rulesets.
     /// @return rulesetId The ID of the newly queued rulesets.
     /// @return hook The 721 tiers hook (newly deployed or carried forward from the previous ruleset).
     function queueRulesetsOf(
         uint256 projectId,
         JBOmnichain721Config memory deploy721Config,
         JBRulesetConfig[] memory rulesetConfigurations,
-        string calldata memo,
-        IJBController controller
+        string calldata memo
     )
         external
         override
@@ -366,8 +350,7 @@ contract JBOmnichainDeployer is
             projectId: projectId,
             deploy721Config: deploy721Config,
             rulesetConfigurations: rulesetConfigurations,
-            memo: memo,
-            controller: controller
+            memo: memo
         });
     }
 
@@ -378,14 +361,12 @@ contract JBOmnichainDeployer is
     /// @param projectId The ID of the project to queue the rulesets for.
     /// @param rulesetConfigurations The rulesets to queue.
     /// @param memo A memo to pass along to the emitted event.
-    /// @param controller The controller to use for queuing the rulesets.
     /// @return rulesetId The ID of the newly queued rulesets.
     /// @return hook The 721 tiers hook carried forward from the previous ruleset.
     function queueRulesetsOf(
         uint256 projectId,
         JBRulesetConfig[] memory rulesetConfigurations,
-        string calldata memo,
-        IJBController controller
+        string calldata memo
     )
         external
         override
@@ -395,8 +376,7 @@ contract JBOmnichainDeployer is
             projectId: projectId,
             deploy721Config: _default721Config(rulesetConfigurations),
             rulesetConfigurations: rulesetConfigurations,
-            memo: memo,
-            controller: controller
+            memo: memo
         });
     }
 
@@ -717,9 +697,8 @@ contract JBOmnichainDeployer is
         override
         returns (uint256 supply, uint256 surplus, uint256 balance)
     {
-        // Get the current ruleset to look up the stored extra hook.
-        IJBController controller = IJBController(address(DIRECTORY.controllerOf(projectId)));
-        (JBRuleset memory ruleset,) = controller.currentRulesetOf(projectId);
+        // Get the current ruleset from the canonical controller to look up the stored extra hook.
+        (JBRuleset memory ruleset,) = CONTROLLER.currentRulesetOf(projectId);
 
         // Look up the extra data hook for this project's current ruleset.
         JBDeployerHookConfig memory extraHook = _extraDataHookOf[projectId][ruleset.id];
@@ -786,8 +765,7 @@ contract JBOmnichainDeployer is
         JBRulesetConfig[] memory rulesetConfigurations,
         JBTerminalConfig[] calldata terminalConfigurations,
         string calldata memo,
-        JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
-        IJBController controller
+        JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         internal
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers)
@@ -795,9 +773,8 @@ contract JBOmnichainDeployer is
         // Reserve the project ID up front so permissionless project creations cannot invalidate hook deployment.
         projectId = PROJECTS.createFor(address(this));
 
-        // Validate the selected controller before deploying project-scoped hooks. For a fresh project the directory
-        // may still have no controller, but the controller must still belong to this deployer's canonical PROJECTS.
-        _validateController({projectId: projectId, controller: controller});
+        // A fresh project can start without a controller, but it must not already be assigned elsewhere.
+        _validateController({projectId: projectId});
 
         // Deploy a 721 hook and set up rulesets.
         hook = _deploy721Hook({projectId: projectId, config: deploy721Config});
@@ -809,7 +786,7 @@ contract JBOmnichainDeployer is
         });
 
         // Launch the rulesets for the reserved project.
-        controller.launchRulesetsFor({
+        CONTROLLER.launchRulesetsFor({
             projectId: projectId,
             projectUri: projectUri,
             rulesetConfigurations: rulesetConfigurations,
@@ -817,8 +794,8 @@ contract JBOmnichainDeployer is
             memo: memo
         });
 
-        // A fresh launch must leave the canonical directory pointing at the controller that performed the launch.
-        _requireCurrentController({projectId: projectId, controller: controller});
+        // A fresh launch must leave the directory pointing at this deployer's canonical controller.
+        _requireCurrentController({projectId: projectId});
 
         // Transfer the hook's ownership to the project (now that the project NFT has been minted).
         JBOwnable(address(hook)).transferOwnershipToProject(projectId);
@@ -844,8 +821,7 @@ contract JBOmnichainDeployer is
         JBOmnichain721Config memory deploy721Config,
         JBRulesetConfig[] memory rulesetConfigurations,
         JBTerminalConfig[] calldata terminalConfigurations,
-        string calldata memo,
-        IJBController controller
+        string calldata memo
     )
         internal
         returns (uint256 rulesetId, IJB721TiersHook hook)
@@ -864,8 +840,8 @@ contract JBOmnichainDeployer is
             });
         }
 
-        // Validate that the controller matches the project's controller in the directory.
-        _validateController({projectId: projectId, controller: controller});
+        // Existing projects must still be controlled by this deployer's canonical controller.
+        _validateController({projectId: projectId});
 
         // Deploy a 721 hook, transfer its ownership to the project, and set up rulesets.
         hook = _deploy721Hook({projectId: projectId, config: deploy721Config});
@@ -878,7 +854,7 @@ contract JBOmnichainDeployer is
         });
 
         // Configure the rulesets.
-        rulesetId = controller.launchRulesetsFor({
+        rulesetId = CONTROLLER.launchRulesetsFor({
             projectId: projectId,
             projectUri: projectUri,
             rulesetConfigurations: rulesetConfigurations,
@@ -886,8 +862,8 @@ contract JBOmnichainDeployer is
             memo: memo
         });
 
-        // A blank project launch must leave the canonical directory pointing at the controller that performed it.
-        _requireCurrentController({projectId: projectId, controller: controller});
+        // A blank project launch must leave the directory pointing at this deployer's canonical controller.
+        _requireCurrentController({projectId: projectId});
     }
 
     /// @notice Internal implementation of `queueRulesetsOf`.
@@ -895,8 +871,7 @@ contract JBOmnichainDeployer is
         uint256 projectId,
         JBOmnichain721Config memory deploy721Config,
         JBRulesetConfig[] memory rulesetConfigurations,
-        string calldata memo,
-        IJBController controller
+        string calldata memo
     )
         internal
         returns (uint256 rulesetId, IJB721TiersHook hook)
@@ -906,12 +881,12 @@ contract JBOmnichainDeployer is
             account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.QUEUE_RULESETS
         });
 
-        // Validate that the controller matches the project's controller in the directory.
-        _validateController({projectId: projectId, controller: controller});
+        // Existing projects must still be controlled by this deployer's canonical controller.
+        _validateController({projectId: projectId});
 
         // Revert if the project already had rulesets queued in this block, which would make our
         // `block.timestamp + i` ruleset ID prediction incorrect.
-        uint256 latestRulesetId = controller.RULESETS().latestRulesetIdOf(projectId);
+        uint256 latestRulesetId = CONTROLLER.RULESETS().latestRulesetIdOf(projectId);
         // forge-lint: disable-next-line(block-timestamp)
         uint256 currentTimestamp = block.timestamp;
         if (latestRulesetId >= currentTimestamp) {
@@ -938,7 +913,7 @@ contract JBOmnichainDeployer is
                 // excluded because hook selection is irreversible — if the pending ruleset is later rejected
                 // by the approval hook, we'd have locked in a hook from a ruleset that never became active.
                 (JBRuleset memory latestQueued, JBApprovalStatus approvalStatus) =
-                    controller.RULESETS().latestQueuedOf(projectId);
+                    CONTROLLER.RULESETS().latestQueuedOf(projectId);
                 if (
                     latestQueued.id != 0
                         && (approvalStatus == JBApprovalStatus.Approved || approvalStatus == JBApprovalStatus.Empty)
@@ -947,7 +922,7 @@ contract JBOmnichainDeployer is
                     sourceRulesetId = latestQueued.id;
                 } else {
                     // Fall back to the current (active, approved) ruleset.
-                    sourceRulesetId = controller.RULESETS().currentOf(projectId).id;
+                    sourceRulesetId = CONTROLLER.RULESETS().currentOf(projectId).id;
                 }
             }
             JBTiered721HookConfig memory previousConfig = _tiered721HookOf[projectId][sourceRulesetId];
@@ -971,7 +946,7 @@ contract JBOmnichainDeployer is
         });
 
         // Configure the rulesets.
-        rulesetId = controller.queueRulesetsOf({
+        rulesetId = CONTROLLER.queueRulesetsOf({
             projectId: projectId, rulesetConfigurations: rulesetConfigurations, memo: memo
         });
     }
@@ -1067,34 +1042,24 @@ contract JBOmnichainDeployer is
         return ERC2771Context._msgSender();
     }
 
-    /// @notice Validates that the provided controller matches the project's controller in the directory.
-    /// @dev Uses the immutable DIRECTORY instead of querying the controller, preventing a malicious
-    /// controller from returning a fake directory that confirms itself.
-    /// @param projectId The ID of the project to validate the controller for.
-    /// @param controller The controller to validate.
-    function _validateController(uint256 projectId, IJBController controller) internal view {
-        IJBProjects controllerProjects = controller.PROJECTS();
-        if (controllerProjects != PROJECTS) {
-            revert JBOmnichainDeployer_ControllerProjectsMismatch({
-                expectedProjects: address(PROJECTS), actualProjects: address(controllerProjects)
-            });
-        }
-
+    /// @notice Validates that `projectId` is either fresh or controlled by this deployer's canonical controller.
+    /// @param projectId The ID of the project to validate.
+    function _validateController(uint256 projectId) internal view {
         address current = address(DIRECTORY.controllerOf(projectId));
         // Allow address(0) for fresh projects that haven't launched rulesets yet.
-        if (current != address(0) && current != address(controller)) {
+        if (current != address(0) && current != address(CONTROLLER)) {
             revert JBOmnichainDeployer_ControllerMismatch({
-                projectId: projectId, expectedController: current, actualController: address(controller)
+                projectId: projectId, expectedController: address(CONTROLLER), actualController: current
             });
         }
     }
 
-    /// @notice Revert unless the trusted directory now records `controller` for `projectId`.
-    function _requireCurrentController(uint256 projectId, IJBController controller) internal view {
+    /// @notice Revert unless the trusted directory now records `CONTROLLER` for `projectId`.
+    function _requireCurrentController(uint256 projectId) internal view {
         address current = address(DIRECTORY.controllerOf(projectId));
-        if (current != address(controller)) {
+        if (current != address(CONTROLLER)) {
             revert JBOmnichainDeployer_ControllerMismatch({
-                projectId: projectId, expectedController: current, actualController: address(controller)
+                projectId: projectId, expectedController: address(CONTROLLER), actualController: current
             });
         }
     }

@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookDeployer.sol";
 import {IJBCashOutHook} from "@bananapus/core-v6/src/interfaces/IJBCashOutHook.sol";
+import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
@@ -41,7 +42,12 @@ contract ExtraCashOutHookZeroReclaimTest is Test {
     function setUp() public {
         MockPermissions permissions = new MockPermissions();
         MockSuckerRegistry suckers = new MockSuckerRegistry();
-        deployer = new Harness(IJBPermissions(address(permissions)), IJBSuckerRegistry(address(suckers)));
+        MockController controller = new MockController();
+        deployer = new Harness({
+            permissions: IJBPermissions(address(permissions)),
+            suckers: IJBSuckerRegistry(address(suckers)),
+            controller: IJBController(address(controller))
+        });
         nftHook = new Mock721CashOutHook();
     }
 
@@ -203,16 +209,10 @@ contract ExtraCashOutHookZeroReclaimTest is Test {
 contract Harness is JBOmnichainDeployer {
     constructor(
         IJBPermissions permissions,
-        IJBSuckerRegistry suckers
+        IJBSuckerRegistry suckers,
+        IJBController controller
     )
-        JBOmnichainDeployer(
-            suckers,
-            IJB721TiersHookDeployer(address(0)),
-            permissions,
-            IJBProjects(address(0)),
-            IJBDirectory(address(0)),
-            address(0)
-        )
+        JBOmnichainDeployer(suckers, IJB721TiersHookDeployer(address(0)), permissions, controller, address(0))
     {}
 
     function setTiered721HookOf(uint256 projectId, uint256 rulesetId, JBTiered721HookConfig memory config) external {
@@ -226,6 +226,11 @@ contract Harness is JBOmnichainDeployer {
 
 contract MockPermissions {
     function setPermissionsFor(address, JBPermissionsData calldata) external {}
+}
+
+contract MockController {
+    IJBProjects public immutable PROJECTS = IJBProjects(address(0));
+    IJBDirectory public immutable DIRECTORY = IJBDirectory(address(0));
 }
 
 contract MockSuckerRegistry {

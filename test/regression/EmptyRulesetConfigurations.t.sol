@@ -37,8 +37,11 @@ contract EmptyRulesetConfigurations is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
-        deployer =
-            new JBOmnichainDeployer(suckerRegistry, hookDeployer721, permissions, projects, directory, address(0));
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer721, permissions, controller, address(0));
 
         // Controller validation mocks — the deployer uses its immutable DIRECTORY.
         vm.mockCall(
@@ -64,7 +67,7 @@ contract EmptyRulesetConfigurations is Test {
         vm.expectRevert(
             abi.encodeWithSelector(JBOmnichainDeployer.JBOmnichainDeployer_NoRulesetConfigurations.selector, 0)
         );
-        deployer.launchProjectFor(address(this), "uri", empty, terminals, "memo", suckerConfig, controller);
+        deployer.launchProjectFor(address(this), "uri", empty, terminals, "memo", suckerConfig);
     }
 
     /// @notice queueRulesetsOf with empty rulesetConfigurations reverts with descriptive error.
@@ -74,7 +77,7 @@ contract EmptyRulesetConfigurations is Test {
         vm.expectRevert(
             abi.encodeWithSelector(JBOmnichainDeployer.JBOmnichainDeployer_NoRulesetConfigurations.selector, 0)
         );
-        deployer.queueRulesetsOf(1, empty, "memo", controller);
+        deployer.queueRulesetsOf(1, empty, "memo");
     }
 
     /// @notice launchRulesetsFor with empty rulesetConfigurations reverts with descriptive error.
@@ -85,6 +88,6 @@ contract EmptyRulesetConfigurations is Test {
         vm.expectRevert(
             abi.encodeWithSelector(JBOmnichainDeployer.JBOmnichainDeployer_NoRulesetConfigurations.selector, 0)
         );
-        deployer.launchRulesetsFor(1, "", empty, terminals, "memo", controller);
+        deployer.launchRulesetsFor(1, "", empty, terminals, "memo");
     }
 }

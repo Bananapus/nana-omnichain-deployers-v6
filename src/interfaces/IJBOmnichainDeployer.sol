@@ -14,6 +14,9 @@ import {JBSuckerDeploymentConfig} from "../structs/JBSuckerDeploymentConfig.sol"
 /// hook and cross-chain suckers, then serves as the data hook wrapper that coordinates pay/cash-out logic across all
 /// chains.
 interface IJBOmnichainDeployer {
+    /// @notice The controller used for every project launch and ruleset queue.
+    function CONTROLLER() external view returns (IJBController);
+
     /// @notice Get the extra data hook for a project and ruleset.
     /// @param projectId The ID of the project to get the extra data hook for.
     /// @param rulesetId The ID of the ruleset to get the extra data hook for.
@@ -61,7 +64,6 @@ interface IJBOmnichainDeployer {
     /// @param terminalConfigurations The terminals to set up for the project.
     /// @param memo A memo to pass along to the emitted event.
     /// @param suckerDeploymentConfiguration The suckers to set up for the project.
-    /// @param controller The controller to use for launching the project.
     /// @return projectId The ID of the newly launched project.
     /// @return hook The 721 tiers hook that was deployed for the project.
     /// @return suckers The addresses of the deployed suckers.
@@ -72,8 +74,7 @@ interface IJBOmnichainDeployer {
         JBRulesetConfig[] memory rulesetConfigurations,
         JBTerminalConfig[] calldata terminalConfigurations,
         string calldata memo,
-        JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
-        IJBController controller
+        JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         external
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers);
@@ -85,7 +86,6 @@ interface IJBOmnichainDeployer {
     /// @param terminalConfigurations The terminals to set up for the project.
     /// @param memo A memo to pass along to the emitted event.
     /// @param suckerDeploymentConfiguration The suckers to set up for the project.
-    /// @param controller The controller to use for launching the project.
     /// @return projectId The ID of the newly launched project.
     /// @return hook The 721 tiers hook that was deployed for the project.
     /// @return suckers The addresses of the deployed suckers.
@@ -95,8 +95,7 @@ interface IJBOmnichainDeployer {
         JBRulesetConfig[] memory rulesetConfigurations,
         JBTerminalConfig[] calldata terminalConfigurations,
         string calldata memo,
-        JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
-        IJBController controller
+        JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         external
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers);
@@ -108,7 +107,6 @@ interface IJBOmnichainDeployer {
     /// @param rulesetConfigurations The rulesets to launch. Custom data hooks are read from each ruleset's metadata.
     /// @param terminalConfigurations The terminals to set up for the project.
     /// @param memo A memo to pass along to the emitted event.
-    /// @param controller The controller to use for launching the rulesets.
     /// @return rulesetId The ID of the newly launched rulesets.
     /// @return hook The 721 tiers hook that was deployed for the project.
     function launchRulesetsFor(
@@ -117,8 +115,7 @@ interface IJBOmnichainDeployer {
         JBOmnichain721Config memory deploy721Config,
         JBRulesetConfig[] memory rulesetConfigurations,
         JBTerminalConfig[] calldata terminalConfigurations,
-        string calldata memo,
-        IJBController controller
+        string calldata memo
     )
         external
         returns (uint256 rulesetId, IJB721TiersHook hook);
@@ -129,7 +126,6 @@ interface IJBOmnichainDeployer {
     /// @param rulesetConfigurations The rulesets to launch.
     /// @param terminalConfigurations The terminals to set up for the project.
     /// @param memo A memo to pass along to the emitted event.
-    /// @param controller The controller to use for launching the rulesets.
     /// @return rulesetId The ID of the newly launched rulesets.
     /// @return hook The 721 tiers hook that was deployed for the project.
     function launchRulesetsFor(
@@ -137,8 +133,7 @@ interface IJBOmnichainDeployer {
         string calldata projectUri,
         JBRulesetConfig[] memory rulesetConfigurations,
         JBTerminalConfig[] calldata terminalConfigurations,
-        string calldata memo,
-        IJBController controller
+        string calldata memo
     )
         external
         returns (uint256 rulesetId, IJB721TiersHook hook);
@@ -150,15 +145,13 @@ interface IJBOmnichainDeployer {
     /// @param deploy721Config The 721 hook deployment config (hook config + cash-out flag + salt).
     /// @param rulesetConfigurations The rulesets to queue. Custom data hooks are read from each ruleset's metadata.
     /// @param memo A memo to pass along to the emitted event.
-    /// @param controller The controller to use for queuing the rulesets.
     /// @return rulesetId The ID of the newly queued rulesets.
     /// @return hook The 721 tiers hook (newly deployed or carried forward from the previous ruleset).
     function queueRulesetsOf(
         uint256 projectId,
         JBOmnichain721Config memory deploy721Config,
         JBRulesetConfig[] memory rulesetConfigurations,
-        string calldata memo,
-        IJBController controller
+        string calldata memo
     )
         external
         returns (uint256 rulesetId, IJB721TiersHook hook);
@@ -167,14 +160,12 @@ interface IJBOmnichainDeployer {
     /// @param projectId The ID of the project to queue the rulesets for.
     /// @param rulesetConfigurations The rulesets to queue.
     /// @param memo A memo to pass along to the emitted event.
-    /// @param controller The controller to use for queuing the rulesets.
     /// @return rulesetId The ID of the newly queued rulesets.
     /// @return hook The 721 tiers hook carried forward from the previous ruleset.
     function queueRulesetsOf(
         uint256 projectId,
         JBRulesetConfig[] memory rulesetConfigurations,
-        string calldata memo,
-        IJBController controller
+        string calldata memo
     )
         external
         returns (uint256 rulesetId, IJB721TiersHook hook);

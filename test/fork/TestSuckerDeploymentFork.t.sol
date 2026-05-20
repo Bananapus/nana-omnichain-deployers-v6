@@ -102,8 +102,7 @@ contract TestSuckerDeploymentFork is OmnichainForkTestBase {
             rulesetConfigurations: rulesets,
             terminalConfigurations: tc,
             memo: "sucker deployment fork test",
-            suckerDeploymentConfiguration: suckerConfig,
-            controller: IJBController(address(jbController()))
+            suckerDeploymentConfiguration: suckerConfig
         });
     }
 

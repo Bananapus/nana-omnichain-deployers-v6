@@ -41,6 +41,7 @@ contract CashOutSpecMergeTest is Test {
     IJBSuckerRegistry suckerRegistry = IJBSuckerRegistry(makeAddr("suckerRegistry"));
     IJB721TiersHookDeployer hookDeployer = IJB721TiersHookDeployer(makeAddr("hookDeployer"));
     IJBDirectory directory = IJBDirectory(makeAddr("directory"));
+    IJBController canonicalController = IJBController(makeAddr("controller"));
 
     address projectOwner = makeAddr("projectOwner");
     address hookAddr = makeAddr("hook721");
@@ -57,8 +58,16 @@ contract CashOutSpecMergeTest is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
+        vm.mockCall(
+            address(canonicalController), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects)
+        );
+        vm.mockCall(
+            address(canonicalController),
+            abi.encodeWithSelector(IJBController.DIRECTORY.selector),
+            abi.encode(directory)
+        );
 
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, directory, address(0));
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, canonicalController, address(0));
 
         // Mock project ownership.
         vm.mockCall(
@@ -261,14 +270,7 @@ contract CashOutSpecMergeTest is Test {
 
         JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            empty721Config,
-            configs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig()
         );
     }
 

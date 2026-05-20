@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 
+import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
@@ -33,6 +34,7 @@ contract NftCashoutSupplyMismatchTest is Test {
     address internal hookDeployer = makeAddr("hookDeployer");
     address internal suckerRegistry = makeAddr("suckerRegistry");
     address internal directory = makeAddr("directory");
+    address internal controller = makeAddr("controller");
 
     JBOmnichainDeployer internal deployer;
     MockNftCashOutHook internal nftHook;
@@ -40,13 +42,18 @@ contract NftCashoutSupplyMismatchTest is Test {
 
     function setUp() public {
         vm.mockCall(permissions, abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode());
+        vm.mockCall(
+            controller, abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(IJBProjects(projects))
+        );
+        vm.mockCall(
+            controller, abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(IJBDirectory(directory))
+        );
 
         deployer = new JBOmnichainDeployer(
             IJBSuckerRegistry(suckerRegistry),
             IJB721TiersHookDeployer(hookDeployer),
             IJBPermissions(permissions),
-            IJBProjects(projects),
-            IJBDirectory(directory),
+            IJBController(controller),
             address(0)
         );
 

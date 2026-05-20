@@ -324,7 +324,7 @@ contract CrossChainDeployerHandler is Test {
 
         vm.prank(projectOwner);
         try deployer.queueRulesetsOf({
-            projectId: projectId, rulesetConfigurations: rulesets, memo: "handler:queue", controller: controller
+            projectId: projectId, rulesetConfigurations: rulesets, memo: "handler:queue"
         }) returns (
             uint256 rulesetId, IJB721TiersHook queuedHook
         ) {

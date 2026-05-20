@@ -55,18 +55,17 @@ contract JBOmnichainDeployerTest is Test {
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
         vm.mockCall(address(directory), abi.encodeWithSelector(IJBDirectory.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
         vm.mockCall(
             address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, PROJECT_ID), abi.encode(projectOwner)
         );
 
         JBSuckerRegistry registry = new JBSuckerRegistry(directory, permissions, address(this), address(0));
         JBOmnichainDeployer deployer = new JBOmnichainDeployer(
-            IJBSuckerRegistry(address(registry)),
-            hookDeployer,
-            permissions,
-            projects,
-            IJBDirectory(address(0)),
-            address(0)
+            IJBSuckerRegistry(address(registry)), hookDeployer, permissions, controller, address(0)
         );
 
         vm.mockCall(
@@ -121,8 +120,12 @@ contract JBOmnichainDeployerTest is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
         JBOmnichainDeployer deployer = new JBOmnichainDeployer(
-            IJBSuckerRegistry(suckerRegistry), hookDeployer, permissions, projects, directory, address(0)
+            IJBSuckerRegistry(suckerRegistry), hookDeployer, permissions, controller, address(0)
         );
 
         vm.mockCall(
@@ -195,8 +198,7 @@ contract JBOmnichainDeployerTest is Test {
             rulesetConfigurations: launchConfigs,
             terminalConfigurations: new JBTerminalConfig[](0),
             memo: "",
-            suckerDeploymentConfiguration: _emptySuckerConfig(),
-            controller: controller
+            suckerDeploymentConfiguration: _emptySuckerConfig()
         });
 
         uint256 initialRulesetId = block.timestamp;
@@ -258,7 +260,7 @@ contract JBOmnichainDeployerTest is Test {
         queueConfigs[0] = _rulesetConfig();
 
         vm.prank(projectOwner);
-        deployer.queueRulesetsOf(PROJECT_ID, queueConfigs, "", controller);
+        deployer.queueRulesetsOf(PROJECT_ID, queueConfigs, "");
 
         (IJB721TiersHook carriedHook, bool queuedUseForCashOut) = deployer.tiered721HookOf(PROJECT_ID, queuedRulesetId);
         assertEq(address(carriedHook), hookAddr, "queue should carry the existing 721 hook address forward");

@@ -78,7 +78,7 @@ abstract contract OmnichainInvariantTestBase is TestBaseWorkflow {
         hookDeployer721 = new JB721TiersHookDeployer(exampleHook, hookStore, addressRegistry, multisig());
 
         omnichainDeployer = new JBOmnichainDeployer(
-            suckerRegistry, hookDeployer721, jbPermissions(), jbProjects(), jbDirectory(), address(0)
+            suckerRegistry, hookDeployer721, jbPermissions(), IJBController(address(jbController())), address(0)
         );
 
         // Allow the deployer to set first controller.
@@ -208,8 +208,7 @@ abstract contract OmnichainInvariantTestBase is TestBaseWorkflow {
             rulesetConfigurations: rulesets,
             terminalConfigurations: tc,
             memo: "invariant test",
-            suckerDeploymentConfiguration: suckerConfig,
-            controller: IJBController(address(jbController()))
+            suckerDeploymentConfiguration: suckerConfig
         });
     }
 }

@@ -98,28 +98,6 @@ contract MockSuckerRegistry is IJBSuckerRegistry {
     function removeSuckerDeployer(address) external override {}
 }
 
-contract FakeOmnichainController {
-    IJBProjects public immutable PROJECTS;
-
-    constructor(IJBProjects projects) {
-        PROJECTS = projects;
-    }
-
-    function launchRulesetsFor(
-        uint256,
-        string calldata,
-        JBRulesetConfig[] calldata,
-        JBTerminalConfig[] calldata,
-        string calldata
-    )
-        external
-        view
-        returns (uint256)
-    {
-        return block.timestamp;
-    }
-}
-
 contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
     JBOmnichainDeployer deployer;
     MockSuckerRegistry suckerRegistry;
@@ -147,8 +125,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
             IJBSuckerRegistry(address(suckerRegistry)),
             IJB721TiersHookDeployer(mockHookDeployerAddr),
             IJBPermissions(address(jbPermissions())),
-            IJBProjects(address(jbProjects())),
-            IJBDirectory(address(jbDirectory())),
+            IJBController(address(jbController())),
             trustedForwarder()
         );
 
@@ -238,14 +215,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         JBOmnichain721Config memory empty721Config;
 
         (projectId,,) = deployer.launchProjectFor(
-            owner,
-            "ipfs://test",
-            empty721Config,
-            rulesets,
-            terminals,
-            "launch",
-            _emptySuckerConfig(),
-            IJBController(address(jbController()))
+            owner, "ipfs://test", empty721Config, rulesets, terminals, "launch", _emptySuckerConfig()
         );
     }
 
@@ -255,14 +225,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         JBOmnichain721Config memory empty721Config;
 
         (projectId,,) = deployer.launchProjectFor(
-            owner,
-            "ipfs://test",
-            empty721Config,
-            rulesets,
-            terminals,
-            "launch",
-            _emptySuckerConfig(),
-            IJBController(address(jbController()))
+            owner, "ipfs://test", empty721Config, rulesets, terminals, "launch", _emptySuckerConfig()
         );
     }
 
@@ -315,66 +278,6 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         assertTrue(hook1.useDataHookForPay, "useDataHookForPay 1 should be true");
     }
 
-    function test_launchProjectFor_revertsWithWrongProjectsController() public {
-        FakeOmnichainController fake = new FakeOmnichainController(IJBProjects(makeAddr("wrongProjects")));
-
-        uint256 countBefore = jbProjects().count();
-        JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
-        JBTerminalConfig[] memory terminals = _makeTerminalConfigs();
-        JBOmnichain721Config memory empty721Config;
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                JBOmnichainDeployer.JBOmnichainDeployer_ControllerProjectsMismatch.selector,
-                address(jbProjects()),
-                makeAddr("wrongProjects")
-            )
-        );
-        deployer.launchProjectFor(
-            owner,
-            "ipfs://test",
-            empty721Config,
-            rulesets,
-            terminals,
-            "launch",
-            _emptySuckerConfig(),
-            IJBController(address(fake))
-        );
-
-        assertEq(jbProjects().count(), countBefore, "revert should not reserve a project");
-    }
-
-    function test_launchProjectFor_revertsIfControllerDoesNotRegisterDirectory() public {
-        FakeOmnichainController fake = new FakeOmnichainController(IJBProjects(address(jbProjects())));
-
-        uint256 countBefore = jbProjects().count();
-        uint256 nextProjectId = countBefore + 1;
-        JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
-        JBTerminalConfig[] memory terminals = _makeTerminalConfigs();
-        JBOmnichain721Config memory empty721Config;
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector,
-                nextProjectId,
-                address(0),
-                address(fake)
-            )
-        );
-        deployer.launchProjectFor(
-            owner,
-            "ipfs://test",
-            empty721Config,
-            rulesets,
-            terminals,
-            "launch",
-            _emptySuckerConfig(),
-            IJBController(address(fake))
-        );
-
-        assertEq(jbProjects().count(), countBefore, "revert should not keep the reserved project");
-    }
-
     /// @notice Queue rulesets succeeds when called in a different block than launch.
     function test_queueRulesetsOf_succeeds_noConflict() public {
         uint256 projectId = _launchProject(1);
@@ -386,8 +289,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
 
         JBOmnichain721Config memory empty721;
-        (uint256 rulesetId,) =
-            deployer.queueRulesetsOf(projectId, empty721, rulesets, "queue", IJBController(address(jbController())));
+        (uint256 rulesetId,) = deployer.queueRulesetsOf(projectId, empty721, rulesets, "queue");
         assertGt(rulesetId, 0, "Queued ruleset ID must be non-zero");
     }
 
@@ -409,7 +311,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
             )
         );
         JBOmnichain721Config memory empty721;
-        deployer.queueRulesetsOf(projectId, empty721, rulesets, "queue", IJBController(address(jbController())));
+        deployer.queueRulesetsOf(projectId, empty721, rulesets, "queue");
     }
 
     /// @notice Queue via deployer reverts when someone already queued via the controller
@@ -438,9 +340,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
             )
         );
         JBOmnichain721Config memory empty721;
-        deployer.queueRulesetsOf(
-            projectId, empty721, deployerRulesets, "deployer-queue", IJBController(address(jbController()))
-        );
+        deployer.queueRulesetsOf(projectId, empty721, deployerRulesets, "deployer-queue");
     }
 
     /// @notice Queue succeeds after warping past the latestRulesetIdOf from a multi-ruleset launch.
@@ -460,15 +360,14 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
             )
         );
         JBOmnichain721Config memory empty721;
-        deployer.queueRulesetsOf(projectId, empty721, rulesets, "too-early", IJBController(address(jbController())));
+        deployer.queueRulesetsOf(projectId, empty721, rulesets, "too-early");
 
         // Warp past latestRulesetIdOf so the guard passes.
         vm.warp(block.timestamp + 2);
 
         // Now should succeed.
         JBOmnichain721Config memory empty721b;
-        (uint256 rulesetId,) =
-            deployer.queueRulesetsOf(projectId, empty721b, rulesets, "ok-now", IJBController(address(jbController())));
+        (uint256 rulesetId,) = deployer.queueRulesetsOf(projectId, empty721b, rulesets, "ok-now");
         assertGt(rulesetId, 0, "Queued ruleset ID must be non-zero after warping past conflict");
     }
 
@@ -490,9 +389,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         // Queue a new ruleset with NO new tiers → triggers carry-forward logic.
         JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
         JBOmnichain721Config memory empty721;
-        (uint256 queuedRulesetId,) = deployer.queueRulesetsOf(
-            projectId, empty721, rulesets, "carry-forward", IJBController(address(jbController()))
-        );
+        (uint256 queuedRulesetId,) = deployer.queueRulesetsOf(projectId, empty721, rulesets, "carry-forward");
 
         assertGt(queuedRulesetId, 0, "Queued ruleset ID must be non-zero");
 

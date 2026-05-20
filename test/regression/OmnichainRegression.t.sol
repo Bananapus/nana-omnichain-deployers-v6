@@ -45,6 +45,10 @@ contract OmnichainRegression is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.hasPermission.selector), abi.encode(true)
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
         vm.mockCall(
             address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, PROJECT_ID), abi.encode(projectOwner)
         );
@@ -58,7 +62,7 @@ contract OmnichainRegression is Test {
 
     function test_poc_launchRulesetsFor_revertsWhenControllerDoesNotRegister() public {
         JBOmnichainDeployer deployer =
-            new JBOmnichainDeployer(mockSuckerRegistry, hookDeployer, permissions, projects, directory, address(0));
+            new JBOmnichainDeployer(mockSuckerRegistry, hookDeployer, permissions, controller, address(0));
 
         // A blank project can have no controller before launch, but the selected controller must register itself in
         // the canonical directory before returning.
@@ -83,11 +87,11 @@ contract OmnichainRegression is Test {
             abi.encodeWithSelector(
                 JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector,
                 PROJECT_ID,
-                address(0),
-                address(controller)
+                address(controller),
+                address(0)
             )
         );
-        deployer.launchRulesetsFor(PROJECT_ID, "", configs, new JBTerminalConfig[](0), "memo", controller);
+        deployer.launchRulesetsFor(PROJECT_ID, "", configs, new JBTerminalConfig[](0), "memo");
     }
 
     function test_poc_deploySuckersFor_requiresHiddenPermissionForDeployerItself() public {
@@ -95,12 +99,7 @@ contract OmnichainRegression is Test {
 
         JBSuckerRegistry registry = new JBSuckerRegistry(directory, permissions, address(this), address(0));
         JBOmnichainDeployer deployer = new JBOmnichainDeployer(
-            IJBSuckerRegistry(address(registry)),
-            hookDeployer,
-            permissions,
-            projects,
-            IJBDirectory(address(0)),
-            address(0)
+            IJBSuckerRegistry(address(registry)), hookDeployer, permissions, controller, address(0)
         );
 
         vm.mockCall(

@@ -118,6 +118,7 @@ contract OmnichainDeployerEdgeCases is Test {
     IJBSuckerRegistry suckerRegistry = IJBSuckerRegistry(makeAddr("suckerRegistry"));
     IJB721TiersHookDeployer hookDeployer = IJB721TiersHookDeployer(makeAddr("hookDeployer"));
     IJBDirectory directory = IJBDirectory(makeAddr("directory"));
+    IJBController canonicalController = IJBController(makeAddr("controller"));
 
     address projectOwner = makeAddr("projectOwner");
     address sucker = makeAddr("sucker");
@@ -135,8 +136,16 @@ contract OmnichainDeployerEdgeCases is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
+        vm.mockCall(
+            address(canonicalController), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects)
+        );
+        vm.mockCall(
+            address(canonicalController),
+            abi.encodeWithSelector(IJBController.DIRECTORY.selector),
+            abi.encode(directory)
+        );
 
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, directory, address(0));
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, canonicalController, address(0));
 
         vm.mockCall(
             address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, projectId), abi.encode(projectOwner)
@@ -193,8 +202,7 @@ contract OmnichainDeployerEdgeCases is Test {
     // Error path: InvalidHook — setting dataHook to deployer itself
     // =========================================================================
     function test_setup_revert_InvalidHook() public {
-        IJBController controller = IJBController(makeAddr("controller"));
-        _mockLaunchProjectFor(controller);
+        _mockLaunchProjectFor();
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(deployer), true, false);
@@ -206,14 +214,7 @@ contract OmnichainDeployerEdgeCases is Test {
             )
         );
         deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            empty721Config,
-            configs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig()
         );
     }
 
@@ -221,22 +222,14 @@ contract OmnichainDeployerEdgeCases is Test {
     // Error path: ProjectIdMismatch — controller returns wrong project ID
     // =========================================================================
     function test_launchProjectFor_usesReservedProjectId() public {
-        IJBController controller = IJBController(makeAddr("controller"));
-        _mockLaunchProjectFor(controller);
+        _mockLaunchProjectFor();
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(0), false, false);
 
         JBOmnichain721Config memory empty721Config;
         (uint256 returnedProjectId,,) = deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            empty721Config,
-            configs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig()
         );
 
         assertEq(returnedProjectId, projectId, "should use reserved project ID");
@@ -576,13 +569,11 @@ contract OmnichainDeployerEdgeCases is Test {
     // Permission: launchRulesetsFor requires LAUNCH_RULESETS (not QUEUE_RULESETS)
     // =========================================================================
     function test_launchRulesetsFor_requiresLaunchRulesetsPermission() public {
-        IJBController controller = IJBController(makeAddr("controller"));
-
         // Mock controllerOf on the deployer's immutable DIRECTORY.
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
-            abi.encode(address(controller))
+            abi.encode(address(canonicalController))
         );
 
         // Deny ALL permissions — this ensures the first permission check (LAUNCH_RULESETS) fails.
@@ -596,7 +587,7 @@ contract OmnichainDeployerEdgeCases is Test {
         JBOmnichain721Config memory empty721Config;
         vm.prank(projectOwner);
         vm.expectRevert();
-        deployer.launchRulesetsFor(projectId, "", empty721Config, configs, new JBTerminalConfig[](0), "", controller);
+        deployer.launchRulesetsFor(projectId, "", empty721Config, configs, new JBTerminalConfig[](0), "");
     }
 
     // =========================================================================
@@ -605,22 +596,22 @@ contract OmnichainDeployerEdgeCases is Test {
     function test_queueRulesetsOf_revert_InvalidHook_noTiersNoPriorHook() public {
         // First launch a project (so it exists).
         _launchProjectWithHook(address(0));
-
-        IJBController controller = IJBController(makeAddr("controller"));
         IJBRulesets rulesets = IJBRulesets(makeAddr("rulesets"));
 
         // Mock controllerOf on the deployer's immutable DIRECTORY.
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
-            abi.encode(address(controller))
+            abi.encode(address(canonicalController))
         );
 
         // Warp forward so block.timestamp > latestRulesetId (avoids RulesetIdsUnpredictable).
         vm.warp(100);
 
         // Mock latestRulesetIdOf to return a past timestamp.
-        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.RULESETS.selector), abi.encode(rulesets));
+        vm.mockCall(
+            address(canonicalController), abi.encodeWithSelector(IJBController.RULESETS.selector), abi.encode(rulesets)
+        );
         vm.mockCall(
             address(rulesets),
             abi.encodeWithSelector(IJBRulesets.latestRulesetIdOf.selector, projectId),
@@ -659,7 +650,7 @@ contract OmnichainDeployerEdgeCases is Test {
                 JBOmnichainDeployer.JBOmnichainDeployer_InvalidHook.selector, address(0), projectId, 50
             )
         );
-        deployer.queueRulesetsOf(projectId, empty721Config, configs, "", controller);
+        deployer.queueRulesetsOf(projectId, empty721Config, configs, "");
     }
 
     // =========================================================================
@@ -667,42 +658,26 @@ contract OmnichainDeployerEdgeCases is Test {
     // =========================================================================
 
     function _launchProjectWithHook(address hook) internal {
-        IJBController controller = IJBController(makeAddr("controller"));
-        _mockLaunchProjectFor(controller);
+        _mockLaunchProjectFor();
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(hook, true, false);
 
         JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            empty721Config,
-            configs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig()
         );
     }
 
     function _launchProjectWithCustomCashOutHook(address hook) internal {
-        IJBController controller = IJBController(makeAddr("controller"));
-        _mockLaunchProjectFor(controller);
+        _mockLaunchProjectFor();
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(hook, false, true);
 
         JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            empty721Config,
-            configs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig()
         );
     }
 
@@ -810,20 +785,21 @@ contract OmnichainDeployerEdgeCases is Test {
         config.salt = bytes32(0);
     }
 
-    function _mockLaunchProjectFor(IJBController controller) internal {
+    function _mockLaunchProjectFor() internal {
         vm.mockCall(
-            address(controller),
+            address(canonicalController),
             abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
             abi.encode(uint256(block.timestamp))
         );
-        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
-            abi.encode(controller)
+            abi.encode(canonicalController)
         );
         vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBControllerProjectUriForTest.setUriOf.selector), abi.encode()
+            address(canonicalController),
+            abi.encodeWithSelector(IJBControllerProjectUriForTest.setUriOf.selector),
+            abi.encode()
         );
     }
 }

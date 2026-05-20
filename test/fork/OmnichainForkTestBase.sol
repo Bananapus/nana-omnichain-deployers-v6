@@ -207,7 +207,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
         buybackHook.setChainSpecificConstants({poolManager: poolManager, oracleHook: IHooks(address(0))});
 
         omnichainDeployer = new JBOmnichainDeployer(
-            suckerRegistry, hookDeployer721, jbPermissions(), jbProjects(), jbDirectory(), address(0)
+            suckerRegistry, hookDeployer721, jbPermissions(), IJBController(address(jbController())), address(0)
         );
 
         // Allow the deployer to set first controller.
@@ -362,8 +362,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
             rulesetConfigurations: rulesets,
             terminalConfigurations: tc,
             memo: "fork test",
-            suckerDeploymentConfiguration: suckerConfig,
-            controller: IJBController(address(jbController()))
+            suckerDeploymentConfiguration: suckerConfig
         });
 
         // Deploy an ERC20 token for the project so pool setup can use it.
@@ -422,8 +421,7 @@ abstract contract OmnichainForkTestBase is TestBaseWorkflow {
             rulesetConfigurations: rulesets,
             terminalConfigurations: tc,
             memo: "plain",
-            suckerDeploymentConfiguration: suckerConfig,
-            controller: IJBController(address(jbController()))
+            suckerDeploymentConfiguration: suckerConfig
         });
     }
 

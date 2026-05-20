@@ -40,6 +40,7 @@ contract WeightScalingComparisonTest is Test {
     IJBSuckerRegistry suckerRegistry = IJBSuckerRegistry(makeAddr("suckerRegistry"));
     IJB721TiersHookDeployer hookDeployer = IJB721TiersHookDeployer(makeAddr("hookDeployer"));
     IJBDirectory directory = IJBDirectory(makeAddr("directory"));
+    IJBController controller = IJBController(makeAddr("controller"));
 
     // Test actors and addresses.
     address projectOwner = makeAddr("projectOwner");
@@ -54,9 +55,13 @@ contract WeightScalingComparisonTest is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
 
         // Deploy the omnichain deployer with mock dependencies.
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, directory, address(0));
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, controller, address(0));
 
         // Mock project ownership for permission checks.
         vm.mockCall(
@@ -238,7 +243,6 @@ contract WeightScalingComparisonTest is Test {
     /// @dev Launches a project through the deployer with an optional custom hook.
     function _launchProject(address customHook) internal {
         // Mock external calls needed for project launch.
-        IJBController controller = IJBController(makeAddr("controller"));
         vm.mockCall(
             address(projects),
             abi.encodeWithSelector(IJBProjects.createFor.selector, address(deployer)),
@@ -272,14 +276,7 @@ contract WeightScalingComparisonTest is Test {
         // Launch with empty 721 config (deployer still creates a hook).
         JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            empty721Config,
-            configs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig()
         );
     }
 

@@ -8,7 +8,6 @@ import {CoreDeployment, CoreDeploymentLib} from "@bananapus/core-v6/script/helpe
 import {Hook721Deployment, Hook721DeploymentLib} from "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
 import {SuckerDeployment, SuckerDeploymentLib} from "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
 
-import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {JBOmnichainDeployer} from "src/JBOmnichainDeployer.sol";
 
 contract Deploy is Script, Sphinx {
@@ -62,12 +61,7 @@ contract Deploy is Script, Sphinx {
                 salt: NANA_OMNICHAIN_DEPLOYER_SALT,
                 creationCode: type(JBOmnichainDeployer).creationCode,
                 arguments: abi.encode(
-                    suckers.registry,
-                    hook.hook_deployer,
-                    core.permissions,
-                    core.projects,
-                    core.directory,
-                    core.trustedForwarder
+                    suckers.registry, hook.hook_deployer, core.permissions, core.controller, core.trustedForwarder
                 ),
                 deployer: safeAddress()
             })) {
@@ -75,8 +69,7 @@ contract Deploy is Script, Sphinx {
                 suckerRegistry: suckers.registry,
                 hookDeployer: hook.hook_deployer,
                 permissions: core.permissions,
-                projects: core.projects,
-                directory: IJBDirectory(address(core.directory)),
+                controller: core.controller,
                 trustedForwarder: core.trustedForwarder
             });
         }

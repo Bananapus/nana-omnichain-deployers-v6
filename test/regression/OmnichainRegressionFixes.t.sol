@@ -52,8 +52,12 @@ contract OmnichainRegressionFixes is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
 
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, directory, address(0));
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, controller, address(0));
 
         vm.mockCall(
             address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, PROJECT_ID), abi.encode(projectOwner)
@@ -283,8 +287,8 @@ contract OmnichainRegressionFixes is Test {
             abi.encodeWithSelector(
                 JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector,
                 PROJECT_ID,
-                address(0),
-                address(controller)
+                address(controller),
+                address(0)
             )
         );
         deployer.launchRulesetsFor(
@@ -295,8 +299,7 @@ contract OmnichainRegressionFixes is Test {
             }),
             configs,
             new JBTerminalConfig[](0),
-            "",
-            controller
+            ""
         );
     }
 
@@ -320,8 +323,8 @@ contract OmnichainRegressionFixes is Test {
             abi.encodeWithSelector(
                 JBOmnichainDeployer.JBOmnichainDeployer_ControllerMismatch.selector,
                 PROJECT_ID,
-                wrongController,
-                address(controller)
+                address(controller),
+                wrongController
             )
         );
         deployer.launchRulesetsFor(
@@ -332,8 +335,7 @@ contract OmnichainRegressionFixes is Test {
             }),
             configs,
             new JBTerminalConfig[](0),
-            "",
-            controller
+            ""
         );
     }
 
@@ -365,8 +367,7 @@ contract OmnichainRegressionFixes is Test {
             }),
             configs,
             new JBTerminalConfig[](0),
-            "",
-            controller
+            ""
         );
     }
 
@@ -413,8 +414,7 @@ contract OmnichainRegressionFixes is Test {
             rulesetConfigurations: configs,
             terminalConfigurations: new JBTerminalConfig[](0),
             memo: "",
-            suckerDeploymentConfiguration: _emptySuckerConfig(),
-            controller: controller
+            suckerDeploymentConfiguration: _emptySuckerConfig()
         });
     }
 
@@ -460,8 +460,7 @@ contract OmnichainRegressionFixes is Test {
             rulesetConfigurations: configs,
             terminalConfigurations: new JBTerminalConfig[](0),
             memo: "",
-            suckerDeploymentConfiguration: _emptySuckerConfig(),
-            controller: controller
+            suckerDeploymentConfiguration: _emptySuckerConfig()
         });
     }
 

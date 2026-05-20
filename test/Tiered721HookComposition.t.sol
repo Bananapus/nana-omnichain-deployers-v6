@@ -70,7 +70,14 @@ contract Tiered721HookComposition is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, directory, address(0));
+
+        // The deployer derives its immutable project and directory references from the pinned controller during
+        // construction.
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, controller, address(0));
         vm.mockCall(
             address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, projectId), abi.encode(projectOwner)
         );
@@ -87,7 +94,6 @@ contract Tiered721HookComposition is Test {
             abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
             abi.encode(uint256(block.timestamp))
         );
-        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
         vm.mockCall(
             address(controller), abi.encodeWithSelector(IJBControllerProjectUriForTest.setUriOf.selector), abi.encode()
         );
@@ -426,14 +432,7 @@ contract Tiered721HookComposition is Test {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(customHookAddr, true, true);
         deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            _empty721Config(),
-            configs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", _empty721Config(), configs, new JBTerminalConfig[](0), "", _emptySuckerConfig()
         );
         JBCashOutHookSpecification[] memory cashOutSpecs = new JBCashOutHookSpecification[](0);
         vm.mockCall(
@@ -454,14 +453,7 @@ contract Tiered721HookComposition is Test {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(0), false, false);
         deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            _empty721Config(),
-            configs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", _empty721Config(), configs, new JBTerminalConfig[](0), "", _emptySuckerConfig()
         );
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
         (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(context);
@@ -551,8 +543,7 @@ contract Tiered721HookComposition is Test {
             }),
             rulesetConfigurations: _make721RulesetConfigs(buybackHookAddr, true, false),
             terminalConfigurations: new JBTerminalConfig[](0),
-            memo: "",
-            controller: controller
+            memo: ""
         });
         (IJB721TiersHook stored721,) = deployer.tiered721HookOf(projectId, block.timestamp);
         assertEq(address(stored721), hookAddr);
@@ -576,8 +567,7 @@ contract Tiered721HookComposition is Test {
                 deployTiersHookConfig: _emptyHookConfig(), useDataHookForCashOut: false, salt: bytes32(0)
             }),
             rulesetConfigurations: _make721RulesetConfigs(buybackHookAddr, true, false),
-            memo: "",
-            controller: controller
+            memo: ""
         });
         (IJB721TiersHook stored721,) = deployer.tiered721HookOf(projectId, block.timestamp);
         assertEq(address(stored721), hookAddr);
@@ -592,14 +582,7 @@ contract Tiered721HookComposition is Test {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(buybackHookAddr, true, false);
         deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            _empty721Config(),
-            configs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", _empty721Config(), configs, new JBTerminalConfig[](0), "", _emptySuckerConfig()
         );
         (IJB721TiersHook stored721,) = deployer.tiered721HookOf(projectId, block.timestamp);
         assertEq(address(stored721), hookAddr, "721 hook always deployed even with 0 tiers");
@@ -612,14 +595,7 @@ contract Tiered721HookComposition is Test {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(buybackHookAddr, true, false);
         deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            _empty721Config(),
-            configs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", _empty721Config(), configs, new JBTerminalConfig[](0), "", _emptySuckerConfig()
         );
         JBPayHookSpecification[] memory buybackSpecs = new JBPayHookSpecification[](1);
         buybackSpecs[0] = JBPayHookSpecification({
@@ -815,8 +791,7 @@ contract Tiered721HookComposition is Test {
             rulesetConfigurations: _make721RulesetConfigs(dataHook, useForPay, useForCashOut),
             terminalConfigurations: new JBTerminalConfig[](0),
             memo: "",
-            suckerDeploymentConfiguration: _emptySuckerConfig(),
-            controller: controller
+            suckerDeploymentConfiguration: _emptySuckerConfig()
         });
     }
 

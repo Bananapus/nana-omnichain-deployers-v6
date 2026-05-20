@@ -51,8 +51,12 @@ contract HookOwnershipTransfer is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
 
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, directory, address(0));
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, controller, address(0));
 
         // Default mocks: permissions always pass.
         vm.mockCall(
@@ -63,7 +67,6 @@ contract HookOwnershipTransfer is Test {
         );
 
         // Mock RULESETS on controller.
-        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
         vm.mockCall(
             address(controller), abi.encodeWithSelector(IJBController.RULESETS.selector), abi.encode(rulesetsContract)
         );
@@ -146,8 +149,7 @@ contract HookOwnershipTransfer is Test {
                 deployTiersHookConfig: hookConfig, useDataHookForCashOut: false, salt: bytes32(0)
             }),
             rulesetConfigurations: rulesetConfigs,
-            memo: "test",
-            controller: controller
+            memo: "test"
         });
     }
 }

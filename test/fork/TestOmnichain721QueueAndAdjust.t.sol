@@ -42,8 +42,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
                 salt: bytes32("Q721")
             }),
             rulesetConfigurations: rulesets,
-            memo: "add 721 hook",
-            controller: IJBController(address(jbController()))
+            memo: "add 721 hook"
         });
 
         // Step 5: Verify hook ownership was transferred to the project.
@@ -118,8 +117,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
                 salt: bytes32("REPLACE")
             }),
             rulesetConfigurations: rulesets,
-            memo: "replace hook",
-            controller: IJBController(address(jbController()))
+            memo: "replace hook"
         });
 
         // The new hook should be different from the original.
@@ -183,8 +181,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
                 salt: bytes32("PERMS")
             }),
             rulesetConfigurations: rulesets,
-            memo: "test perms",
-            controller: IJBController(address(jbController()))
+            memo: "test perms"
         });
 
         // A random address should NOT be able to adjust tiers.
