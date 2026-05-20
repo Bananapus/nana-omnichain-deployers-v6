@@ -19,7 +19,9 @@ contract Create2PeerDeterminismTest is Test {
         bytes32 salt,
         uint64 chainIdA,
         uint64 chainIdB
-    ) public {
+    )
+        public
+    {
         vm.assume(chainIdA != chainIdB);
         vm.assume(deployer != address(0) && singleton != address(0));
 
@@ -42,7 +44,9 @@ contract Create2PeerDeterminismTest is Test {
         bytes32 userSalt,
         uint64 chainIdA,
         uint64 chainIdB
-    ) public {
+    )
+        public
+    {
         vm.assume(callerA != callerB);
         vm.assume(chainIdA != chainIdB);
 
@@ -66,7 +70,9 @@ contract Create2PeerDeterminismTest is Test {
         address singleton,
         address caller,
         bytes32 userSalt
-    ) public {
+    )
+        public
+    {
         vm.assume(sucker_deployer != address(0) && singleton != address(0));
 
         // Chain A's view.
