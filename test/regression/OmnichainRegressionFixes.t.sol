@@ -261,7 +261,7 @@ contract OmnichainRegressionFixes is Test {
     }
 
     //*********************************************************************//
-    // --- _validateController allows address(0) for fresh projects  //
+    // --- _requireController allows address(0) for fresh projects  //
     //*********************************************************************//
 
     /// @notice Fresh project with address(0) controller must register the controller during launch.

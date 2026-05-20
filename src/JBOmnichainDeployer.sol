@@ -774,7 +774,7 @@ contract JBOmnichainDeployer is
         projectId = PROJECTS.createFor(address(this));
 
         // A fresh project can start without a controller, but it must not already be assigned elsewhere.
-        _validateController({projectId: projectId});
+        _requireController({projectId: projectId, allowUnset: true});
 
         // Deploy a 721 hook and set up rulesets.
         hook = _deploy721Hook({projectId: projectId, config: deploy721Config});
@@ -795,7 +795,7 @@ contract JBOmnichainDeployer is
         });
 
         // A fresh launch must leave the directory pointing at this deployer's canonical controller.
-        _requireCurrentController({projectId: projectId});
+        _requireController({projectId: projectId, allowUnset: false});
 
         // Transfer the hook's ownership to the project (now that the project NFT has been minted).
         JBOwnable(address(hook)).transferOwnershipToProject(projectId);
@@ -841,7 +841,7 @@ contract JBOmnichainDeployer is
         }
 
         // Existing projects must still be controlled by this deployer's canonical controller.
-        _validateController({projectId: projectId});
+        _requireController({projectId: projectId, allowUnset: true});
 
         // Deploy a 721 hook, transfer its ownership to the project, and set up rulesets.
         hook = _deploy721Hook({projectId: projectId, config: deploy721Config});
@@ -863,7 +863,7 @@ contract JBOmnichainDeployer is
         });
 
         // A blank project launch must leave the directory pointing at this deployer's canonical controller.
-        _requireCurrentController({projectId: projectId});
+        _requireController({projectId: projectId, allowUnset: false});
     }
 
     /// @notice Internal implementation of `queueRulesetsOf`.
@@ -882,7 +882,7 @@ contract JBOmnichainDeployer is
         });
 
         // Existing projects must still be controlled by this deployer's canonical controller.
-        _validateController({projectId: projectId});
+        _requireController({projectId: projectId, allowUnset: true});
 
         // Revert if the project already had rulesets queued in this block, which would make our
         // `block.timestamp + i` ruleset ID prediction incorrect.
@@ -1042,21 +1042,14 @@ contract JBOmnichainDeployer is
         return ERC2771Context._msgSender();
     }
 
-    /// @notice Validates that `projectId` is either fresh or controlled by this deployer's canonical controller.
-    /// @param projectId The ID of the project to validate.
-    function _validateController(uint256 projectId) internal view {
+    /// @notice Revert unless the trusted directory records `CONTROLLER` for `projectId`.
+    /// @dev Use `allowUnset = true` as a pre-launch check: a fresh project with no controller wired yet is accepted.
+    /// Use `allowUnset = false` as a post-launch check: `CONTROLLER` must be live in the directory.
+    /// @param projectId The ID of the project to check.
+    /// @param allowUnset Whether `address(0)` (no controller assigned yet) is treated as valid.
+    function _requireController(uint256 projectId, bool allowUnset) internal view {
         address current = address(DIRECTORY.controllerOf(projectId));
-        // Allow address(0) for fresh projects that haven't launched rulesets yet.
-        if (current != address(0) && current != address(CONTROLLER)) {
-            revert JBOmnichainDeployer_ControllerMismatch({
-                projectId: projectId, expectedController: address(CONTROLLER), actualController: current
-            });
-        }
-    }
-
-    /// @notice Revert unless the trusted directory now records `CONTROLLER` for `projectId`.
-    function _requireCurrentController(uint256 projectId) internal view {
-        address current = address(DIRECTORY.controllerOf(projectId));
+        if (allowUnset && current == address(0)) return;
         if (current != address(CONTROLLER)) {
             revert JBOmnichainDeployer_ControllerMismatch({
                 projectId: projectId, expectedController: address(CONTROLLER), actualController: current
