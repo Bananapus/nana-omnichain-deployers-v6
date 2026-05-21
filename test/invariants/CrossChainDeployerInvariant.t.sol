@@ -211,9 +211,10 @@ contract CrossChainDeployerInvariant is OmnichainInvariantTestBase {
     /// @notice No single actor should extract more than they contributed (accounting for fees).
     ///         This is the no-profit invariant at the per-actor level.
     function _assertNoActorProfits() internal view {
-        // Check regular actors.
-        address[3] memory actorsToCheck = [actor1, actor2, actor3];
-        for (uint256 i; i < 3; i++) {
+        // Include the mocked sucker. This local invariant mocks remote aggregate supply/surplus, but it never gives
+        // the sucker extra local backing, so its zero-tax cash outs still must not extract more than local inflows.
+        address[4] memory actorsToCheck = [actor1, actor2, actor3, suckerAddr];
+        for (uint256 i; i < 4; i++) {
             uint256 contributed = handler.ghostActorContributed(actorsToCheck[i]);
             uint256 extracted = handler.ghostActorExtracted(actorsToCheck[i]);
             assertGe(contributed, extracted, "Actor should not profit from pay+cashout");
