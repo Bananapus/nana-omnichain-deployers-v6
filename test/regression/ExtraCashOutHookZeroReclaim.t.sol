@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookDeployer.sol";
 import {IJBCashOutHook} from "@bananapus/core-v6/src/interfaces/IJBCashOutHook.sol";
+import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
@@ -24,10 +25,10 @@ import {JBDeployerHookConfig} from "../../src/structs/JBDeployerHookConfig.sol";
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 import {JBTiered721HookConfig} from "../../src/structs/JBTiered721HookConfig.sol";
 
-/// @notice Tests that a malicious extra data hook cannot zero out the 721 hook's cashOutCount.
-/// The 721 hook returns NFT-specific cashOutCount based on tier weights. Without the fix,
-/// an extra hook's beforeCashOutRecordedWith call could overwrite this value, zeroing out
-/// the NFT holder's reclaim amount.
+/// @notice Tests that an extra data hook cannot override 721 hook cash-out semantics.
+/// The 721 hook returns NFT-specific cashOutCount based on tier weights. Extra hooks are
+/// skipped for NFT cash-outs because the terminal's after-hook context only carries the
+/// original fungible burn count.
 contract ExtraCashOutHookZeroReclaimTest is Test {
     uint256 internal constant PROJECT_ID = 1;
     uint256 internal constant RULESET_ID = 100;
@@ -41,13 +42,17 @@ contract ExtraCashOutHookZeroReclaimTest is Test {
     function setUp() public {
         MockPermissions permissions = new MockPermissions();
         MockSuckerRegistry suckers = new MockSuckerRegistry();
-        deployer = new Harness(IJBPermissions(address(permissions)), IJBSuckerRegistry(address(suckers)));
+        MockController controller = new MockController();
+        deployer = new Harness({
+            permissions: IJBPermissions(address(permissions)),
+            suckers: IJBSuckerRegistry(address(suckers)),
+            controller: IJBController(address(controller))
+        });
         nftHook = new Mock721CashOutHook();
     }
 
-    /// @notice Prove the bug: a malicious extra hook that returns cashOutCount=0 would have
-    /// zeroed out the 721 hook's NFT-specific cashOutCount before the fix was applied.
-    /// After the fix, the 721 hook's cashOutCount is preserved so NFT holders reclaim correctly.
+    /// @notice A malicious extra hook cannot zero out the 721 hook's NFT-specific cashOutCount
+    /// or override its cash-out tax rate/specs.
     function test_extraHookCannotZeroCashOutCount() external {
         // Deploy a malicious extra hook that returns cashOutCount = 0.
         MaliciousExtraCashOutHook maliciousHook = new MaliciousExtraCashOutHook();
@@ -80,15 +85,15 @@ contract ExtraCashOutHookZeroReclaimTest is Test {
         // The 721 hook's cashOutCount must be preserved despite the malicious extra hook returning 0.
         assertEq(effectiveCashOutCount, NFT_CASH_OUT_WEIGHT, "721 hook cashOutCount must be preserved");
 
-        // The extra hook's cashOutTaxRate IS allowed to override (only cashOutCount is protected).
-        assertEq(cashOutTaxRate, JBConstants.MAX_CASH_OUT_TAX_RATE / 2, "extra hook can set cashOutTaxRate");
+        // The extra hook is skipped entirely for NFT cash-outs.
+        assertEq(cashOutTaxRate, context.cashOutTaxRate, "721 hook cashOutTaxRate must be preserved");
 
         // 721 hook uses local-only denominators.
         assertEq(effectiveTotalSupply, NFT_TOTAL_WEIGHT, "totalSupply from 721 hook");
         assertEq(effectiveSurplusValue, LOCAL_SURPLUS, "surplus from 721 hook");
 
-        // Both hooks returned specs.
-        assertEq(specs.length, 2, "should merge both hook specs");
+        // Only the 721 hook's spec is returned.
+        assertEq(specs.length, 1, "only 721 hook spec");
 
         // Reclaim must be non-zero: NFT holder is entitled to their share of surplus.
         uint256 reclaim = JBCashOuts.cashOutFrom({
@@ -204,16 +209,10 @@ contract ExtraCashOutHookZeroReclaimTest is Test {
 contract Harness is JBOmnichainDeployer {
     constructor(
         IJBPermissions permissions,
-        IJBSuckerRegistry suckers
+        IJBSuckerRegistry suckers,
+        IJBController controller
     )
-        JBOmnichainDeployer(
-            suckers,
-            IJB721TiersHookDeployer(address(0)),
-            permissions,
-            IJBProjects(address(0)),
-            IJBDirectory(address(0)),
-            address(0)
-        )
+        JBOmnichainDeployer(suckers, IJB721TiersHookDeployer(address(0)), permissions, controller, address(0))
     {}
 
     function setTiered721HookOf(uint256 projectId, uint256 rulesetId, JBTiered721HookConfig memory config) external {
@@ -227,6 +226,11 @@ contract Harness is JBOmnichainDeployer {
 
 contract MockPermissions {
     function setPermissionsFor(address, JBPermissionsData calldata) external {}
+}
+
+contract MockController {
+    IJBProjects public immutable PROJECTS = IJBProjects(address(0));
+    IJBDirectory public immutable DIRECTORY = IJBDirectory(address(0));
 }
 
 contract MockSuckerRegistry {

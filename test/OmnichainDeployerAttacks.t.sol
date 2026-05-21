@@ -103,6 +103,7 @@ contract OmnichainDeployerAttacks is Test {
     IJBSuckerRegistry suckerRegistry = IJBSuckerRegistry(makeAddr("suckerRegistry"));
     IJB721TiersHookDeployer hookDeployer = IJB721TiersHookDeployer(makeAddr("hookDeployer"));
     IJBDirectory directory = IJBDirectory(makeAddr("directory"));
+    IJBController canonicalController = IJBController(makeAddr("controller"));
 
     address projectOwner = makeAddr("projectOwner");
     address sucker = makeAddr("sucker");
@@ -124,8 +125,16 @@ contract OmnichainDeployerAttacks is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
+        vm.mockCall(
+            address(canonicalController), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects)
+        );
+        vm.mockCall(
+            address(canonicalController),
+            abi.encodeWithSelector(IJBController.DIRECTORY.selector),
+            abi.encode(directory)
+        );
 
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, directory, address(0));
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, canonicalController, address(0));
 
         // Default mocks.
         vm.mockCall(
@@ -330,22 +339,14 @@ contract OmnichainDeployerAttacks is Test {
     // =========================================================================
 
     function _launchProjectWithHook(address hook) internal {
-        IJBController controller = IJBController(makeAddr("controller"));
-        _mockLaunchProjectFor(controller);
+        _mockLaunchProjectFor();
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(hook, true, true);
 
         JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            empty721Config,
-            configs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig()
         );
     }
 
@@ -435,14 +436,21 @@ contract OmnichainDeployerAttacks is Test {
         config.salt = bytes32(0);
     }
 
-    function _mockLaunchProjectFor(IJBController controller) internal {
+    function _mockLaunchProjectFor() internal {
         vm.mockCall(
-            address(controller),
+            address(canonicalController),
             abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
             abi.encode(uint256(block.timestamp))
         );
         vm.mockCall(
-            address(controller), abi.encodeWithSelector(IJBControllerProjectUriForTest.setUriOf.selector), abi.encode()
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
+            abi.encode(canonicalController)
+        );
+        vm.mockCall(
+            address(canonicalController),
+            abi.encodeWithSelector(IJBControllerProjectUriForTest.setUriOf.selector),
+            abi.encode()
         );
     }
 }

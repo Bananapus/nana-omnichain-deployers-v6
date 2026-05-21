@@ -169,8 +169,7 @@ contract CarryForwardRejectedHookTest is TestBaseWorkflow {
             IJBSuckerRegistry(address(suckerRegistry)),
             IJB721TiersHookDeployer(address(hookDeployer)),
             IJBPermissions(address(jbPermissions())),
-            IJBProjects(address(jbProjects())),
-            IJBDirectory(address(jbDirectory())),
+            IJBController(address(jbController())),
             trustedForwarder()
         );
 
@@ -184,14 +183,7 @@ contract CarryForwardRejectedHookTest is TestBaseWorkflow {
         JBOmnichain721Config memory configWithTiers = _configWithTiers(false);
 
         (uint256 projectId, IJB721TiersHook launchedHook,) = deployer.launchProjectFor(
-            owner,
-            "ipfs://project",
-            configWithTiers,
-            initialRulesets,
-            terminals,
-            "launch",
-            _emptySuckerConfig(),
-            IJBController(address(jbController()))
+            owner, "ipfs://project", configWithTiers, initialRulesets, terminals, "launch", _emptySuckerConfig()
         );
         uint256 initialRulesetId = jbRulesets().latestRulesetIdOf(projectId);
 
@@ -203,11 +195,7 @@ contract CarryForwardRejectedHookTest is TestBaseWorkflow {
 
         JBOmnichain721Config memory rejectedConfig = _configWithTiers(true);
         (uint256 rejectedRulesetId,) = deployer.queueRulesetsOf(
-            projectId,
-            rejectedConfig,
-            _makeRulesets(IJBRulesetApprovalHook(address(0))),
-            "rejected",
-            IJBController(address(jbController()))
+            projectId, rejectedConfig, _makeRulesets(IJBRulesetApprovalHook(address(0))), "rejected"
         );
 
         JBRuleset memory currentRuleset = jbRulesets().currentOf(projectId);
@@ -216,11 +204,7 @@ contract CarryForwardRejectedHookTest is TestBaseWorkflow {
         vm.warp(block.timestamp + 2);
 
         (uint256 carriedRulesetId,) = deployer.queueRulesetsOf(
-            projectId,
-            _default721Config(),
-            _makeRulesets(IJBRulesetApprovalHook(address(0))),
-            "carry",
-            IJBController(address(jbController()))
+            projectId, _default721Config(), _makeRulesets(IJBRulesetApprovalHook(address(0))), "carry"
         );
 
         (IJB721TiersHook carriedHook, bool carriedCashOutFlag) = deployer.tiered721HookOf(projectId, carriedRulesetId);

@@ -283,7 +283,11 @@ contract TestRegressionGaps is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, directory, address(0));
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(controller), abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(directory)
+        );
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, controller, address(0));
 
         // Default mocks.
         vm.mockCall(
@@ -305,6 +309,7 @@ contract TestRegressionGaps is Test {
         vm.mockCall(
             address(controller), abi.encodeWithSelector(IJBControllerProjectUriForTest.setUriOf.selector), abi.encode()
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
         // Mock controllerOf on the deployer's immutable DIRECTORY.
         vm.mockCall(
             address(directory),
@@ -565,7 +570,7 @@ contract TestRegressionGaps is Test {
             )
         );
         JBOmnichain721Config memory empty721;
-        deployer.queueRulesetsOf(projectId, empty721, configs, "", controller);
+        deployer.queueRulesetsOf(projectId, empty721, configs, "");
     }
 
     // -------------------------------------------------------------------------
@@ -595,7 +600,7 @@ contract TestRegressionGaps is Test {
 
         vm.prank(projectOwner);
         JBOmnichain721Config memory empty721;
-        (uint256 rulesetId,) = deployer.queueRulesetsOf(projectId, empty721, configs, "", controller);
+        (uint256 rulesetId,) = deployer.queueRulesetsOf(projectId, empty721, configs, "");
         assertEq(rulesetId, expectedQueuedId, "Should return queued ruleset ID");
     }
 
@@ -623,7 +628,7 @@ contract TestRegressionGaps is Test {
 
         vm.prank(projectOwner);
         JBOmnichain721Config memory empty721a;
-        (uint256 rulesetId1,) = deployer.queueRulesetsOf(projectId, empty721a, configs1, "", controller);
+        (uint256 rulesetId1,) = deployer.queueRulesetsOf(projectId, empty721a, configs1, "");
         assertEq(rulesetId1, firstQueueTime, "First queue should succeed");
 
         // Second queue in the same block reverts because latestRulesetIdOf = firstQueueTime = block.timestamp.
@@ -642,7 +647,7 @@ contract TestRegressionGaps is Test {
             )
         );
         JBOmnichain721Config memory empty721b;
-        deployer.queueRulesetsOf(projectId, empty721b, configs2, "", controller);
+        deployer.queueRulesetsOf(projectId, empty721b, configs2, "");
 
         // Warp forward 1 more second. Now block.timestamp = BASE_TIME + 2.
         vm.warp(BASE_TIME + 2);
@@ -660,7 +665,7 @@ contract TestRegressionGaps is Test {
 
         vm.prank(projectOwner);
         JBOmnichain721Config memory empty721c;
-        (uint256 rulesetId2,) = deployer.queueRulesetsOf(projectId, empty721c, configs3, "", controller);
+        (uint256 rulesetId2,) = deployer.queueRulesetsOf(projectId, empty721c, configs3, "");
         assertEq(rulesetId2, secondQueueTime, "Second queue should succeed after warp");
     }
 
@@ -676,14 +681,7 @@ contract TestRegressionGaps is Test {
 
         JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            empty721Config,
-            launchConfigs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", empty721Config, launchConfigs, new JBTerminalConfig[](0), "", _emptySuckerConfig()
         );
 
         // latestRulesetIdOf = BASE_TIME + 2, which is > BASE_TIME (= block.timestamp).
@@ -702,7 +700,7 @@ contract TestRegressionGaps is Test {
             )
         );
         JBOmnichain721Config memory empty721;
-        deployer.queueRulesetsOf(projectId, empty721, queueConfigs, "", controller);
+        deployer.queueRulesetsOf(projectId, empty721, queueConfigs, "");
     }
 
     // -------------------------------------------------------------------------
@@ -717,14 +715,7 @@ contract TestRegressionGaps is Test {
 
         JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            empty721Config,
-            launchConfigs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", empty721Config, launchConfigs, new JBTerminalConfig[](0), "", _emptySuckerConfig()
         );
 
         uint256 latestRulesetId = BASE_TIME + 2;
@@ -747,7 +738,7 @@ contract TestRegressionGaps is Test {
 
         vm.prank(projectOwner);
         JBOmnichain721Config memory empty721;
-        (uint256 rulesetId,) = deployer.queueRulesetsOf(projectId, empty721, queueConfigs, "", controller);
+        (uint256 rulesetId,) = deployer.queueRulesetsOf(projectId, empty721, queueConfigs, "");
         assertEq(rulesetId, expectedQueuedId, "Queue should succeed after warping past multi-ruleset launch");
     }
 
@@ -778,7 +769,7 @@ contract TestRegressionGaps is Test {
 
         vm.prank(projectOwner);
         JBOmnichain721Config memory empty721;
-        deployer.queueRulesetsOf(projectId, empty721, configs, "", controller);
+        deployer.queueRulesetsOf(projectId, empty721, configs, "");
 
         // Verify hooks stored at BASE_TIME+100 and BASE_TIME+101.
         JBDeployerHookConfig memory hook0 = deployer.extraDataHookOf(projectId, BASE_TIME + 100);
@@ -817,8 +808,7 @@ contract TestRegressionGaps is Test {
 
         vm.prank(projectOwner);
         JBOmnichain721Config memory empty721;
-        (uint256 rulesetId, IJB721TiersHook hook) =
-            deployer.queueRulesetsOf(projectId, empty721, configs, "", controller);
+        (uint256 rulesetId, IJB721TiersHook hook) = deployer.queueRulesetsOf(projectId, empty721, configs, "");
 
         assertEq(rulesetId, expectedQueuedId, "Should return correct ruleset ID");
         assertEq(address(hook), hookAddr, "Should carry forward existing 721 hook");
@@ -836,9 +826,14 @@ contract TestRegressionGaps is Test {
 
         vm.warp(BASE_TIME + 10);
 
-        // The deployer's immutable DIRECTORY returns `controller` for this project.
-        // Passing a different controller should trigger ControllerMismatch.
+        // The deployer only trusts its immutable `CONTROLLER`; if the directory reports that the existing project is
+        // controlled elsewhere, queueing must stop before any rulesets are written.
         IJBController wrongController = IJBController(makeAddr("wrongController"));
+        vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
+            abi.encode(IERC165(address(wrongController)))
+        );
 
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _makeRulesetConfig(address(0), false, false);
@@ -853,7 +848,7 @@ contract TestRegressionGaps is Test {
             )
         );
         JBOmnichain721Config memory empty721;
-        deployer.queueRulesetsOf(projectId, empty721, configs, "", wrongController);
+        deployer.queueRulesetsOf(projectId, empty721, configs, "");
     }
 
     // -------------------------------------------------------------------------
@@ -877,7 +872,7 @@ contract TestRegressionGaps is Test {
             )
         );
         // Use the simplified overload (no deploy721Config parameter).
-        deployer.queueRulesetsOf(projectId, configs, "", controller);
+        deployer.queueRulesetsOf(projectId, configs, "");
     }
 
     // -------------------------------------------------------------------------
@@ -902,7 +897,7 @@ contract TestRegressionGaps is Test {
         configs[0] = _makeRulesetConfig(address(0), false, false);
 
         vm.prank(projectOwner);
-        (uint256 rulesetId, IJB721TiersHook hook) = deployer.queueRulesetsOf(projectId, configs, "", controller);
+        (uint256 rulesetId, IJB721TiersHook hook) = deployer.queueRulesetsOf(projectId, configs, "");
         assertEq(rulesetId, expectedQueuedId, "Should return queued ruleset ID");
         assertEq(address(hook), hookAddr, "Should carry forward 721 hook");
     }
@@ -917,14 +912,7 @@ contract TestRegressionGaps is Test {
 
         JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            empty721Config,
-            configs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig()
         );
     }
 

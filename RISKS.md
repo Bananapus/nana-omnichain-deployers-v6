@@ -19,6 +19,8 @@ This file covers the risks in the deployer layer that launches Juicebox projects
 
 - **Trusted forwarder is trusted.**
 - **Sucker registry answers are trusted.**
+- **Sucker cash-outs are bridge accounting, not ordinary global cash-outs.** They use local supply/surplus so value
+  leaves a chain in proportion to funds on that chain.
 - **Controller trust matters.**
 - **Extra data hooks are trusted code.**
 
@@ -66,13 +68,20 @@ This file covers the risks in the deployer layer that launches Juicebox projects
 
 ## 8. Accepted Behaviors
 
-### 8.1 Controller validation is skipped during initial launch
+### 8.1 Fresh launches validate the controller through the canonical directory
 
-Pre-launch controller validation is impossible because the project does not yet exist. The accepted safeguard is the post-launch project ID match check.
+Pre-launch controller validation cannot require a current directory controller because the project may not have one
+yet. The deployer still requires the provided controller to use the canonical `PROJECTS` registry, and after
+`launchRulesetsFor` returns the canonical directory must record that controller for the project. A controller that
+does not register itself fails the launch atomically.
 
 ### 8.2 Registered suckers receive 0% cashout tax
 
 This is intentional and shares the same trust boundary as the sucker registry.
+
+Registered-sucker cash-outs also intentionally use the local chain's supply and surplus, regardless of whether ordinary
+holder cash-outs for the project aggregate remote snapshots. This keeps bridge movement proportional to the funds
+available on the source chain.
 
 ## 9. Accepted Security Risks
 

@@ -545,8 +545,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
             rulesetConfigurations: rulesets,
             terminalConfigurations: tc,
             memo: "reserved",
-            suckerDeploymentConfiguration: suckerConfig,
-            controller: IJBController(address(jbController()))
+            suckerDeploymentConfiguration: suckerConfig
         });
     }
 }

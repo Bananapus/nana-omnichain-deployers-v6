@@ -31,8 +31,7 @@ import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConf
 
 /// @title CashOutSpecMergeTest
 /// @notice Tests the cashout hook specification merge logic in JBOmnichainDeployer.beforeCashOutRecordedWith
-///         (lines 482-494). Verifies that specs from the 721 hook and extra hook are correctly merged,
-///         with 721 specs first.
+///         Verifies that NFT cash-outs return only 721 hook specs, while non-NFT cash-outs still use extra hook specs.
 contract CashOutSpecMergeTest is Test {
     JBOmnichainDeployer deployer;
 
@@ -42,6 +41,7 @@ contract CashOutSpecMergeTest is Test {
     IJBSuckerRegistry suckerRegistry = IJBSuckerRegistry(makeAddr("suckerRegistry"));
     IJB721TiersHookDeployer hookDeployer = IJB721TiersHookDeployer(makeAddr("hookDeployer"));
     IJBDirectory directory = IJBDirectory(makeAddr("directory"));
+    IJBController canonicalController = IJBController(makeAddr("controller"));
 
     address projectOwner = makeAddr("projectOwner");
     address hookAddr = makeAddr("hook721");
@@ -58,8 +58,16 @@ contract CashOutSpecMergeTest is Test {
         vm.mockCall(
             address(permissions), abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode()
         );
+        vm.mockCall(
+            address(canonicalController), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects)
+        );
+        vm.mockCall(
+            address(canonicalController),
+            abi.encodeWithSelector(IJBController.DIRECTORY.selector),
+            abi.encode(directory)
+        );
 
-        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, projects, directory, address(0));
+        deployer = new JBOmnichainDeployer(suckerRegistry, hookDeployer, permissions, canonicalController, address(0));
 
         // Mock project ownership.
         vm.mockCall(
@@ -106,13 +114,11 @@ contract CashOutSpecMergeTest is Test {
     }
 
     // =========================================================================
-    // Test 1: Both hooks return specs → merged [721, extra1, extra2]
-    //         AND 721 hook's totalSupply/surplus preserved despite extra hook
+    // Test 1: NFT cash-outs return only 721 specs.
     // =========================================================================
-    /// @notice When both the 721 hook and extra hook return cashout specs, the deployer
-    ///         merges them with 721 first (lines 482-488) and preserves the 721 hook's
-    ///         totalSupply and effectiveSurplusValue (extra hook's values are discarded).
-    function test_bothReturnSpecs_mergedCorrectly() public {
+    /// @notice When the 721 hook handles cash-out pricing, the deployer does not compose
+    ///         generic extra cash-out hook specs.
+    function test_721CashOutReturnsOnly721Specs() public {
         // Store 721 hook with useDataHookForCashOut=true.
         _storeTiered721Hook(mock721, true);
         // Store extra hook with useDataHookForCashOut=true.
@@ -129,24 +135,14 @@ contract CashOutSpecMergeTest is Test {
             abi.encode(uint256(5000), uint256(100), uint256(1000), uint256(10 ether), specs721)
         );
 
-        // Extra hook returns DIFFERENT values: taxRate=4000, cashOutCount=80, totalSupply=900, surplus=9 ether.
-        // The deployer should discard totalSupply (900) and surplus (9 ether) from the extra hook,
-        // keeping the 721 hook's values (1000 and 10 ether).
-        JBCashOutHookSpecification[] memory specsExtra = new JBCashOutHookSpecification[](2);
-        specsExtra[0] = JBCashOutHookSpecification({
-            hook: IJBCashOutHook(makeAddr("extraSpec1")), noop: false, amount: 0.1 ether, metadata: ""
-        });
-        specsExtra[1] = JBCashOutHookSpecification({
-            hook: IJBCashOutHook(makeAddr("extraSpec2")), noop: false, amount: 0.2 ether, metadata: ""
-        });
-
-        vm.mockCall(
+        vm.mockCallRevert(
             extraHookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(4000), uint256(80), uint256(900), uint256(9 ether), specsExtra)
+            bytes("extra hook must not be called")
         );
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext();
+        ctx.cashOutCount = 0;
 
         (
             uint256 cashOutTaxRate,
@@ -156,24 +152,18 @@ contract CashOutSpecMergeTest is Test {
             JBCashOutHookSpecification[] memory merged
         ) = deployer.beforeCashOutRecordedWith(ctx);
 
-        // Spec merge assertions.
-        assertEq(merged.length, 3, "Merged specs should have 3 entries (1 from 721 + 2 from extra)");
+        // Spec assertions.
+        assertEq(merged.length, 1, "only the 721 hook spec should be returned");
         assertEq(address(merged[0].hook), mock721, "First spec should be from 721 hook");
-        assertEq(address(merged[1].hook), makeAddr("extraSpec1"), "Second spec should be first extra spec");
-        assertEq(address(merged[2].hook), makeAddr("extraSpec2"), "Third spec should be second extra spec");
 
-        // 721 hook's totalSupply and surplus must be preserved — extra hook's values are discarded.
+        // 721 hook's cash-out semantics must be preserved.
         // NFT cash-outs use local-only denominators so holders reclaim against local surplus.
-        assertEq(totalSupply, 1000, "totalSupply should be 721 hook's value, not extra hook's 900");
-        assertEq(effectiveSurplusValue, 10 ether, "surplus should be 721 hook's value, not extra hook's 9 ether");
+        assertEq(totalSupply, 1000, "totalSupply should be 721 hook's value");
+        assertEq(effectiveSurplusValue, 10 ether, "surplus should be 721 hook's value");
 
-        // cashOutCount should be 721 hook's value (100), not extra hook's (80).
-        // The fix at line 465-468 conditionally destructures to preserve this.
-        assertEq(cashOutCount, 100, "cashOutCount should be 721 hook's value, not extra hook's 80");
+        assertEq(cashOutCount, 100, "cashOutCount should be 721 hook's value");
 
-        // cashOutTaxRate IS taken from the extra hook (4000) — the deployer allows the extra
-        // hook to adjust the tax rate even when the 721 hook is active.
-        assertEq(cashOutTaxRate, 4000, "cashOutTaxRate should be extra hook's updated value");
+        assertEq(cashOutTaxRate, 5000, "cashOutTaxRate should be 721 hook's value");
     }
 
     // =========================================================================
@@ -195,14 +185,15 @@ contract CashOutSpecMergeTest is Test {
             abi.encode(uint256(5000), uint256(100), uint256(1000), uint256(10 ether), specs721)
         );
 
-        // Extra hook returns 0 specs.
-        vm.mockCall(
+        // Extra hook is skipped for NFT cash-outs.
+        vm.mockCallRevert(
             extraHookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(4000), uint256(80), uint256(900), uint256(9 ether), new JBCashOutHookSpecification[](0))
+            bytes("extra hook must not be called")
         );
 
         JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext();
+        ctx.cashOutCount = 0;
 
         (,,,, JBCashOutHookSpecification[] memory result) = deployer.beforeCashOutRecordedWith(ctx);
 
@@ -215,17 +206,8 @@ contract CashOutSpecMergeTest is Test {
     // =========================================================================
     /// @notice When only the extra hook returns specs, its array is used directly (line 494).
     function test_onlyExtraReturnsSpecs() public {
-        _storeTiered721Hook(mock721, true);
+        _storeTiered721Hook(mock721, false);
         _storeExtraDataHook(extraHookAddr, false, true);
-
-        // 721 hook returns 0 specs.
-        vm.mockCall(
-            mock721,
-            abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(
-                uint256(5000), uint256(100), uint256(1000), uint256(10 ether), new JBCashOutHookSpecification[](0)
-            )
-        );
 
         // Extra hook returns 2 specs.
         JBCashOutHookSpecification[] memory specsExtra = new JBCashOutHookSpecification[](2);
@@ -268,6 +250,12 @@ contract CashOutSpecMergeTest is Test {
             abi.encodeWithSelector(IJBController.launchRulesetsFor.selector),
             abi.encode(uint256(block.timestamp))
         );
+        vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
+        vm.mockCall(
+            address(directory),
+            abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
+            abi.encode(controller)
+        );
         vm.mockCall(
             address(controller), abi.encodeWithSelector(bytes4(keccak256("setUriOf(uint256,string)"))), abi.encode()
         );
@@ -282,14 +270,7 @@ contract CashOutSpecMergeTest is Test {
 
         JBOmnichain721Config memory empty721Config;
         deployer.launchProjectFor(
-            projectOwner,
-            "test",
-            empty721Config,
-            configs,
-            new JBTerminalConfig[](0),
-            "",
-            _emptySuckerConfig(),
-            controller
+            projectOwner, "test", empty721Config, configs, new JBTerminalConfig[](0), "", _emptySuckerConfig()
         );
     }
 

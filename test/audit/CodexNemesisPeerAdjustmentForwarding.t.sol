@@ -30,10 +30,12 @@ contract CodexNemesisPeerAdjustmentForwardingTest is Test {
 
     function test_wrapperForwardsPeerChainAdjustedAccounts() external {
         MockDirectory directory = new MockDirectory();
-        MockController controller = new MockController(RULESET_ID);
+        MockController controller =
+            new MockController({rulesetId: RULESET_ID, directory: IJBDirectory(address(directory))});
         directory.setControllerOf(PROJECT_ID, address(controller));
 
-        Harness deployer = new Harness(IJBPermissions(address(new MockPermissions())), IJBDirectory(address(directory)));
+        Harness deployer =
+            new Harness(IJBPermissions(address(new MockPermissions())), IJBController(address(controller)));
         ExtraPeerAccountingHook extraHook = new ExtraPeerAccountingHook();
 
         deployer.setExtraDataHookOf({
@@ -71,10 +73,12 @@ contract CodexNemesisPeerAdjustmentForwardingTest is Test {
 
     function test_noExtraHook_returnsZero() external {
         MockDirectory directory = new MockDirectory();
-        MockController controller = new MockController(RULESET_ID);
+        MockController controller =
+            new MockController({rulesetId: RULESET_ID, directory: IJBDirectory(address(directory))});
         directory.setControllerOf(PROJECT_ID, address(controller));
 
-        Harness deployer = new Harness(IJBPermissions(address(new MockPermissions())), IJBDirectory(address(directory)));
+        Harness deployer =
+            new Harness(IJBPermissions(address(new MockPermissions())), IJBController(address(controller)));
 
         // No extra hook set — should return (0, 0, 0).
         (uint256 supply, uint256 surplus, uint256 balance) = deployer.peerChainAdjustedAccountsOf(PROJECT_ID, 18, 1);
@@ -87,15 +91,10 @@ contract CodexNemesisPeerAdjustmentForwardingTest is Test {
 contract Harness is JBOmnichainDeployer {
     constructor(
         IJBPermissions permissions,
-        IJBDirectory directory
+        IJBController controller
     )
         JBOmnichainDeployer(
-            IJBSuckerRegistry(address(0)),
-            IJB721TiersHookDeployer(address(0)),
-            permissions,
-            IJBProjects(address(0)),
-            directory,
-            address(0)
+            IJBSuckerRegistry(address(0)), IJB721TiersHookDeployer(address(0)), permissions, controller, address(0)
         )
     {}
 
@@ -121,10 +120,14 @@ contract MockDirectory {
 }
 
 contract MockController {
+    IJBProjects public immutable PROJECTS = IJBProjects(address(0));
+    IJBDirectory public immutable DIRECTORY;
+
     uint48 internal _rulesetId;
 
-    constructor(uint48 rulesetId) {
+    constructor(uint48 rulesetId, IJBDirectory directory) {
         _rulesetId = rulesetId;
+        DIRECTORY = directory;
     }
 
     function currentRulesetOf(uint256)

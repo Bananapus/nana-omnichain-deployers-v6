@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 
+import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
@@ -19,15 +20,17 @@ import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerR
 
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 
-/// @notice Regression test: cashOutCount from the 721 hook must be propagated
-/// to the extra data hook's context. Before fix, the extra hook receives the stale
-/// context.cashOutCount instead of the 721-adjusted value.
+/// @notice Regression test: NFT cash-outs must not forward the 721-derived cash-out count
+/// to a generic extra cash-out hook. The terminal later calls cash-out hooks with the
+/// original fungible burn count, so composing an extra hook with NFT pricing can corrupt
+/// reclaim semantics.
 contract CashOutCountPropagationTest is Test {
     uint256 internal constant PROJECT_ID = 1;
     uint256 internal constant RULESET_ID = 123;
 
-    // The 721 hook will change cashOutCount from ORIGINAL to ADJUSTED.
-    uint256 internal constant ORIGINAL_CASH_OUT_COUNT = 50 ether;
+    // NFT cash-outs enter the terminal with no fungible tokens being burned. The 721 hook
+    // derives an effective cash-out weight from NFT metadata.
+    uint256 internal constant ORIGINAL_CASH_OUT_COUNT = 0;
     uint256 internal constant ADJUSTED_CASH_OUT_COUNT = 7 ether;
     uint256 internal constant NFT_TOTAL_SUPPLY = 21 ether;
     uint256 internal constant LOCAL_SURPLUS = 10 ether;
@@ -38,6 +41,7 @@ contract CashOutCountPropagationTest is Test {
     address internal hookDeployer = makeAddr("hookDeployer");
     address internal suckerRegistry = makeAddr("suckerRegistry");
     address internal directory = makeAddr("directory");
+    address internal controller = makeAddr("controller");
 
     JBOmnichainDeployer internal deployer;
     Mock721Hook internal nftHook;
@@ -45,13 +49,18 @@ contract CashOutCountPropagationTest is Test {
 
     function setUp() public {
         vm.mockCall(permissions, abi.encodeWithSelector(IJBPermissions.setPermissionsFor.selector), abi.encode());
+        vm.mockCall(
+            controller, abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(IJBProjects(projects))
+        );
+        vm.mockCall(
+            controller, abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(IJBDirectory(directory))
+        );
 
         deployer = new JBOmnichainDeployer(
             IJBSuckerRegistry(suckerRegistry),
             IJB721TiersHookDeployer(hookDeployer),
             IJBPermissions(permissions),
-            IJBProjects(projects),
-            IJBDirectory(directory),
+            IJBController(controller),
             address(0)
         );
 
@@ -61,46 +70,29 @@ contract CashOutCountPropagationTest is Test {
         _storeTiered721Hook(address(nftHook), true);
         _storeExtraDataHook(extraHookAddr, true);
         _mockSuckerRegistry();
-        _mockExtraHook();
+        _mockExtraHookRevert();
     }
 
-    /// @notice The extra data hook should receive the 721-adjusted cashOutCount,
-    /// not the original context.cashOutCount.
-    function test_extraHookReceivesAdjustedCashOutCount() public {
-        // Build the expected context that the extra hook should receive.
-        // The deployer copies the original context and patches cashOutTaxRate, totalSupply, surplus.value.
-        // With the fix, it should also patch cashOutCount.
-        // NOTE: We build expectedContext separately (not via pointer alias) to avoid Solidity memory aliasing.
-        JBBeforeCashOutRecordedContext memory expectedContext = JBBeforeCashOutRecordedContext({
-            terminal: address(0x1234),
-            holder: holder,
-            projectId: PROJECT_ID,
-            rulesetId: RULESET_ID,
-            cashOutCount: ADJUSTED_CASH_OUT_COUNT, // THIS IS THE FIX — must be the 721-adjusted value
-            totalSupply: NFT_TOTAL_SUPPLY, // from 721 hook
-            surplus: JBTokenAmount({
-                token: JBConstants.NATIVE_TOKEN,
-                decimals: 18,
-                currency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                value: LOCAL_SURPLUS // 721 hook passes through surplus value
-            }),
-            scopeCashOutsToLocalBalances: true,
-            cashOutTaxRate: 5000, // 721 hook passes through
-            beneficiaryIsFeeless: false,
-            metadata: ""
-        });
-
-        // Build the input context with the ORIGINAL cashOutCount.
+    /// @notice The extra data hook must be skipped when the 721 hook handles cash-out pricing.
+    function test_721CashOutSkipsExtraHook() public view {
         JBBeforeCashOutRecordedContext memory context = _cashOutContext();
 
-        // Sanity: the original context has a different cashOutCount than what the 721 hook returns.
+        // Sanity: the terminal call is an NFT cash-out, not a fungible-token cash-out.
         assertEq(context.cashOutCount, ORIGINAL_CASH_OUT_COUNT);
-        assertTrue(ORIGINAL_CASH_OUT_COUNT != ADJUSTED_CASH_OUT_COUNT);
 
-        // Expect the extra hook to be called with the adjusted context (including adjusted cashOutCount).
-        vm.expectCall(extraHookAddr, abi.encodeCall(IJBRulesetDataHook.beforeCashOutRecordedWith, (expectedContext)));
+        (
+            uint256 cashOutTaxRate,
+            uint256 cashOutCount,
+            uint256 totalSupply,
+            uint256 effectiveSurplusValue,
+            JBCashOutHookSpecification[] memory hookSpecifications
+        ) = deployer.beforeCashOutRecordedWith(context);
 
-        deployer.beforeCashOutRecordedWith(context);
+        assertEq(cashOutTaxRate, context.cashOutTaxRate);
+        assertEq(cashOutCount, ADJUSTED_CASH_OUT_COUNT);
+        assertEq(totalSupply, NFT_TOTAL_SUPPLY);
+        assertEq(effectiveSurplusValue, LOCAL_SURPLUS);
+        assertEq(hookSpecifications.length, 0);
     }
 
     function _cashOutContext() internal view returns (JBBeforeCashOutRecordedContext memory context) {
@@ -147,15 +139,12 @@ contract CashOutCountPropagationTest is Test {
         );
     }
 
-    /// @dev Mock the extra hook to return passthrough values.
-    function _mockExtraHook() internal {
-        // We use a broad mock: any call to beforeCashOutRecordedWith returns passthrough values.
-        // The vm.expectCall will check the exact arguments.
-        JBCashOutHookSpecification[] memory specs = new JBCashOutHookSpecification[](0);
-        vm.mockCall(
+    /// @dev The extra hook must not be called for NFT cash-outs.
+    function _mockExtraHookRevert() internal {
+        vm.mockCallRevert(
             extraHookAddr,
             abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(5000), uint256(0), uint256(0), uint256(0), specs)
+            bytes("extra hook must not be called")
         );
     }
 

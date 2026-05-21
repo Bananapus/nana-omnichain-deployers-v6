@@ -42,8 +42,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
                 salt: bytes32("Q721")
             }),
             rulesetConfigurations: rulesets,
-            memo: "add 721 hook",
-            controller: IJBController(address(jbController()))
+            memo: "add 721 hook"
         });
 
         // Step 5: Verify hook ownership was transferred to the project.
@@ -67,7 +66,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
             // forge-lint: disable-next-line(unsafe-typecast)
-            encodedIPFSUri: bytes32("tier2"),
+            encodedIpfsUri: bytes32("tier2"),
             category: 2,
             discountPercent: 0,
             flags: JB721TierConfigFlags({
@@ -118,8 +117,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
                 salt: bytes32("REPLACE")
             }),
             rulesetConfigurations: rulesets,
-            memo: "replace hook",
-            controller: IJBController(address(jbController()))
+            memo: "replace hook"
         });
 
         // The new hook should be different from the original.
@@ -146,7 +144,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
             // forge-lint: disable-next-line(unsafe-typecast)
-            encodedIPFSUri: bytes32("tier3"),
+            encodedIpfsUri: bytes32("tier3"),
             category: 3,
             discountPercent: 0,
             flags: JB721TierConfigFlags({
@@ -183,8 +181,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
                 salt: bytes32("PERMS")
             }),
             rulesetConfigurations: rulesets,
-            memo: "test perms",
-            controller: IJBController(address(jbController()))
+            memo: "test perms"
         });
 
         // A random address should NOT be able to adjust tiers.
@@ -197,7 +194,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
             // forge-lint: disable-next-line(unsafe-typecast)
-            encodedIPFSUri: bytes32("bad"),
+            encodedIpfsUri: bytes32("bad"),
             category: 4,
             discountPercent: 0,
             flags: JB721TierConfigFlags({

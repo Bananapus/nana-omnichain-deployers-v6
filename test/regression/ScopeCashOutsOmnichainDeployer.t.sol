@@ -5,6 +5,7 @@ pragma solidity 0.8.28;
 import "forge-std/Test.sol";
 
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookDeployer.sol";
+import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
@@ -45,6 +46,7 @@ contract ScopeCashOutsOmnichainDeployerTest is Test {
     address constant HOOK_DEPLOYER = address(0x4444);
     address constant DIRECTORY = address(0x5555);
     address constant PROJECTS = address(0x6666);
+    address constant CONTROLLER = address(0x6667);
     address constant HOLDER = address(0x7777);
     address constant TOKEN = address(0x8888);
 
@@ -60,15 +62,21 @@ contract ScopeCashOutsOmnichainDeployerTest is Test {
         vm.etch(HOOK_DEPLOYER, hex"00");
         vm.etch(DIRECTORY, hex"00");
         vm.etch(PROJECTS, hex"00");
+        vm.etch(CONTROLLER, hex"00");
 
         OCDMockPermissions permissions = new OCDMockPermissions();
+        vm.mockCall(
+            CONTROLLER, abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(IJBProjects(PROJECTS))
+        );
+        vm.mockCall(
+            CONTROLLER, abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(IJBDirectory(DIRECTORY))
+        );
 
         deployer = new JBOmnichainDeployer(
             IJBSuckerRegistry(SUCKER_REGISTRY),
             IJB721TiersHookDeployer(HOOK_DEPLOYER),
             permissions,
-            IJBProjects(PROJECTS),
-            IJBDirectory(DIRECTORY),
+            IJBController(CONTROLLER),
             address(0)
         );
 

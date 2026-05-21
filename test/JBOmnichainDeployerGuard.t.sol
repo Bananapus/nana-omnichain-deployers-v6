@@ -125,8 +125,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
             IJBSuckerRegistry(address(suckerRegistry)),
             IJB721TiersHookDeployer(mockHookDeployerAddr),
             IJBPermissions(address(jbPermissions())),
-            IJBProjects(address(jbProjects())),
-            IJBDirectory(address(jbDirectory())),
+            IJBController(address(jbController())),
             trustedForwarder()
         );
 
@@ -216,14 +215,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         JBOmnichain721Config memory empty721Config;
 
         (projectId,,) = deployer.launchProjectFor(
-            owner,
-            "ipfs://test",
-            empty721Config,
-            rulesets,
-            terminals,
-            "launch",
-            _emptySuckerConfig(),
-            IJBController(address(jbController()))
+            owner, "ipfs://test", empty721Config, rulesets, terminals, "launch", _emptySuckerConfig()
         );
     }
 
@@ -233,14 +225,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         JBOmnichain721Config memory empty721Config;
 
         (projectId,,) = deployer.launchProjectFor(
-            owner,
-            "ipfs://test",
-            empty721Config,
-            rulesets,
-            terminals,
-            "launch",
-            _emptySuckerConfig(),
-            IJBController(address(jbController()))
+            owner, "ipfs://test", empty721Config, rulesets, terminals, "launch", _emptySuckerConfig()
         );
     }
 
@@ -304,8 +289,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
 
         JBOmnichain721Config memory empty721;
-        (uint256 rulesetId,) =
-            deployer.queueRulesetsOf(projectId, empty721, rulesets, "queue", IJBController(address(jbController())));
+        (uint256 rulesetId,) = deployer.queueRulesetsOf(projectId, empty721, rulesets, "queue");
         assertGt(rulesetId, 0, "Queued ruleset ID must be non-zero");
     }
 
@@ -327,7 +311,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
             )
         );
         JBOmnichain721Config memory empty721;
-        deployer.queueRulesetsOf(projectId, empty721, rulesets, "queue", IJBController(address(jbController())));
+        deployer.queueRulesetsOf(projectId, empty721, rulesets, "queue");
     }
 
     /// @notice Queue via deployer reverts when someone already queued via the controller
@@ -356,9 +340,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
             )
         );
         JBOmnichain721Config memory empty721;
-        deployer.queueRulesetsOf(
-            projectId, empty721, deployerRulesets, "deployer-queue", IJBController(address(jbController()))
-        );
+        deployer.queueRulesetsOf(projectId, empty721, deployerRulesets, "deployer-queue");
     }
 
     /// @notice Queue succeeds after warping past the latestRulesetIdOf from a multi-ruleset launch.
@@ -378,15 +360,14 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
             )
         );
         JBOmnichain721Config memory empty721;
-        deployer.queueRulesetsOf(projectId, empty721, rulesets, "too-early", IJBController(address(jbController())));
+        deployer.queueRulesetsOf(projectId, empty721, rulesets, "too-early");
 
         // Warp past latestRulesetIdOf so the guard passes.
         vm.warp(block.timestamp + 2);
 
         // Now should succeed.
         JBOmnichain721Config memory empty721b;
-        (uint256 rulesetId,) =
-            deployer.queueRulesetsOf(projectId, empty721b, rulesets, "ok-now", IJBController(address(jbController())));
+        (uint256 rulesetId,) = deployer.queueRulesetsOf(projectId, empty721b, rulesets, "ok-now");
         assertGt(rulesetId, 0, "Queued ruleset ID must be non-zero after warping past conflict");
     }
 
@@ -408,9 +389,7 @@ contract JBOmnichainDeployerGuardTest is TestBaseWorkflow {
         // Queue a new ruleset with NO new tiers → triggers carry-forward logic.
         JBRulesetConfig[] memory rulesets = _makeRulesetConfigs(1);
         JBOmnichain721Config memory empty721;
-        (uint256 queuedRulesetId,) = deployer.queueRulesetsOf(
-            projectId, empty721, rulesets, "carry-forward", IJBController(address(jbController()))
-        );
+        (uint256 queuedRulesetId,) = deployer.queueRulesetsOf(projectId, empty721, rulesets, "carry-forward");
 
         assertGt(queuedRulesetId, 0, "Queued ruleset ID must be non-zero");
 
