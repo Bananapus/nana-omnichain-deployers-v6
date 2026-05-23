@@ -1,6 +1,6 @@
 {
   "name": "@bananapus/omnichain-deployers-v6",
-  "version": "0.0.46",
+  "version": "0.0.47",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -10,8 +10,7 @@
     "foundry.toml",
     "references/",
     "remappings.txt",
-    "script/Deploy.s.sol",
-    "script/helpers/",
+    "script/",
     "src/"
   ],
   "engines": {
