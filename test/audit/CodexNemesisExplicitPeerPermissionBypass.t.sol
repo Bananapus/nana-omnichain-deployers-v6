@@ -100,6 +100,30 @@ contract CodexNemesisExplicitPeerPermissionBypassTest is TestBaseWorkflow {
         assertEq(FakeSucker(suckers[0]).peer(), bytes32(0));
     }
 
+    function test_wrapperRequiresSetSuckerPeerForRegistryAddressPeer() public {
+        bytes32 registryPeer = bytes32(uint256(uint160(address(registry))));
+        JBSuckerDeployerConfig[] memory configs = _explicitPeerConfig(registryPeer);
+
+        _grant(projectOwner, deployOperator, _one(JBPermissionIds.DEPLOY_SUCKERS));
+        _grant(projectOwner, address(deployer), _two(JBPermissionIds.DEPLOY_SUCKERS, JBPermissionIds.SET_SUCKER_PEER));
+
+        vm.prank(deployOperator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBPermissioned.JBPermissioned_Unauthorized.selector,
+                projectOwner,
+                deployOperator,
+                projectId,
+                JBPermissionIds.SET_SUCKER_PEER
+            )
+        );
+        deployer.deploySuckersFor(
+            projectId,
+            // forge-lint: disable-next-line(unsafe-typecast)
+            JBSuckerDeploymentConfig({deployerConfigurations: configs, salt: bytes32("registry-peer")})
+        );
+    }
+
     function _explicitPeerConfig(bytes32 explicitPeer) internal view returns (JBSuckerDeployerConfig[] memory configs) {
         configs = new JBSuckerDeployerConfig[](1);
         configs[0] = JBSuckerDeployerConfig({

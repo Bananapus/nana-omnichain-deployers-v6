@@ -169,9 +169,15 @@ contract JBOmnichainDeployer is
         override
         returns (address[] memory suckers)
     {
-        // Enforce permissions.
+        // Resolve the project owner once because Juicebox permissions are checked against the owner's permission table.
         address owner = PROJECTS.ownerOf(projectId);
+
+        // `DEPLOY_SUCKERS` authorizes this wrapper to ask the registry for new suckers, but it does not authorize
+        // choosing a non-default remote peer.
         _requirePermissionFrom({account: owner, projectId: projectId, permissionId: JBPermissionIds.DEPLOY_SUCKERS});
+
+        // Mirror the registry's explicit-peer gate against the original project authority before this wrapper becomes
+        // the registry caller.
         _requireExplicitSuckerPeerPermissionFrom({
             account: owner, projectId: projectId, suckerDeploymentConfiguration: suckerDeploymentConfiguration
         });
@@ -804,6 +810,12 @@ contract JBOmnichainDeployer is
 
         // Deploy the suckers (if applicable).
         if (suckerDeploymentConfiguration.salt != bytes32(0)) {
+            // A launch-time project is still owned by this wrapper until the final NFT transfer, so check the
+            // intended owner before the registry sees `address(this)` as the current project owner.
+            _requireExplicitSuckerPeerPermissionFrom({
+                account: owner, projectId: projectId, suckerDeploymentConfiguration: suckerDeploymentConfiguration
+            });
+
             suckers = SUCKER_REGISTRY.deploySuckersFor({
                 projectId: projectId,
                 salt: keccak256(abi.encode(suckerDeploymentConfiguration.salt, _msgSender())),
@@ -1044,6 +1056,21 @@ contract JBOmnichainDeployer is
         return ERC2771Context._msgSender();
     }
 
+    /// @notice Revert unless the trusted directory records `CONTROLLER` for `projectId`.
+    /// @dev Use `allowUnset = true` as a pre-launch check: a fresh project with no controller wired yet is accepted.
+    /// Use `allowUnset = false` as a post-launch check: `CONTROLLER` must be live in the directory.
+    /// @param projectId The ID of the project to check.
+    /// @param allowUnset Whether `address(0)` (no controller assigned yet) is treated as valid.
+    function _requireController(uint256 projectId, bool allowUnset) internal view {
+        address current = address(DIRECTORY.controllerOf(projectId));
+        if (allowUnset && current == address(0)) return;
+        if (current != address(CONTROLLER)) {
+            revert JBOmnichainDeployer_ControllerMismatch({
+                projectId: projectId, expectedController: address(CONTROLLER), actualController: current
+            });
+        }
+    }
+
     /// @notice Revert unless the caller may set explicit sucker peers for `projectId`.
     /// @dev The registry enforces this against its direct caller. Since this deployer wraps the registry call, it must
     /// mirror the check against the original caller so `DEPLOY_SUCKERS` alone cannot smuggle in arbitrary peers.
@@ -1058,36 +1085,27 @@ contract JBOmnichainDeployer is
         internal
         view
     {
-        // forge-lint: disable-next-line(unsafe-typecast)
-        bytes32 selfPeer = bytes32(uint256(uint160(address(SUCKER_REGISTRY))));
-
+        // Scan every requested sucker configuration because a single explicit peer changes cross-chain authority.
         for (uint256 i; i < suckerDeploymentConfiguration.deployerConfigurations.length;) {
+            // Cache the configured peer so the default/explicit branch is evaluated from the exact value sent onward.
             bytes32 peer = suckerDeploymentConfiguration.deployerConfigurations[i].peer;
-            if (peer != bytes32(0) && peer != selfPeer) {
+
+            // `peer == 0` preserves the sucker's deterministic same-address peer behavior.
+            // Any nonzero peer is written directly into the new sucker and changes who can deliver remote roots.
+            if (peer != bytes32(0)) {
+                // Require the original project authority, not this wrapper, to authorize explicit remote peers.
                 _requirePermissionFrom({
                     account: account, projectId: projectId, permissionId: JBPermissionIds.SET_SUCKER_PEER
                 });
+
+                // One explicit peer is enough to prove the caller needs the stronger permission.
                 return;
             }
 
             unchecked {
+                // Skip overflow checks because `i` is bounded by the calldata array length.
                 ++i;
             }
-        }
-    }
-
-    /// @notice Revert unless the trusted directory records `CONTROLLER` for `projectId`.
-    /// @dev Use `allowUnset = true` as a pre-launch check: a fresh project with no controller wired yet is accepted.
-    /// Use `allowUnset = false` as a post-launch check: `CONTROLLER` must be live in the directory.
-    /// @param projectId The ID of the project to check.
-    /// @param allowUnset Whether `address(0)` (no controller assigned yet) is treated as valid.
-    function _requireController(uint256 projectId, bool allowUnset) internal view {
-        address current = address(DIRECTORY.controllerOf(projectId));
-        if (allowUnset && current == address(0)) return;
-        if (current != address(CONTROLLER)) {
-            revert JBOmnichainDeployer_ControllerMismatch({
-                projectId: projectId, expectedController: address(CONTROLLER), actualController: current
-            });
         }
     }
 }
