@@ -7,7 +7,6 @@
     "url": "git+https://github.com/Bananapus/nana-omnichain-deployers-v6"
   },
   "files": [
-    "CHANGELOG.md",
     "foundry.toml",
     "references/",
     "remappings.txt",
