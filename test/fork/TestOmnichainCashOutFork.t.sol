@@ -61,7 +61,8 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(sucker),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         // Full pro-rata reclaim.
@@ -99,7 +100,8 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(payer),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
     }
 
@@ -135,7 +137,8 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(payer),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         // Pro-rata share with 50% tax applied.
@@ -173,7 +176,8 @@ contract TestOmnichainCashOutFork is OmnichainForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(payer),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         // With 50% tax and cashing out all supply, bonding curve gives 100% of surplus.

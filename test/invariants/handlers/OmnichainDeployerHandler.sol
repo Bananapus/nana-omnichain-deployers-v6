@@ -162,7 +162,8 @@ contract OmnichainDeployerHandler is Test {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(actor),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         }) returns (
             uint256 reclaimed
         ) {
@@ -232,7 +233,8 @@ contract OmnichainDeployerHandler is Test {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(suckerAddr),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         }) returns (
             uint256 reclaimed
         ) {
