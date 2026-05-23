@@ -155,10 +155,10 @@ contract JBOmnichainDeployer is
 
     /// @notice Deploy new cross-chain suckers for an existing project. Each sucker enables token bridging between this
     /// chain and a peer chain. The registry also maps configured tokens on each new sucker in the same call.
-    /// @dev Only the project's owner or an operator with `JBPermissionIds.DEPLOY_SUCKERS` can call this. The salt
-    /// includes `msg.sender` for replay protection — the same sender must call on both chains for deterministic
-    /// address
-    /// matching.
+    /// @dev Only the project's owner or an operator with `JBPermissionIds.DEPLOY_SUCKERS` can call this. Supplying
+    /// an explicit non-default peer also requires `JBPermissionIds.SET_SUCKER_PEER`, matching the registry's
+    /// direct-call authorization model. The salt includes `msg.sender` for replay protection — the same sender must
+    /// call on both chains for deterministic address matching.
     /// @param projectId The ID of the project to deploy suckers for.
     /// @param suckerDeploymentConfiguration The suckers to set up for the project.
     function deploySuckersFor(
@@ -169,9 +169,17 @@ contract JBOmnichainDeployer is
         override
         returns (address[] memory suckers)
     {
-        // Enforce permissions.
-        _requirePermissionFrom({
-            account: PROJECTS.ownerOf(projectId), projectId: projectId, permissionId: JBPermissionIds.DEPLOY_SUCKERS
+        // Resolve the project owner once because Juicebox permissions are checked against the owner's permission table.
+        address owner = PROJECTS.ownerOf(projectId);
+
+        // `DEPLOY_SUCKERS` authorizes this wrapper to ask the registry for new suckers, but it does not authorize
+        // choosing a non-default remote peer.
+        _requirePermissionFrom({account: owner, projectId: projectId, permissionId: JBPermissionIds.DEPLOY_SUCKERS});
+
+        // Mirror the registry's explicit-peer gate against the original project authority before this wrapper becomes
+        // the registry caller.
+        _requireExplicitSuckerPeerPermissionFrom({
+            account: owner, projectId: projectId, suckerDeploymentConfiguration: suckerDeploymentConfiguration
         });
 
         // Deploy the suckers.
@@ -802,6 +810,12 @@ contract JBOmnichainDeployer is
 
         // Deploy the suckers (if applicable).
         if (suckerDeploymentConfiguration.salt != bytes32(0)) {
+            // A launch-time project is still owned by this wrapper until the final NFT transfer, so check the
+            // intended owner before the registry sees `address(this)` as the current project owner.
+            _requireExplicitSuckerPeerPermissionFrom({
+                account: owner, projectId: projectId, suckerDeploymentConfiguration: suckerDeploymentConfiguration
+            });
+
             suckers = SUCKER_REGISTRY.deploySuckersFor({
                 projectId: projectId,
                 salt: keccak256(abi.encode(suckerDeploymentConfiguration.salt, _msgSender())),
@@ -1054,6 +1068,44 @@ contract JBOmnichainDeployer is
             revert JBOmnichainDeployer_ControllerMismatch({
                 projectId: projectId, expectedController: address(CONTROLLER), actualController: current
             });
+        }
+    }
+
+    /// @notice Revert unless the caller may set explicit sucker peers for `projectId`.
+    /// @dev The registry enforces this against its direct caller. Since this deployer wraps the registry call, it must
+    /// mirror the check against the original caller so `DEPLOY_SUCKERS` alone cannot smuggle in arbitrary peers.
+    /// @param account The project owner account whose permission table is checked.
+    /// @param projectId The ID of the project to deploy suckers for.
+    /// @param suckerDeploymentConfiguration The sucker deployment configuration to inspect.
+    function _requireExplicitSuckerPeerPermissionFrom(
+        address account,
+        uint256 projectId,
+        JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration
+    )
+        internal
+        view
+    {
+        // Scan every requested sucker configuration because a single explicit peer changes cross-chain authority.
+        for (uint256 i; i < suckerDeploymentConfiguration.deployerConfigurations.length;) {
+            // Cache the configured peer so the default/explicit branch is evaluated from the exact value sent onward.
+            bytes32 peer = suckerDeploymentConfiguration.deployerConfigurations[i].peer;
+
+            // `peer == 0` preserves the sucker's deterministic same-address peer behavior.
+            // Any nonzero peer is written directly into the new sucker and changes who can deliver remote roots.
+            if (peer != bytes32(0)) {
+                // Require the original project authority, not this wrapper, to authorize explicit remote peers.
+                _requirePermissionFrom({
+                    account: account, projectId: projectId, permissionId: JBPermissionIds.SET_SUCKER_PEER
+                });
+
+                // One explicit peer is enough to prove the caller needs the stronger permission.
+                return;
+            }
+
+            unchecked {
+                // Skip overflow checks because `i` is bounded by the calldata array length.
+                ++i;
+            }
         }
     }
 }
