@@ -215,6 +215,7 @@ contract JBOmnichainDeployer is
         JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         external
+        payable
         override
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers)
     {
@@ -249,6 +250,7 @@ contract JBOmnichainDeployer is
         JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         external
+        payable
         override
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers)
     {
@@ -779,7 +781,7 @@ contract JBOmnichainDeployer is
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers)
     {
         // Reserve the project ID up front so permissionless project creations cannot invalidate hook deployment.
-        projectId = PROJECTS.createFor(address(this));
+        projectId = PROJECTS.createFor{value: msg.value}(address(this));
 
         // A fresh project can start without a controller, but it must not already be assigned elsewhere.
         _requireController({projectId: projectId, allowUnset: true});

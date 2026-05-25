@@ -387,6 +387,23 @@ contract TestJBOmnichainDeployer is Test {
         assertEq(address(storedHook), hookAddr, "should store 721 hook");
     }
 
+    function test_launchProjectFor_forwardsProjectCreationFee() public {
+        _mockLaunchProjectFor();
+
+        uint256 creationFee = 0.01 ether;
+        JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
+        configs[0] = _makeRulesetConfig(address(0), false, false);
+        JBTerminalConfig[] memory terminals = new JBTerminalConfig[](0);
+
+        vm.expectCall(
+            address(projects), creationFee, abi.encodeWithSelector(IJBProjects.createFor.selector, address(deployer))
+        );
+
+        deployer.launchProjectFor{value: creationFee}(
+            projectOwner, "test", configs, terminals, "", _emptySuckerConfig()
+        );
+    }
+
     //*********************************************************************//
     // --- Simplified launchRulesetsFor ---------------------------------- //
     //*********************************************************************//
