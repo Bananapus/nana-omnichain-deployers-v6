@@ -180,5 +180,9 @@ contract FakeSuckerDeployer is IJBSuckerDeployer {
             peer = peer_;
         }
 
+        function peerChainId() external pure returns (uint256) {
+            return 1;
+        }
+
         function mapTokens(JBTokenMapping[] calldata) external payable {}
     }
