@@ -10,7 +10,7 @@
 
 - If you edit launch or queue behavior, verify ruleset IDs, carry-forward behavior, and stored hook config keys together.
 - If you edit salt handling, confirm deterministic-address assumptions for both suckers and 721 hooks.
-- If you edit wrapper behavior, check both pay and cash-out paths, not just one.
+- If you edit wrapper behavior, check both pay and cash-out paths, not only one.
 - If you touch mint-permission logic, confirm whether the permission should come from suckers, the extra hook, or neither.
 
 ## Common Failure Modes

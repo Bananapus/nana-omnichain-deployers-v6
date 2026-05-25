@@ -86,7 +86,7 @@ contract TestOmnichain721QueueAndAdjust is OmnichainForkTestBase {
         vm.prank(multisig());
         hook.adjustTiers(newTiers, new uint256[](0));
 
-        // Verify the new tier was added (tier ID 2 should exist now).
+        // Verify the new tier was added as tier ID 2.
         // If this doesn't revert, the tier was successfully added.
     }
 

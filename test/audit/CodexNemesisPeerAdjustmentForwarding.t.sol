@@ -53,7 +53,7 @@ contract CodexNemesisPeerAdjustmentForwardingTest is Test {
         assertEq(directSurplus, 100 ether);
         assertEq(directBalance, 100 ether);
 
-        // Deployer now forwards the call to the extra hook.
+        // The deployer forwards the call to the extra hook.
         (bool success, bytes memory data) = address(deployer)
             .staticcall(abi.encodeCall(IJBPeerChainAdjustedAccounts.peerChainAdjustedAccountsOf, (PROJECT_ID, 18, 1)));
 

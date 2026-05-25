@@ -70,7 +70,7 @@ contract ValidateController is Test {
         );
 
         // Mock the directory to say the legitimate controller is the project's controller.
-        // The deployer now uses its immutable DIRECTORY (passed in constructor) instead of controller.DIRECTORY().
+        // The deployer uses its immutable DIRECTORY (passed in constructor) instead of controller.DIRECTORY().
         vm.mockCall(
             address(directory),
             abi.encodeWithSelector(IJBDirectory.controllerOf.selector, projectId),
@@ -96,7 +96,7 @@ contract ValidateController is Test {
             abi.encode(uint256(0))
         );
 
-        // Hook deployer mocks (every path now deploys a 721 hook).
+        // Hook deployer mocks because every path deploys a 721 hook.
         vm.mockCall(
             address(hookDeployer721),
             abi.encodeWithSelector(IJB721TiersHookDeployer.deployHookFor.selector),

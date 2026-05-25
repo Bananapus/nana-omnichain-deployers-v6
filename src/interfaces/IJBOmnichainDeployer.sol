@@ -9,10 +9,8 @@ import {JBDeployerHookConfig} from "../structs/JBDeployerHookConfig.sol";
 import {JBOmnichain721Config} from "../structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../structs/JBSuckerDeploymentConfig.sol";
 
-/// @notice Interface for the omnichain deployer — a one-stop contract that launches Juicebox projects with a tiered
-/// 721
-/// hook and cross-chain suckers, then serves as the data hook wrapper that coordinates pay/cash-out logic across all
-/// chains.
+/// @notice Interface for launching Juicebox projects with a 721 tiers hook and cross-chain suckers, then coordinating
+/// pay/cash-out logic through a data hook wrapper.
 interface IJBOmnichainDeployer {
     /// @notice The controller used for every project launch and ruleset queue.
     function CONTROLLER() external view returns (IJBController);

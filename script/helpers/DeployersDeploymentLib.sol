@@ -42,7 +42,7 @@ library DeployersDeploymentLib {
         view
         returns (DeployersDeployment memory deployment)
     {
-        // Is deployed on all (supported) chains.
+        // Read the omnichain deployer address for this supported chain.
         deployment.deployer = JBOmnichainDeployer(
             _getDeploymentAddress({
                 path: path,

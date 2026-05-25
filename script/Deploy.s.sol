@@ -13,13 +13,13 @@ import {JBOmnichainDeployer} from "src/JBOmnichainDeployer.sol";
 contract Deploy is Script, Sphinx {
     bytes32 constant NANA_OMNICHAIN_DEPLOYER_SALT = "JBOmnichainDeployerV6_";
 
-    /// @notice tracks the deployment of the core contracts for the chain we are deploying to.
+    /// @notice Tracks the core deployment for the current chain.
     CoreDeployment core;
 
-    /// @notice tracks the deployment of the 721 hook contracts for the chain we are deploying to.
+    /// @notice Tracks the 721 hook deployment for the current chain.
     Hook721Deployment hook;
 
-    /// @notice tracks the deployment of the sucker contracts for the chain we are deploying to.
+    /// @notice Tracks the sucker deployment for the current chain.
     SuckerDeployment suckers;
 
     function configureSphinx() public override {
@@ -29,7 +29,7 @@ contract Deploy is Script, Sphinx {
     }
 
     function run() public {
-        // Get the deployment addresses for the nana CORE for this chain.
+        // Get the core deployment addresses for this chain.
         // We want to do this outside of the `sphinx` modifier.
         core = CoreDeploymentLib.getDeployment(
             vm.envOr({

@@ -94,7 +94,7 @@ contract TestJBOmnichainDeployer is Test {
             address(permissions), abi.encodeWithSelector(IJBPermissions.hasPermission.selector), abi.encode(true)
         );
 
-        // Hook deployer mocks (every path now deploys a 721 hook).
+        // Hook deployer mocks because every path deploys a 721 hook.
         vm.mockCall(
             address(hookDeployer),
             abi.encodeWithSelector(IJB721TiersHookDeployer.deployHookFor.selector),
@@ -584,8 +584,8 @@ contract TestJBOmnichainDeployer is Test {
             abi.encode(expectedQueuedId)
         );
 
-        // Queue with no tiers — simplified overload defaults useDataHookForCashOut to false,
-        // but the fix should carry forward the previous value (true).
+        // Queue with no tiers. The simplified overload defaults useDataHookForCashOut to false, but carry-forward
+        // preserves the previous value (true).
         JBRulesetConfig[] memory newConfigs = new JBRulesetConfig[](1);
         newConfigs[0] = _makeRulesetConfig(address(0), false, false);
 
