@@ -77,6 +77,7 @@ interface IJBOmnichainDeployer {
         JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         external
+        payable
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers);
 
     /// @notice Creates a project with a default (empty-tier) 721 hook and with suckers.
@@ -98,6 +99,7 @@ interface IJBOmnichainDeployer {
         JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         external
+        payable
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers);
 
     /// @notice Launches new rulesets for a project with a 721 tiers hook attached.
