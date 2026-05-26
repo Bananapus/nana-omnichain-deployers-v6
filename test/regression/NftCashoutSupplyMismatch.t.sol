@@ -79,8 +79,8 @@ contract NftCashoutSupplyMismatchTest is Test {
             effectiveSurplusValue, effectiveCashOutCount, effectiveTotalSupply, cashOutTaxRate
         );
 
-        // After the fix, the deployer passes through the 721 hook's NFT-denominated values
-        // (local-only denominators) instead of using the fungible token supply.
+        // The deployer passes through the 721 hook's NFT-denominated local-only denominators instead of using fungible
+        // token supply.
         assertEq(effectiveCashOutCount, NFT_CASH_OUT_WEIGHT);
         assertEq(effectiveTotalSupply, NFT_TOTAL_CASH_OUT_WEIGHT);
         assertEq(intendedReclaim, 3.333_333_333_333_333_333 ether);
@@ -103,8 +103,8 @@ contract NftCashoutSupplyMismatchTest is Test {
             effectiveSurplusValue, effectiveCashOutCount, effectiveTotalSupply, cashOutTaxRate
         );
 
-        // After the fix, even when fungible supply is zero, the deployer passes through
-        // the 721 hook's NFT total cashout weight — not zero — preventing full surplus drain.
+        // Even when fungible supply is zero, the deployer passes through the 721 hook's NFT total cash-out weight,
+        // preventing full surplus drain.
         assertEq(effectiveCashOutCount, NFT_CASH_OUT_WEIGHT);
         assertEq(effectiveTotalSupply, NFT_TOTAL_CASH_OUT_WEIGHT);
         assertEq(intendedReclaim, 3.333_333_333_333_333_333 ether);

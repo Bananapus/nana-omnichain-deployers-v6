@@ -32,7 +32,7 @@ import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 
 /// @title OmnichainRegressionFixes
-/// @notice Tests verifying the correctness of regression fixes and .
+/// @notice Regression coverage for cross-chain surplus, controller validation, and hook forwarding.
 contract OmnichainRegressionFixes is Test {
     JBOmnichainDeployer deployer;
 
@@ -190,8 +190,8 @@ contract OmnichainRegressionFixes is Test {
     //*********************************************************************//
 
     /// @notice Verifies that the extra cash-out hook receives the cross-chain effectiveSurplusValue
-    ///         (not just the local surplus) in its context.
-    /// @dev The fix ensures hookContext.surplus.value = effectiveSurplusValue (cross-chain adjusted).
+    ///         (not only the local surplus) in its context.
+    /// @dev The deployer sets hookContext.surplus.value = effectiveSurplusValue (cross-chain adjusted).
     ///      We verify this by mocking the extra hook to return a specific value only when called
     ///      with the correct surplus.value, confirming the deployer passes the right parameter.
     function test_extraHookReceivesCrossChainSurplus() public {
@@ -234,7 +234,7 @@ contract OmnichainRegressionFixes is Test {
         (uint256 cashOutTaxRate,, uint256 totalSupply, uint256 effectiveSurplusValue,) =
             deployer.beforeCashOutRecordedWith(context);
 
-        // fix: The deployer must return the cross-chain effective surplus, not just local.
+        // The deployer must return the cross-chain effective surplus, not only local surplus.
         assertEq(
             effectiveSurplusValue,
             expectedEffectiveSurplus,
@@ -252,9 +252,8 @@ contract OmnichainRegressionFixes is Test {
         // The 721 hook mock returns (5000, 1000, ...) and the extra hook mock also returns (5000, 1000, ...).
         // We verify specifically by confirming effectiveSurplusValue reflects cross-chain values.
         // The deployer code sets `hookContext.surplus.value = effectiveSurplusValue` before calling
-        // the extra hook — that's the fix. If it used local surplus instead,
-        // the effectiveSurplusValue would still be correct (it's computed before the extra hook call),
-        // but the extra hook would receive wrong data. We verify the call happens:
+        // the extra hook. If it used local surplus instead, the effectiveSurplusValue would still be correct (it's
+        // computed before the extra hook call), but the extra hook would receive wrong data.
         vm.expectCall(extraHookAddr, abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector));
         // Re-call to verify the expectCall.
         deployer.beforeCashOutRecordedWith(context);
@@ -357,7 +356,7 @@ contract OmnichainRegressionFixes is Test {
         JBRulesetConfig[] memory configs = new JBRulesetConfig[](1);
         configs[0] = _rulesetConfig();
 
-        // Should NOT revert — controller matches.
+        // Should not revert: controller matches.
         vm.prank(projectOwner);
         deployer.launchRulesetsFor(
             PROJECT_ID,
@@ -404,7 +403,7 @@ contract OmnichainRegressionFixes is Test {
         configs[0] = _rulesetConfig();
 
         // Disable the 721 hook for cash-out so the deployer computes cross-chain surplus itself.
-        // These tests verify (surplus aggregation), not NFT cashout behavior.
+        // These tests verify surplus aggregation, not NFT cash-out behavior.
         deployer.launchProjectFor({
             owner: projectOwner,
             projectUri: "test",
@@ -450,7 +449,7 @@ contract OmnichainRegressionFixes is Test {
         configs[0].metadata.useDataHookForCashOut = true;
 
         // Disable the 721 hook for cash-out so the deployer computes cross-chain surplus itself.
-        // These tests verify (extra hook forwarding), not NFT cashout behavior.
+        // These tests verify extra hook forwarding, not NFT cash-out behavior.
         deployer.launchProjectFor({
             owner: projectOwner,
             projectUri: "test",

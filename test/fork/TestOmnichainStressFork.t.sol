@@ -440,7 +440,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
         });
 
         assertGt(reclaimed2, 0, "Payer2 should reclaim something");
-        // Payer2 now has 2/5 of remaining supply (tokens3 = 3/5 still outstanding).
+        // Payer2 has 2/5 of remaining supply (tokens3 = 3/5 still outstanding).
         // Their reclaim should be greater than payer1's.
         assertGt(
             reclaimed2,

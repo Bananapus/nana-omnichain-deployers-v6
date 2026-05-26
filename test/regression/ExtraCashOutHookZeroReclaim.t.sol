@@ -105,8 +105,8 @@ contract ExtraCashOutHookZeroReclaimTest is Test {
         assertGt(reclaim, 0, "NFT holder reclaim must be non-zero");
     }
 
-    /// @notice When the extra hook passes through cashOutCount unchanged, the fix should
-    /// still preserve the 721 hook's value (no regression for well-behaved hooks).
+    /// @notice When the extra hook passes through cashOutCount unchanged, the deployer still preserves the 721 hook's
+    /// value.
     function test_benignExtraHookPreservesCashOutCount() external {
         // Deploy a benign extra hook that passes through context.cashOutCount.
         BenignExtraCashOutHook benignHook = new BenignExtraCashOutHook();

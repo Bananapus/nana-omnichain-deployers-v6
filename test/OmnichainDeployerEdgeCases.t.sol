@@ -181,7 +181,7 @@ contract OmnichainDeployerEdgeCases is Test {
             abi.encode(uint256(0))
         );
 
-        // Hook deployer mocks (every path now deploys a 721 hook).
+        // Hook deployer mocks because every path deploys a 721 hook.
         vm.mockCall(
             address(hookDeployer),
             abi.encodeWithSelector(IJB721TiersHookDeployer.deployHookFor.selector),

@@ -27,8 +27,7 @@ import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBD
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 
 /// @title HookOwnershipTransfer
-/// @notice Regression test: queue721RulesetsOf must transfer hook ownership to the project.
-///         Before this fix, the hook's ownership was stuck with JBOmnichainDeployer permanently.
+/// @notice Verifies `queue721RulesetsOf` transfers newly deployed hook ownership to the project.
 contract HookOwnershipTransfer is Test {
     JBOmnichainDeployer deployer;
 

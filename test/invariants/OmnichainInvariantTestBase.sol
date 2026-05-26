@@ -104,6 +104,8 @@ abstract contract OmnichainInvariantTestBase is TestBaseWorkflow {
             votingUnits: 0,
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
+            // "tier1" is shorter than 32 bytes.
+            // forge-lint: disable-next-line(unsafe-typecast)
             encodedIpfsUri: bytes32("tier1"),
             category: 1,
             discountPercent: 0,

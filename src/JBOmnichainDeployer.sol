@@ -37,13 +37,11 @@ import {mulDiv} from "@prb/math/src/Common.sol";
 /// 721 hook and cross-chain suckers in a single transaction, then inserts itself as every ruleset's data hook so it can
 /// coordinate between the 721 hook, an optional extra hook (e.g. buyback), and the sucker registry at pay/cash-out
 /// time. At pay time it merges weight and hook specifications from both the 721 hook and the extra hook. At cash-out
-/// time it
-/// computes cross-chain total supply and surplus (so the bonding curve reflects all chains), grants suckers 0% cash-out
-/// tax, and delegates tax-rate adjustments to the underlying hooks.
+/// time it computes cross-chain total supply and surplus (so the bonding curve reflects all chains), grants suckers 0%
+/// cash-out tax, and delegates tax-rate adjustments to the underlying hooks.
 /// @dev Project NFTs sent to this contract are not recoverable. The deployer does not implement any NFT rescue
 /// mechanism beyond `onERC721Received` for `JBProjects`. This is acceptable because the deployer should never own
-/// project NFTs —
-/// it creates projects and transfers ownership in the same transaction.
+/// project NFTs — it creates projects and transfers ownership in the same transaction.
 contract JBOmnichainDeployer is
     ERC2771Context,
     JBPermissioned,
@@ -136,16 +134,14 @@ contract JBOmnichainDeployer is
         HOOK_DEPLOYER = hookDeployer;
         DIRECTORY = controller.DIRECTORY();
 
-        // Give the sucker registry permission to map tokens for all revnets.
+        // Let the sucker registry map tokens for projects this deployer administers.
         uint8[] memory permissionIds = new uint8[](1);
         permissionIds[0] = JBPermissionIds.MAP_SUCKER_TOKEN;
 
-        // Give the operator the permission.
-        // Set up the permission data.
+        // Grant the registry a deployer-scoped wildcard permission.
         JBPermissionsData memory permissionData =
             JBPermissionsData({operator: address(SUCKER_REGISTRY), projectId: 0, permissionIds: permissionIds});
 
-        // Set the permissions.
         PERMISSIONS.setPermissionsFor({account: address(this), permissionsData: permissionData});
     }
 
@@ -732,8 +728,9 @@ contract JBOmnichainDeployer is
 
     /// @notice Indicates if this contract adheres to the specified interface.
     /// @dev See `IERC165.supportsInterface`.
-    /// @return A flag indicating if the provided interface ID is supported.
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+    /// @param interfaceId The interface ID to check.
+    /// @return flag A flag indicating if the provided interface ID is supported.
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool flag) {
         return interfaceId == type(IJBOmnichainDeployer).interfaceId
             || interfaceId == type(IJBRulesetDataHook).interfaceId
             || interfaceId == type(IJBPeerChainAdjustedAccounts).interfaceId
@@ -807,7 +804,7 @@ contract JBOmnichainDeployer is
         // A fresh launch must leave the directory pointing at this deployer's canonical controller.
         _requireController({projectId: projectId, allowUnset: false});
 
-        // Transfer the hook's ownership to the project (now that the project NFT has been minted).
+        // Transfer the hook's ownership to the project after the project NFT has been minted.
         JBOwnable(address(hook)).transferOwnershipToProject(projectId);
 
         // Deploy the suckers (if applicable).
@@ -1001,7 +998,7 @@ contract JBOmnichainDeployer is
             _tiered721HookOf[projectId][rulesetId] =
                 JBTiered721HookConfig({hook: hook721, useDataHookForCashOut: use721ForCashOut});
 
-            // Store custom hook from metadata (same as _setup).
+            // Store any extra hook provided in ruleset metadata.
             if (rulesetConfigurations[i].metadata.dataHook != address(0)) {
                 _extraDataHookOf[projectId][rulesetId] = JBDeployerHookConfig({
                     dataHook: IJBRulesetDataHook(rulesetConfigurations[i].metadata.dataHook),
@@ -1010,7 +1007,7 @@ contract JBOmnichainDeployer is
                 });
             }
 
-            // Set this contract as the data hook, force both pay and cashout through this wrapper.
+            // Set this contract as the data hook, forcing both pay and cash-out through this wrapper.
             rulesetConfigurations[i].metadata.dataHook = address(this);
             rulesetConfigurations[i].metadata.useDataHookForPay = true;
             rulesetConfigurations[i].metadata.useDataHookForCashOut = true;

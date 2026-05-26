@@ -26,7 +26,7 @@ This file covers the risks in the deployer layer that launches Juicebox projects
 
 ## 2. Economic Risks
 
-- **Sucker cashout bypass exists for registered suckers.**
+- **Sucker cash-out bypass exists for registered suckers.**
 - **Extra data hooks can manipulate weight or cash-out behavior.**
 - **721 hook amount splitting can zero out project amount in edge cases.**
 - **Cross-chain sender dependence affects deterministic sucker salts.**
@@ -64,7 +64,7 @@ This file covers the risks in the deployer layer that launches Juicebox projects
 
 - launched projects point at the intended controller
 - stored 721 hook config exists for every ruleset created through this deployer
-- sucker cashouts always get the intended zero-tax path
+- sucker cash-outs always get the intended zero-tax path
 - self-reference prevention holds after setup
 - the project NFT ends owned by the intended owner
 
@@ -77,7 +77,7 @@ yet. The deployer still requires the provided controller to use the canonical `P
 `launchRulesetsFor` returns the canonical directory must record that controller for the project. A controller that
 does not register itself fails the launch atomically.
 
-### 8.2 Registered suckers receive 0% cashout tax
+### 8.2 Registered suckers receive 0% cash-out tax
 
 This is intentional and shares the same trust boundary as the sucker registry.
 
@@ -92,7 +92,7 @@ Documented risks that were reviewed and accepted.
 ### Configuration Risks
 
 **Unvalidated extra data hooks can brick live flows.** *(Minor)*
-Extra data hooks provided by the project owner in `_setup721` configuration can fail and brick live pay/cashout flows. Accepted because this is self-inflicted misconfiguration — only the project owner can set these hooks.
+Extra data hooks provided by the project owner in `_setup721` configuration can fail and brick live pay/cash-out flows. Accepted because this is self-inflicted misconfiguration — only the project owner can set these hooks.
 
 **Missing hook721 alias check enables double invocation.** *(Minor)*
 If the project owner configures the 721 hook as both the primary hook and as an extra data hook, it could be invoked twice. Accepted because this is self-inflicted misconfiguration — the deployer correctly processes each hook independently.
