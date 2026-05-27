@@ -59,7 +59,7 @@ contract Create2PeerDeterminismTest is Test {
 
         // Different callers, same chain -> different mixed salts (anti-collision).
         bytes32 mixedAttacker = keccak256(abi.encodePacked(callerB, userSalt));
-        assertTrue(mixedAttacker != mixedOnA, "different callers must produce different mixed salts");
+        assertNotEq(mixedAttacker, mixedOnA, "different callers must produce different mixed salts");
     }
 
     /// @notice End-to-end: predict the sucker's address on two simulated chains for the same caller-salt pair, and
