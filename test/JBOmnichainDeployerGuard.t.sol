@@ -56,6 +56,10 @@ contract MockSuckerRegistry is IJBSuckerRegistry {
         return new address[](0);
     }
 
+    function allSuckersOf(uint256) external pure override returns (address[] memory) {
+        return new address[](0);
+    }
+
     // forge-lint: disable-next-line(mixed-case-function)
     function MAX_TO_REMOTE_FEE() external pure override returns (uint256) {
         return 0;
