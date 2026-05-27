@@ -190,7 +190,7 @@ contract CrossChainDeployerInvariant is OmnichainInvariantTestBase {
         for (uint256 i; i < count; i++) {
             uint256 rulesetId = handler.ghostQueuedRulesetIds(i);
             (IJB721TiersHook storedHook,) = omnichainDeployer.tiered721HookOf(projectId, rulesetId);
-            assertTrue(address(storedHook) != address(0), "Queued ruleset must have hook config stored");
+            assertNotEq(address(storedHook), address(0), "Queued ruleset must have hook config stored");
         }
     }
 

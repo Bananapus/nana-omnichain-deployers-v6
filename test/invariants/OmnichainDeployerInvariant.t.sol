@@ -156,6 +156,6 @@ contract OmnichainDeployerInvariant is OmnichainInvariantTestBase {
     function _assertHookStorageConsistency() internal view {
         uint256 projectId = handler.projectId();
         (IJB721TiersHook hook,) = omnichainDeployer.tiered721HookOf(projectId, launchRulesetId);
-        assertTrue(address(hook) != address(0), "721 hook should be stored after deployment");
+        assertNotEq(address(hook), address(0), "721 hook should be stored after deployment");
     }
 }
