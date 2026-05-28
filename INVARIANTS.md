@@ -1,7 +1,5 @@
 # Invariants of `nana-omnichain-deployers-v6`
 
-Last updated: 2026-05-28.
-
 Scope: the single contract `JBOmnichainDeployer` (and its `IJBOmnichainDeployer` interface + config structs) that launches a multi-chain Juicebox V6 project — 721 hook + rulesets + terminals + suckers — in one transaction, then permanently wires itself as the project's ruleset data hook so it can mediate pay/cash-out across the 721 hook, an optional extra data hook (e.g. buyback), and the sucker registry. Package: `@bananapus/omnichain-deployers-v6`.
 
 Trust model in one sentence: a **permissionless one-shot launcher** mints a fresh `JBProjects` NFT, deploys a 721 hook, queues the operator-supplied rulesets (with this contract spliced in as the data hook), deploys suckers, and hands the project NFT to the named owner — with `msg.sender` mixed into every deterministic salt so an attacker cannot bind a victim's project ID to a hostile launcher on another chain. After hand-over the deployer holds **no Ownable role and no project-scoped permissions over the launched project**; only the configuration boundary (`launchRulesetsFor`, `queueRulesetsOf`, `deploySuckersFor`) can be invoked by the project owner / authorized operators.

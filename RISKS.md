@@ -33,7 +33,7 @@ This file covers the risks in the deployer layer that launches Juicebox projects
 
 ## 3. Access Control
 
-- **Wildcard `MAP_SUCKER_TOKEN` permission is broad.**
+- **Wildcard `MAP_SUCKER_TOKEN` permission is scoped to the deployer's own account.** See [`INVARIANTS.md`](./INVARIANTS.md) Section B.4 — the constructor-time grant authorizes the registry to act *as this deployer*, but the deployer is never a project owner post hand-over so the grant has no exploitable scope.
 - **Explicit sucker peers are privileged.** Existing-project deployments with non-default peers require
   `SET_SUCKER_PEER` in addition to `DEPLOY_SUCKERS`; default deterministic peering remains deploy-only.
 - **`launchRulesetsFor` requires combined permissions.**

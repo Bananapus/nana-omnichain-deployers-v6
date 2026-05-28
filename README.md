@@ -3,12 +3,18 @@
 `@bananapus/omnichain-deployers-v6` launches Juicebox projects with cross-chain suckers and a 721 hook already wired in. It is the package you use when the default project shape should be omnichain from day one.
 
 Docs: <https://docs.juicebox.money>
-Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md)  
-User journeys: [USER_JOURNEYS.md](./USER_JOURNEYS.md)  
-Skills: [SKILLS.md](./SKILLS.md)  
-Risks: [RISKS.md](./RISKS.md)  
-Administration: [ADMINISTRATION.md](./ADMINISTRATION.md)  
-Audit instructions: [AUDIT_INSTRUCTIONS.md](./AUDIT_INSTRUCTIONS.md)
+
+## Documentation
+
+- [INVARIANTS.md](./INVARIANTS.md) — runtime guarantees enforced by `JBOmnichainDeployer`, per-function caller / effect / invariant inventory, and cross-cutting invariants.
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — system overview, trust boundaries, and source map.
+- [ADMINISTRATION.md](./ADMINISTRATION.md) — control posture, recovery posture, and admin boundaries.
+- [RISKS.md](./RISKS.md) — risk register with priority levels, trust assumptions, and accepted behaviors.
+- [USER_JOURNEYS.md](./USER_JOURNEYS.md) — primary actor flows for launching omnichain projects and adding suckers later.
+- [AUDIT_INSTRUCTIONS.md](./AUDIT_INSTRUCTIONS.md) — audit objective, scope, and verification commands.
+- [SKILLS.md](./SKILLS.md) — orientation for AI agents and contributors working on this repo.
+- [STYLE_GUIDE.md](./STYLE_GUIDE.md) — Solidity and repo conventions across the Juicebox V6 ecosystem.
+- [CHANGELOG.md](./CHANGELOG.md) — version-to-version changes and migration notes.
 
 ## Overview
 
