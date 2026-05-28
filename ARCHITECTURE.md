@@ -28,4 +28,8 @@
 
 ## Source Map
 
-- `src/JBOmnichainDeployer.sol`
+- `src/JBOmnichainDeployer.sol` — the single runtime contract.
+- `src/interfaces/IJBOmnichainDeployer.sol` — external interface.
+- `src/structs/` — `JBOmnichain721Config`, `JBTiered721HookConfig`, `JBDeployerHookConfig` config shapes.
+
+For per-function caller / effect / invariant detail, see [`INVARIANTS.md`](./INVARIANTS.md).

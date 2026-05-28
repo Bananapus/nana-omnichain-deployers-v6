@@ -22,7 +22,9 @@ In scope:
 
 ## Start Here
 
-1. `src/JBOmnichainDeployer.sol`
+1. [`INVARIANTS.md`](./INVARIANTS.md) — caller / effect / invariant / cannot annotations for every external surface with `file:line` refs.
+2. `src/JBOmnichainDeployer.sol`
+3. [`RISKS.md`](./RISKS.md) — priority risks, trust assumptions, accepted behaviors.
 
 ## Verification
 

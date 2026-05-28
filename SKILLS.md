@@ -10,6 +10,7 @@
 | If you need... | Open this next |
 |---|---|
 | Repo overview and architecture | [`README.md`](./README.md), [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
+| Runtime guarantees + per-function inventory | [`INVARIANTS.md`](./INVARIANTS.md) |
 | Main deployer | [`src/JBOmnichainDeployer.sol`](./src/JBOmnichainDeployer.sol) |
 | Bridge runtime | [`../nana-suckers-v6/src/JBSucker.sol`](../nana-suckers-v6/src/JBSucker.sol) |
 | 721 hook runtime | [`../nana-721-hook-v6/src/JB721TiersHook.sol`](../nana-721-hook-v6/src/JB721TiersHook.sol) |
