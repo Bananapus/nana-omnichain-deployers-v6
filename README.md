@@ -2,7 +2,6 @@
 
 `@bananapus/omnichain-deployers-v6` launches Juicebox projects with cross-chain suckers and a 721 hook already wired in. It is the package you use when the default project shape should be omnichain from day one.
 
-Docs: <https://docs.juicebox.money>
 
 ## Documentation
 
