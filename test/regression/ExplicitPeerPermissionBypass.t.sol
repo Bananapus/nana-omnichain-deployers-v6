@@ -18,7 +18,7 @@ import {JBTokenMapping} from "@bananapus/suckers-v6/src/structs/JBTokenMapping.s
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 
-contract CodexNemesisExplicitPeerPermissionBypassTest is TestBaseWorkflow {
+contract ExplicitPeerPermissionBypassTest is TestBaseWorkflow {
     JBSuckerRegistry internal registry;
     JBOmnichainDeployer internal deployer;
     FakeSuckerDeployer internal fakeSuckerDeployer;

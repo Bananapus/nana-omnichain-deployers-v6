@@ -52,7 +52,7 @@ contract CountingSuckerRegistry {
     }
 }
 
-contract CodexNemesisZeroSaltSuckerSkipTest is Test {
+contract ZeroSaltSuckerSkipTest is Test {
     uint256 internal constant PROJECT_ID = 42;
 
     IJBPermissions internal permissions = IJBPermissions(makeAddr("permissions"));
