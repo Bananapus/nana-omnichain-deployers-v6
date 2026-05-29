@@ -24,7 +24,7 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 import {JBDeployerHookConfig} from "../../src/structs/JBDeployerHookConfig.sol";
 
-contract CodexNemesisPeerAdjustmentForwardingTest is Test {
+contract PeerAdjustmentForwardingTest is Test {
     uint256 internal constant PROJECT_ID = 1;
     uint48 internal constant RULESET_ID = 123;
 
