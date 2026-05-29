@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.54 — Bump buyback-hook-v6 to ^0.0.64
+
+- `@bananapus/buyback-hook-v6` (devDependency): `^0.0.58 → ^0.0.64`. Spans the cash-out `skip` encoding
+  (`(uint256, bool)`, 0.0.62), the metadata purpose rename `"quote"`/`"cashOutMinReclaimed"` → `"pay"`/`"cashOut"`
+  (0.0.63), and the gas-only constructor-immutable-ID refactor (0.0.64).
+- The buyback hook is only used by fork tests here (`JBOmnichainDeployer` delegates to a generic extra data hook and
+  never builds buyback-targeted metadata), so this is a test-dependency refresh with no `src/` change. The buyback
+  constructor signature is unchanged across this span, so the existing `setChainSpecificConstants` wiring in
+  `OmnichainForkTestBase` still applies. 185 non-fork tests pass; build is clean.
+
 ## 0.0.43 — Bump v6 deps to nana-core-v6 0.0.53 cohort
 
 - `@bananapus/core-v6`: `^0.0.48 → ^0.0.53` ([PR #145](https://github.com/Bananapus/nana-core-v6/pull/145) — drops `via_ir` requirement on `JBCashOutHookSpecsLib`; new `pauseCrossProjectFeeFreeInflows` ruleset metadata flag for cross-project cashout opt-out).
