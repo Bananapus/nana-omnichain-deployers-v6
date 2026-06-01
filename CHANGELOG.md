@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.56 — Raise dependency floors; document conventions in STYLE_GUIDE
+
+- Raise dependency floors to the latest published versions: `@bananapus/core-v6` `^0.0.78`,
+  `@bananapus/permission-ids-v6` `^0.0.28`, `@bananapus/ownable-v6` `^0.0.34`, `@bananapus/721-hook-v6` `^0.0.65`,
+  `@bananapus/suckers-v6` `^0.0.67`, `@bananapus/buyback-hook-v6` `^0.0.66`,
+  `@bananapus/address-registry-v6` `^0.0.32`. The build is clean and all 185 non-fork tests pass; no `src/` change.
+- Document the existing NatSpec, comment, and lint conventions in `STYLE_GUIDE.md`: expand the NatSpec section to
+  spell out required tags per member, add a Comments section describing inline-comment intent and timeless phrasing,
+  and clarify the linting expectations.
+
 ## 0.0.54 — Bump buyback-hook-v6 to ^0.0.64
 
 - `@bananapus/buyback-hook-v6` (devDependency): `^0.0.58 → ^0.0.64`. Spans the cash-out `skip` encoding
