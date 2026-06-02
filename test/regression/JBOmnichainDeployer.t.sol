@@ -8,6 +8,7 @@ import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
+import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 import {IJBRulesets} from "@bananapus/core-v6/src/interfaces/IJBRulesets.sol";
@@ -63,7 +64,8 @@ contract JBOmnichainDeployerTest is Test {
             address(projects), abi.encodeWithSelector(IERC721.ownerOf.selector, PROJECT_ID), abi.encode(projectOwner)
         );
 
-        JBSuckerRegistry registry = new JBSuckerRegistry(directory, permissions, address(this), address(0));
+        JBSuckerRegistry registry =
+            new JBSuckerRegistry(directory, permissions, IJBPrices(address(0)), address(this), address(0));
         JBOmnichainDeployer deployer = new JBOmnichainDeployer(
             IJBSuckerRegistry(address(registry)), hookDeployer, permissions, controller, address(0)
         );
@@ -176,7 +178,9 @@ contract JBOmnichainDeployerTest is Test {
             abi.encode(uint256(0))
         );
         vm.mockCall(
-            suckerRegistry, abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector), abi.encode(uint256(0))
+            suckerRegistry,
+            abi.encodeWithSelector(IJBSuckerRegistry.totalRemoteSurplusOf.selector),
+            abi.encode(uint256(0))
         );
 
         JBCashOutHookSpecification[] memory emptySpecs = new JBCashOutHookSpecification[](0);

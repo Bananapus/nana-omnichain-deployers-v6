@@ -52,7 +52,6 @@ contract TestSuckerDeploymentFork is OmnichainForkTestBase {
             deployer: opSuckerDeployer,
             directory: jbDirectory(),
             permissions: jbPermissions(),
-            prices: jbPrices(),
             tokens: jbTokens(),
             feeProjectId: 1,
             registry: suckerRegistry,

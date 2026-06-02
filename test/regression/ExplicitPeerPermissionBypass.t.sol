@@ -30,7 +30,7 @@ contract ExplicitPeerPermissionBypassTest is TestBaseWorkflow {
     function setUp() public override {
         super.setUp();
 
-        registry = new JBSuckerRegistry(jbDirectory(), jbPermissions(), address(this), address(0));
+        registry = new JBSuckerRegistry(jbDirectory(), jbPermissions(), jbPrices(), address(this), address(0));
         fakeSuckerDeployer = new FakeSuckerDeployer(jbDirectory());
         registry.allowSuckerDeployer(address(fakeSuckerDeployer));
 

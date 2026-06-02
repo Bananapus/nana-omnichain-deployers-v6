@@ -85,7 +85,7 @@ contract WeightScalingComparisonTest is Test {
         );
         vm.mockCall(
             address(suckerRegistry),
-            abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector),
+            abi.encodeWithSelector(IJBSuckerRegistry.totalRemoteSurplusOf.selector),
             abi.encode(uint256(0))
         );
 

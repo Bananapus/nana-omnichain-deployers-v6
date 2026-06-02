@@ -7,6 +7,7 @@ import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
+import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
 import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
@@ -97,7 +98,8 @@ contract OmnichainRegression is Test {
     function test_poc_deploySuckersFor_requiresHiddenPermissionForDeployerItself() public {
         vm.mockCall(address(directory), abi.encodeWithSelector(IJBDirectory.PROJECTS.selector), abi.encode(projects));
 
-        JBSuckerRegistry registry = new JBSuckerRegistry(directory, permissions, address(this), address(0));
+        JBSuckerRegistry registry =
+            new JBSuckerRegistry(directory, permissions, IJBPrices(address(0)), address(this), address(0));
         JBOmnichainDeployer deployer = new JBOmnichainDeployer(
             IJBSuckerRegistry(address(registry)), hookDeployer, permissions, controller, address(0)
         );

@@ -93,7 +93,7 @@ contract ScopeCashOutsOmnichainDeployerTest is Test {
         );
         vm.mockCall(
             SUCKER_REGISTRY,
-            abi.encodeCall(IJBSuckerRegistry.remoteSurplusOf, (PROJECT_ID, 18, uint256(1))),
+            abi.encodeCall(IJBSuckerRegistry.totalRemoteSurplusOf, (PROJECT_ID, uint256(1), 18)),
             abi.encode(REMOTE_SURPLUS)
         );
     }

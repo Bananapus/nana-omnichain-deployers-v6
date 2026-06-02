@@ -118,7 +118,7 @@ contract TestJBOmnichainDeployer is Test {
         );
         vm.mockCall(
             address(suckerRegistry),
-            abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector),
+            abi.encodeWithSelector(IJBSuckerRegistry.totalRemoteSurplusOf.selector),
             abi.encode(uint256(0))
         );
     }
@@ -245,10 +245,10 @@ contract TestJBOmnichainDeployer is Test {
         vm.mockCall(
             address(suckerRegistry),
             abi.encodeWithSelector(
-                IJBSuckerRegistry.remoteSurplusOf.selector,
+                IJBSuckerRegistry.totalRemoteSurplusOf.selector,
                 projectId,
-                uint256(18),
-                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN)))
+                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+                uint256(18)
             ),
             abi.encode(2 ether)
         );
@@ -279,10 +279,10 @@ contract TestJBOmnichainDeployer is Test {
         vm.mockCall(
             address(suckerRegistry),
             abi.encodeWithSelector(
-                IJBSuckerRegistry.remoteSurplusOf.selector,
+                IJBSuckerRegistry.totalRemoteSurplusOf.selector,
                 projectId,
-                uint256(18),
-                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN)))
+                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+                uint256(18)
             ),
             abi.encode(2 ether)
         );
