@@ -57,7 +57,9 @@ contract CrossChainDeployerInvariant is OmnichainInvariantTestBase {
             abi.encode(uint256(0))
         );
         vm.mockCall(
-            address(suckerRegistry), abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector), abi.encode(0)
+            address(suckerRegistry),
+            abi.encodeWithSelector(IJBSuckerRegistry.totalRemoteSurplusOf.selector),
+            abi.encode(0)
         );
 
         // Fund actors.

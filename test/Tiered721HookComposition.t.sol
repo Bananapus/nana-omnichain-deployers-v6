@@ -132,7 +132,7 @@ contract Tiered721HookComposition is Test {
         );
         vm.mockCall(
             address(suckerRegistry),
-            abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector),
+            abi.encodeWithSelector(IJBSuckerRegistry.totalRemoteSurplusOf.selector),
             abi.encode(uint256(0))
         );
         JBPayHookSpecification[] memory default721Specs = new JBPayHookSpecification[](1);

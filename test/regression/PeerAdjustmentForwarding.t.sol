@@ -19,6 +19,7 @@ import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
 import {IJBPeerChainAdjustedAccounts} from "@bananapus/suckers-v6/src/interfaces/IJBPeerChainAdjustedAccounts.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
+import {JBSourceContext} from "@bananapus/suckers-v6/src/structs/JBSourceContext.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
@@ -47,21 +48,23 @@ contract PeerAdjustmentForwardingTest is Test {
         });
 
         // Direct call to extra hook returns expected values.
-        (uint256 directSupply, uint256 directSurplus, uint256 directBalance) =
-            extraHook.peerChainAdjustedAccountsOf(PROJECT_ID, 18, 1);
+        (uint256 directSupply, JBSourceContext[] memory directContexts) =
+            extraHook.peerChainAdjustedAccountsOf(PROJECT_ID);
         assertEq(directSupply, 1000 ether);
-        assertEq(directSurplus, 100 ether);
-        assertEq(directBalance, 100 ether);
+        assertEq(directContexts.length, 1);
+        assertEq(uint256(directContexts[0].surplus), 100 ether);
+        assertEq(uint256(directContexts[0].balance), 100 ether);
 
         // The deployer forwards the call to the extra hook.
         (bool success, bytes memory data) = address(deployer)
-            .staticcall(abi.encodeCall(IJBPeerChainAdjustedAccounts.peerChainAdjustedAccountsOf, (PROJECT_ID, 18, 1)));
+            .staticcall(abi.encodeCall(IJBPeerChainAdjustedAccounts.peerChainAdjustedAccountsOf, (PROJECT_ID)));
 
         assertTrue(success, "wrapper forwards peer-accounting calls to stored extra hook");
-        (uint256 supply, uint256 surplus, uint256 balance) = abi.decode(data, (uint256, uint256, uint256));
+        (uint256 supply, JBSourceContext[] memory contexts) = abi.decode(data, (uint256, JBSourceContext[]));
         assertEq(supply, 1000 ether, "forwarded supply matches extra hook");
-        assertEq(surplus, 100 ether, "forwarded surplus matches extra hook");
-        assertEq(balance, 100 ether, "forwarded balance matches extra hook");
+        assertEq(contexts.length, 1, "forwarded contexts match extra hook");
+        assertEq(uint256(contexts[0].surplus), 100 ether, "forwarded surplus matches extra hook");
+        assertEq(uint256(contexts[0].balance), 100 ether, "forwarded balance matches extra hook");
 
         // With correct forwarding, reclaim uses global values — no over-reclaim.
         uint256 correctReclaim = JBCashOuts.cashOutFrom({
@@ -80,11 +83,10 @@ contract PeerAdjustmentForwardingTest is Test {
         Harness deployer =
             new Harness(IJBPermissions(address(new MockPermissions())), IJBController(address(controller)));
 
-        // No extra hook set — should return (0, 0, 0).
-        (uint256 supply, uint256 surplus, uint256 balance) = deployer.peerChainAdjustedAccountsOf(PROJECT_ID, 18, 1);
+        // No extra hook set — should return zero supply and no contexts.
+        (uint256 supply, JBSourceContext[] memory contexts) = deployer.peerChainAdjustedAccountsOf(PROJECT_ID);
         assertEq(supply, 0);
-        assertEq(surplus, 0);
-        assertEq(balance, 0);
+        assertEq(contexts.length, 0);
     }
 }
 
@@ -141,16 +143,18 @@ contract MockController {
 }
 
 contract ExtraPeerAccountingHook is IJBRulesetDataHook, IJBPeerChainAdjustedAccounts {
-    function peerChainAdjustedAccountsOf(
-        uint256,
-        uint256,
-        uint256
-    )
+    address internal constant TOKEN = address(0x000000000000000000000000000000000000EEEe);
+
+    function peerChainAdjustedAccountsOf(uint256)
         external
         pure
-        returns (uint256 supply, uint256 surplus, uint256 balance)
+        returns (uint256 supply, JBSourceContext[] memory contexts)
     {
-        return (1000 ether, 100 ether, 100 ether);
+        contexts = new JBSourceContext[](1);
+        contexts[0] = JBSourceContext({
+            token: bytes32(uint256(uint160(TOKEN))), decimals: 18, surplus: 100 ether, balance: 100 ether
+        });
+        return (1000 ether, contexts);
     }
 
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)

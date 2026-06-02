@@ -22,6 +22,7 @@ import {JBOwnable} from "@bananapus/ownable-v6/src/JBOwnable.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {IJBPeerChainAdjustedAccounts} from "@bananapus/suckers-v6/src/interfaces/IJBPeerChainAdjustedAccounts.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
+import {JBSourceContext} from "@bananapus/suckers-v6/src/structs/JBSourceContext.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
@@ -434,7 +435,7 @@ contract JBOmnichainDeployer is
         // If the ruleset aggregates cross-chain state, add remote supply and surplus.
         if (!context.scopeCashOutsToLocalBalances) {
             totalSupply += SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
-            effectiveSurplusValue += SUCKER_REGISTRY.remoteSurplusOf({
+            effectiveSurplusValue += SUCKER_REGISTRY.totalRemoteSurplusOf({
                 projectId: context.projectId,
                 decimals: context.surplus.decimals,
                 currency: uint256(context.surplus.currency)
@@ -682,44 +683,38 @@ contract JBOmnichainDeployer is
     }
 
     /// @notice Forwards peer-chain adjusted accounts from the stored extra data hook. Suckers call this on the active
-    /// data hook (which is this deployer after wrapping) to learn about additional supply/surplus/balance that should
-    /// be included in cross-chain snapshots. Without forwarding, the extra hook's peer-chain adjustments are silently
-    /// masked, causing the bonding curve to use only local values and over-reclaiming on peer chains.
+    /// data hook (which is this deployer after wrapping) to learn about additional supply and per-context surplus and
+    /// balance that should be included in cross-chain snapshots. Without forwarding, the extra hook's peer-chain
+    /// adjustments are silently masked, causing the bonding curve to use only local values and over-reclaiming on peer
+    /// chains.
     /// @dev Part of `IJBPeerChainAdjustedAccounts`. Uses staticcall to safely handle extra hooks that do not implement
     /// this interface.
     /// @param projectId The ID of the project to snapshot.
-    /// @param decimals The decimals the returned surplus and balance should use.
-    /// @param currency The currency the returned surplus and balance should be in terms of.
     /// @return supply The extra supply to include in `sourceTotalSupply`.
-    /// @return surplus The extra surplus to include in `sourceSurplus`.
-    /// @return balance The extra balance to include in `sourceBalance`.
-    function peerChainAdjustedAccountsOf(
-        uint256 projectId,
-        uint256 decimals,
-        uint256 currency
-    )
+    /// @return contexts The extra per-context surplus and balance to include in the snapshot, un-valued.
+    function peerChainAdjustedAccountsOf(uint256 projectId)
         external
         view
         override
-        returns (uint256 supply, uint256 surplus, uint256 balance)
+        returns (uint256 supply, JBSourceContext[] memory contexts)
     {
         // Get the current ruleset from the canonical controller to look up the stored extra hook.
         (JBRuleset memory ruleset,) = CONTROLLER.currentRulesetOf(projectId);
 
         // Look up the extra data hook for this project's current ruleset.
         JBDeployerHookConfig memory extraHook = _extraDataHookOf[projectId][ruleset.id];
-        if (address(extraHook.dataHook) == address(0)) return (0, 0, 0);
+        if (address(extraHook.dataHook) == address(0)) return (0, new JBSourceContext[](0));
 
         // Forward via staticcall — the extra hook may or may not implement IJBPeerChainAdjustedAccounts.
         (bool success, bytes memory data) = address(extraHook.dataHook)
-            .staticcall(
-                abi.encodeCall(
-                    IJBPeerChainAdjustedAccounts.peerChainAdjustedAccountsOf, (projectId, decimals, currency)
-                )
-            );
-        if (!success || data.length < 96) return (0, 0, 0);
+            .staticcall(abi.encodeCall(IJBPeerChainAdjustedAccounts.peerChainAdjustedAccountsOf, (projectId)));
 
-        return abi.decode(data, (uint256, uint256, uint256));
+        // A well-formed `(uint256, JBSourceContext[])` return is at least three words: the supply, the array offset,
+        // and the array length. Anything shorter (an empty return, a hook with no code, or a mismatched ABI) is
+        // treated as no contribution rather than letting the decode revert.
+        if (!success || data.length < 96) return (0, new JBSourceContext[](0));
+
+        return abi.decode(data, (uint256, JBSourceContext[]));
     }
 
     //*********************************************************************//

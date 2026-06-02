@@ -476,7 +476,7 @@ contract MockSuckerRegistry {
     /// @notice Whether an address is a sucker for a project.
     mapping(uint256 projectId => mapping(address sucker => bool flag)) public isSucker;
 
-    /// @notice Remote surplus returned by `remoteSurplusOf`.
+    /// @notice Remote surplus returned by `totalRemoteSurplusOf`.
     uint256 public remoteSurplus;
 
     /// @notice Remote total supply returned by `remoteTotalSupplyOf`.
@@ -493,9 +493,9 @@ contract MockSuckerRegistry {
         return isSucker[projectId][addr];
     }
 
-    /// @notice Remote surplus lookup matching `IJBSuckerRegistry.remoteSurplusOf`.
+    /// @notice Remote surplus lookup matching `IJBSuckerRegistry.totalRemoteSurplusOf`.
     /// @return surplus The configured remote surplus.
-    function remoteSurplusOf(uint256, uint256, uint256) external view returns (uint256 surplus) {
+    function totalRemoteSurplusOf(uint256, uint256, uint256) external view returns (uint256 surplus) {
         if (revertOnRemote) revert MockSuckerRegistry_RemoteReadForbidden();
         return remoteSurplus;
     }

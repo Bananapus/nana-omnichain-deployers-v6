@@ -92,17 +92,17 @@ contract OmnichainRegressionFixes is Test {
         // Default: no remote surplus.
         vm.mockCall(
             address(suckerRegistry),
-            abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector),
+            abi.encodeWithSelector(IJBSuckerRegistry.totalRemoteSurplusOf.selector),
             abi.encode(uint256(0))
         );
         vm.mockCall(address(controller), abi.encodeWithSelector(IJBController.PROJECTS.selector), abi.encode(projects));
     }
 
     //*********************************************************************//
-    // --- remoteSurplusOf uses context.surplus.decimals ------------ //
+    // --- totalRemoteSurplusOf uses context.surplus.decimals ------------ //
     //*********************************************************************//
 
-    /// @notice Verifies that remoteSurplusOf is called with the decimals from context.surplus (not hardcoded 18).
+    /// @notice Verifies that totalRemoteSurplusOf is called with the decimals from context.surplus (not hardcoded 18).
     function test_remoteSurplusUsesCorrectDecimals() public {
         _launchProject();
         uint256 rulesetId = block.timestamp;
@@ -111,22 +111,28 @@ contract OmnichainRegressionFixes is Test {
         uint8 customDecimals = 6;
         uint32 customCurrency = 2; // USD currency
 
-        // Mock remoteSurplusOf to return 500_000 (0.5 USDC) ONLY when called with correct decimals.
+        // Mock totalRemoteSurplusOf to return 500_000 (0.5 USDC) ONLY when called with correct decimals.
         // We use vm.expectCall to verify the exact parameters passed.
         uint256 remoteSurplus = 500_000;
         vm.mockCall(
             address(suckerRegistry),
             abi.encodeWithSelector(
-                IJBSuckerRegistry.remoteSurplusOf.selector, PROJECT_ID, uint256(customDecimals), uint256(customCurrency)
+                IJBSuckerRegistry.totalRemoteSurplusOf.selector,
+                PROJECT_ID,
+                uint256(customCurrency),
+                uint256(customDecimals)
             ),
             abi.encode(remoteSurplus)
         );
 
-        // Expect the call to remoteSurplusOf with the correct decimals from the context.
+        // Expect the call to totalRemoteSurplusOf with the correct decimals from the context.
         vm.expectCall(
             address(suckerRegistry),
             abi.encodeWithSelector(
-                IJBSuckerRegistry.remoteSurplusOf.selector, PROJECT_ID, uint256(customDecimals), uint256(customCurrency)
+                IJBSuckerRegistry.totalRemoteSurplusOf.selector,
+                PROJECT_ID,
+                uint256(customCurrency),
+                uint256(customDecimals)
             )
         );
 
@@ -143,7 +149,8 @@ contract OmnichainRegressionFixes is Test {
         );
     }
 
-    /// @notice Verifies that remoteSurplusOf is called with the currency from context.surplus (not the token address).
+    /// @notice Verifies that totalRemoteSurplusOf is called with the currency from context.surplus (not the token
+    /// address).
     function test_remoteSurplusUsesCorrectCurrency() public {
         _launchProject();
         uint256 rulesetId = block.timestamp;
@@ -158,7 +165,7 @@ contract OmnichainRegressionFixes is Test {
         vm.mockCall(
             address(suckerRegistry),
             abi.encodeWithSelector(
-                IJBSuckerRegistry.remoteSurplusOf.selector, PROJECT_ID, uint256(daiDecimals), uint256(usdCurrency)
+                IJBSuckerRegistry.totalRemoteSurplusOf.selector, PROJECT_ID, uint256(usdCurrency), uint256(daiDecimals)
             ),
             abi.encode(remoteSurplus)
         );
@@ -167,7 +174,7 @@ contract OmnichainRegressionFixes is Test {
         vm.expectCall(
             address(suckerRegistry),
             abi.encodeWithSelector(
-                IJBSuckerRegistry.remoteSurplusOf.selector, PROJECT_ID, uint256(daiDecimals), uint256(usdCurrency)
+                IJBSuckerRegistry.totalRemoteSurplusOf.selector, PROJECT_ID, uint256(usdCurrency), uint256(daiDecimals)
             )
         );
 
@@ -207,7 +214,7 @@ contract OmnichainRegressionFixes is Test {
 
         vm.mockCall(
             address(suckerRegistry),
-            abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector),
+            abi.encodeWithSelector(IJBSuckerRegistry.totalRemoteSurplusOf.selector),
             abi.encode(remoteSurplus)
         );
 

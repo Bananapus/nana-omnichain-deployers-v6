@@ -134,11 +134,11 @@ contract MockSuckerRegistryCarryForward is IJBSuckerRegistry {
         return 0;
     }
 
-    function remoteBalanceOf(uint256, uint256, uint256) external pure override returns (uint256) {
+    function totalRemoteBalanceOf(uint256, uint256, uint256) external pure override returns (uint256) {
         return 0;
     }
 
-    function remoteSurplusOf(uint256, uint256, uint256) external pure override returns (uint256) {
+    function totalRemoteSurplusOf(uint256, uint256, uint256) external pure override returns (uint256) {
         return 0;
     }
 

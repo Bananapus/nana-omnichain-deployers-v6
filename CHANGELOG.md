@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.57 — Adopt per-context oracle-free cross-chain surplus
+
+- Raised `@bananapus/suckers-v6` `^0.0.67 → ^0.0.69` to adopt the per-context cross-chain surplus API.
+- `JBOmnichainDeployer.beforeCashOutRecordedWith` now calls `SUCKER_REGISTRY.totalRemoteSurplusOf(projectId, currency,
+  decimals)` (renamed from `remoteSurplusOf`, with `currency` and `decimals` swapped); `remoteTotalSupplyOf` is
+  unchanged.
+- `JBOmnichainDeployer.peerChainAdjustedAccountsOf` now takes only `projectId` and returns `(uint256 supply,
+  JBSourceContext[] contexts)`. The forwarder re-encodes the staticcall to the stored extra data hook for the new
+  one-argument signature and decodes the per-context array return; a malformed or absent return still contributes
+  nothing rather than reverting the snapshot.
+
 ## 0.0.56 — Raise dependency floors; document conventions in STYLE_GUIDE
 
 - Raise dependency floors to the latest published versions: `@bananapus/core-v6` `^0.0.78`,

@@ -62,7 +62,7 @@ abstract contract OmnichainInvariantTestBase is TestBaseWorkflow {
     function setUp() public virtual override {
         super.setUp();
 
-        suckerRegistry = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
+        suckerRegistry = new JBSuckerRegistry(jbDirectory(), jbPermissions(), jbPrices(), multisig(), address(0));
         hookStore = new JB721TiersHookStore();
         exampleHook = new JB721TiersHook(
             jbDirectory(),

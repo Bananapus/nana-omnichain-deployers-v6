@@ -130,10 +130,10 @@ contract CashOutCountPropagationTest is Test {
         vm.mockCall(
             suckerRegistry,
             abi.encodeWithSelector(
-                IJBSuckerRegistry.remoteSurplusOf.selector,
+                IJBSuckerRegistry.totalRemoteSurplusOf.selector,
                 PROJECT_ID,
-                uint256(18),
-                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN)))
+                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+                uint256(18)
             ),
             abi.encode(0)
         );
