@@ -1,16 +1,16 @@
 # User Journeys
 
-## Repo Purpose
+## Repo purpose
 
 This repo launches projects that are omnichain from the start.
 
-## Primary Actors
+## Primary actors
 
 - operators launching omnichain projects
 - teams composing 721 hooks with extra data hooks
 - auditors checking bridge-wrapper behavior
 
-## Journey 1: Launch An Omnichain Project
+## Journey 1: Launch an omnichain project
 
 **Actor:** deployer.
 
@@ -26,7 +26,7 @@ This repo launches projects that are omnichain from the start.
 - cross-chain deployment drift
 - wrong sucker peer wiring
 
-## Journey 2: Deploying Suckers for an Existing Project
+## Journey 2: Deploying suckers for an existing project
 
 **Actor:** project owner who wants to add cross-chain sucker bridges to an already-launched project.
 
@@ -53,11 +53,11 @@ For projects that already exist and are owned by someone else, the deployer no l
 
 In Journey 1 (fresh launch), permission is implicit because the deployer owns the project NFT during deployment. In Journey 2 (existing project), permission must be explicitly granted via `JBPermissions` before sucker deployment can proceed.
 
-## Trust Boundaries
+## Trust boundaries
 
 - this repo wraps runtime behavior but does not replace the underlying 721 or sucker repos
 
-## Hand-Offs
+## Hand-offs
 
 - Use `nana-suckers-v6` for bridge runtime behavior.
 - Use `nana-721-hook-v6` for tiered NFT runtime behavior.

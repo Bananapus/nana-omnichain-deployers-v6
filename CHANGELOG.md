@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.0.57 — Adopt per-context oracle-free cross-chain surplus
+## 0.0.57 — adopt per-context oracle-free cross-chain surplus
 
 - Raised `@bananapus/suckers-v6` `^0.0.67 → ^0.0.69` to adopt the per-context cross-chain surplus API.
 - `JBOmnichainDeployer.beforeCashOutRecordedWith` now calls `SUCKER_REGISTRY.totalRemoteSurplusOf(projectId, currency,
@@ -11,7 +11,7 @@
   one-argument signature and decodes the per-context array return; a malformed or absent return still contributes
   nothing rather than reverting the snapshot.
 
-## 0.0.56 — Raise dependency floors; document conventions in STYLE_GUIDE
+## 0.0.56 — raise dependency floors; document conventions in STYLE_GUIDE
 
 - Raise dependency floors to the latest published versions: `@bananapus/core-v6` `^0.0.78`,
   `@bananapus/permission-ids-v6` `^0.0.28`, `@bananapus/ownable-v6` `^0.0.34`, `@bananapus/721-hook-v6` `^0.0.65`,
@@ -21,7 +21,7 @@
   spell out required tags per member, add a Comments section describing inline-comment intent and timeless phrasing,
   and clarify the linting expectations.
 
-## 0.0.54 — Bump buyback-hook-v6 to ^0.0.64
+## 0.0.54 — bump buyback-hook-v6 to ^0.0.64
 
 - `@bananapus/buyback-hook-v6` (devDependency): `^0.0.58 → ^0.0.64`. Spans the cash-out `skip` encoding
   (`(uint256, bool)`, 0.0.62), the metadata purpose rename `"quote"`/`"cashOutMinReclaimed"` → `"pay"`/`"cashOut"`
@@ -31,7 +31,7 @@
   constructor signature is unchanged across this span, so the existing `setChainSpecificConstants` wiring in
   `OmnichainForkTestBase` still applies. 185 non-fork tests pass; build is clean.
 
-## 0.0.43 — Bump v6 deps to nana-core-v6 0.0.53 cohort
+## 0.0.43 — bump v6 deps to nana-core-v6 0.0.53 cohort
 
 - `@bananapus/core-v6`: `^0.0.48 → ^0.0.53` ([PR #145](https://github.com/Bananapus/nana-core-v6/pull/145) — drops `via_ir` requirement on `JBCashOutHookSpecsLib`; new `pauseCrossProjectFeeFreeInflows` ruleset metadata flag for cross-project cashout opt-out).
 - `@bananapus/721-hook-v6`: `^0.0.47 → ^0.0.50`.

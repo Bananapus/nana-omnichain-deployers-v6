@@ -1,6 +1,6 @@
 # Administration
 
-## At A Glance
+## At a glance
 
 | Item | Details |
 | --- | --- |
@@ -13,7 +13,7 @@
 
 This repo controls how omnichain projects are launched and wrapped, not the low-level runtime logic of suckers or 721 hooks.
 
-## Control Model
+## Control model
 
 - launch paths are largely permissionless for new projects
 - later ruleset changes depend on project permissions
@@ -23,7 +23,7 @@ This repo controls how omnichain projects are launched and wrapped, not the low-
 
 - bad launch wiring usually means a new deployment path rather than a local patch
 
-## Admin Boundaries
+## Admin boundaries
 
 - this repo does not override locked runtime behavior in sibling repos
 
