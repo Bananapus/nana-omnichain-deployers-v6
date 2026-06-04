@@ -70,8 +70,7 @@ contract ReentrantCashOutHook is IJBCashOutHook {
                 tokenToReclaim: JBConstants.NATIVE_TOKEN,
                 minTokensReclaimed: 0,
                 beneficiary: payable(address(this)),
-                metadata: "",
-                referralProjectId: 0
+                metadata: ""
             });
         }
     }
@@ -111,8 +110,7 @@ contract ReentrantPayToCashOutHook is IJBPayHook {
                 tokenToReclaim: JBConstants.NATIVE_TOKEN,
                 minTokensReclaimed: 0,
                 beneficiary: payable(address(this)),
-                metadata: "",
-                referralProjectId: 0
+                metadata: ""
             });
         }
     }
@@ -248,8 +246,7 @@ contract OmnichainDeployerReentrancy is OmnichainForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(address(hook)),
-            metadata: "",
-            referralProjectId: 0
+            metadata: ""
         }) {
             // If it succeeds, check conservation.
             uint256 surplusAfter = _terminalBalance(projectId, JBConstants.NATIVE_TOKEN);

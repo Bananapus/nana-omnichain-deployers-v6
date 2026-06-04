@@ -141,8 +141,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(payer),
-            metadata: "",
-            referralProjectId: 0
+            metadata: ""
         });
     }
 
@@ -173,8 +172,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(payer),
-            metadata: "",
-            referralProjectId: 0
+            metadata: ""
         });
     }
 
@@ -217,8 +215,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(payer),
-            metadata: "",
-            referralProjectId: 0
+            metadata: ""
         });
 
         assertGt(reclaimed, 0, "Should reclaim some ETH");
@@ -254,8 +251,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(payer),
-            metadata: "",
-            referralProjectId: 0
+            metadata: ""
         });
 
         assertGt(reclaimed, 0, "Should reclaim some ETH");
@@ -295,8 +291,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(payer),
-            metadata: "",
-            referralProjectId: 0
+            metadata: ""
         });
 
         assertGt(reclaimed, 0, "Should get some reclaim");
@@ -342,8 +337,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(payer),
-            metadata: "",
-            referralProjectId: 0
+            metadata: ""
         });
 
         // With 50% tax and pending reserved tokens inflating supply, reclaim should be less
@@ -417,8 +411,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(payer1),
-            metadata: "",
-            referralProjectId: 0
+            metadata: ""
         });
 
         // Payer1 has 1/6 of supply with 50% tax.
@@ -435,8 +428,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(payer2),
-            metadata: "",
-            referralProjectId: 0
+            metadata: ""
         });
 
         assertGt(reclaimed2, 0, "Payer2 should reclaim something");
@@ -483,8 +475,7 @@ contract TestOmnichainStressFork is OmnichainForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(payer),
-            metadata: "",
-            referralProjectId: 0
+            metadata: ""
         });
     }
 

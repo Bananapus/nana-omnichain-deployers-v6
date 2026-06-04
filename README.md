@@ -12,7 +12,7 @@
 - [AUDIT_INSTRUCTIONS.md](./AUDIT_INSTRUCTIONS.md) — audit objective, scope, and verification commands.
 - [SKILLS.md](./SKILLS.md) — orientation for AI agents and contributors working on this repo.
 - [STYLE_GUIDE.md](./STYLE_GUIDE.md) — Solidity and repo conventions across the Juicebox V6 ecosystem.
-- [CHANGELOG.md](./CHANGELOG.md) — version-to-version changes and migration notes.
+- [CHANGELOG.md](./CHANGELOG.md) - V5 to V6 migration changelog.
 
 ## Overview
 
