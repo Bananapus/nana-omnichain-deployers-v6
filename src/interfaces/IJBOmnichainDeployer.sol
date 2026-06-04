@@ -13,6 +13,7 @@ import {JBSuckerDeploymentConfig} from "../structs/JBSuckerDeploymentConfig.sol"
 /// pay/cash-out logic through a data hook wrapper.
 interface IJBOmnichainDeployer {
     /// @notice The controller used for every project launch and ruleset queue.
+    /// @return controller The controller used for every project launch and ruleset queue.
     function CONTROLLER() external view returns (IJBController);
 
     /// @notice Get the extra data hook for a project and ruleset.

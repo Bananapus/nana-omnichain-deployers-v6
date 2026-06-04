@@ -4,11 +4,11 @@ Scope: the single contract `JBOmnichainDeployer` (and its `IJBOmnichainDeployer`
 
 Trust model in one sentence: a **permissionless one-shot launcher** mints a fresh `JBProjects` NFT, deploys a 721 hook, queues the operator-supplied rulesets (with this contract spliced in as the data hook), deploys suckers, and hands the project NFT to the named owner — with `msg.sender` mixed into every deterministic salt so an attacker cannot bind a victim's project ID to a hostile launcher on another chain. After hand-over the deployer holds **no Ownable role and no project-scoped permissions over the launched project**; only the configuration boundary (`launchRulesetsFor`, `queueRulesetsOf`, `deploySuckersFor`) can be invoked by the project owner / authorized operators.
 
-This file documents the invariants enforced by the **runtime contract in this repo**. The OMNICHAIN_RULESET_OPERATOR bypass exists *inside* `JBController` (`nana-core-v6/src/JBController.sol:475, 651`); this deployer is the address that operator role is bound to, and the back-stop that makes the bypass safe is the per-call permission check this contract performs against `PROJECTS.ownerOf(projectId)`. Cross-chain economic divergence (the arbitrage model) lives in the canonical `INVARIANTS.md` at `/Users/jango/Documents/jb/v6/evm/INVARIANTS.md` Section D2. Sucker mechanics live in `nana-suckers-v6/INVARIANTS.md`. 721-hook mechanics live in `nana-721-hook-v6/INVARIANTS.md`.
+This file documents the invariants enforced by the **runtime contract in this repo**. The OMNICHAIN_RULESET_OPERATOR bypass exists *inside* `JBController` (`nana-core-v6/src/JBController.sol:475, 651`); this deployer is the address that operator role is bound to, and the back-stop that makes the bypass safe is the per-call permission check this contract performs against `PROJECTS.ownerOf(projectId)`. Cross-chain economic divergence (the arbitrage model) lives in the canonical `INVARIANTS.md` at `../INVARIANTS.md` Section D2. Sucker mechanics live in `nana-suckers-v6/INVARIANTS.md`. 721-hook mechanics live in `nana-721-hook-v6/INVARIANTS.md`.
 
 ---
 
-# Section A — Guarantees to Project Creators / Paying Users
+## Section A — Guarantees to project creators / paying users
 
 ## A.1 Permissionless launch — deterministic project ID, hostile-launcher-resistant
 
@@ -65,7 +65,7 @@ This file documents the invariants enforced by the **runtime contract in this re
 
 ---
 
-# Section B — Guarantees to Project Owners / Operators
+## Section B — Guarantees to project owners / operators
 
 ## B.1 What this deployer back-stops about `OMNICHAIN_RULESET_OPERATOR`
 
@@ -103,7 +103,7 @@ After `safeTransferFrom(address(this), owner, projectId)` completes, this contra
 
 ---
 
-# Section C — Per-Function Operation Inventory
+## Section C — Per-function operation inventory
 
 All file:line references are to `src/JBOmnichainDeployer.sol` unless otherwise noted.
 
@@ -186,7 +186,7 @@ These are set once in the constructor (`:121-146`) and never mutated. There is n
 
 ---
 
-# Section D — Cross-Cutting Invariants
+## Section D — Cross-cutting invariants
 
 1. **Permissionless launch is salt-bound to caller.** Every CREATE2-deterministic derivation that needs cross-chain parity — the 721 hook salt (`:763`), the sucker deployment salt (`:186, 820`) — incorporates `_msgSender()`. A different sender on a peer chain produces a different address, preventing a hostile launcher from binding a victim's intended project topology to attacker-controlled addresses on another chain.
 2. **CREATE2 codehash defense via Sphinx deploy.** The `JBOmnichainDeployer` contract itself is deployed via Sphinx Safe with a fixed init-code hash (`script/Deploy.s.sol:60-75`). `_isDeployed` checks `vm.computeCreate2Address(salt, keccak256(creationCode || arguments), deployer)` — any pre-deploy bytecode squat at the predicted address would fail this check OR produce a different address. The deployer's address therefore matches across chains only if the same `(creationCode, constructor args, salt, deployer)` is used everywhere.
@@ -201,7 +201,7 @@ These are set once in the constructor (`:121-146`) and never mutated. There is n
 
 ---
 
-# Section E — Known Non-Invariants / Acceptable Risks
+## Section E — Known non-invariants / acceptable risks
 
 - **Project NFTs sent here are lost.** Acknowledged in the contract NatSpec (`:42-44`). There is no rescue path.
 - **`_requireController` cannot detect malicious controller swaps that occur *after* the launch transaction completes.** Once the project owner has the NFT, they (or anyone they grant `SET_CONTROLLER` to) can move the project off this deployer's canonical controller via the standard `JBDirectory` flow. Subsequent calls to `launchRulesetsFor`/`queueRulesetsOf` will revert `JBOmnichainDeployer_ControllerMismatch`. This is intentional: the deployer refuses to operate on projects it no longer canonically controls.
@@ -210,10 +210,10 @@ These are set once in the constructor (`:121-146`) and never mutated. There is n
 
 ---
 
-# References
+## References
 
-- Reference INVARIANTS template: `/Users/jango/Documents/jb/v6/evm/INVARIANTS.md`
-- Sister INVARIANTS: `/Users/jango/Documents/jb/v6/evm/nana-suckers-v6/INVARIANTS.md`
+- Reference INVARIANTS template: `../INVARIANTS.md`
+- Sister INVARIANTS: `../nana-suckers-v6/INVARIANTS.md`
 - OMNICHAIN_RULESET_OPERATOR bypass: `nana-core-v6/src/JBController.sol:116, 475, 651`
 - Sucker mechanics: `nana-suckers-v6/src/JBSucker.sol`, `nana-suckers-v6/src/JBSuckerRegistry.sol`
 - 721 hook salt + ownership transfer: `nana-721-hook-v6/src/JB721TiersHookDeployer.sol`

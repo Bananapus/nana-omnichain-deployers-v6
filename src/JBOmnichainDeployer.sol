@@ -158,6 +158,7 @@ contract JBOmnichainDeployer is
     /// call on both chains for deterministic address matching.
     /// @param projectId The ID of the project to deploy suckers for.
     /// @param suckerDeploymentConfiguration The suckers to set up for the project.
+    /// @return suckers The addresses of the deployed suckers.
     function deploySuckersFor(
         uint256 projectId,
         JBSuckerDeploymentConfig calldata suckerDeploymentConfiguration
@@ -760,6 +761,9 @@ contract JBOmnichainDeployer is
     }
 
     /// @notice Internal implementation of `launchProjectFor`.
+    /// @return projectId The ID of the newly launched project.
+    /// @return hook The 721 tiers hook that was deployed for the project.
+    /// @return suckers The addresses of the deployed suckers.
     function _launchProjectFor(
         address owner,
         string calldata projectUri,
@@ -823,6 +827,8 @@ contract JBOmnichainDeployer is
     }
 
     /// @notice Internal implementation of `launchRulesetsFor`.
+    /// @return rulesetId The ID of the newly launched rulesets.
+    /// @return hook The 721 tiers hook that was deployed for the project.
     function _launchRulesetsFor(
         uint256 projectId,
         string calldata projectUri,
@@ -875,6 +881,8 @@ contract JBOmnichainDeployer is
     }
 
     /// @notice Internal implementation of `queueRulesetsOf`.
+    /// @return rulesetId The ID of the newly queued rulesets.
+    /// @return hook The 721 tiers hook (newly deployed or carried forward from the previous ruleset).
     function _queueRulesetsOf(
         uint256 projectId,
         JBOmnichain721Config memory deploy721Config,
@@ -919,7 +927,8 @@ contract JBOmnichainDeployer is
                 // (or has no approval hook), its hook config should take precedence.
                 // Conservative: only use Approved or Empty status. ApprovalExpected is intentionally
                 // excluded because hook selection is irreversible — if the pending ruleset is later rejected
-                // by the approval hook, we'd have locked in a hook from a ruleset that never became active.
+                // by the approval hook, the deployer would otherwise lock in a hook from a ruleset that never
+                // became active.
                 (JBRuleset memory latestQueued, JBApprovalStatus approvalStatus) =
                     CONTROLLER.RULESETS().latestQueuedOf(projectId);
                 if (

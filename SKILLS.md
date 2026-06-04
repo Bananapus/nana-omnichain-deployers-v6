@@ -1,11 +1,11 @@
 # Juicebox Omnichain Deployers
 
-## Use This File For
+## Use this file for
 
 - Use this file when the task involves omnichain project launch, sucker deployment, or wrapped 721-hook composition.
 - Start here, then decide whether the issue is in launch orchestration, hook composition, or bridge-specific runtime behavior.
 
-## Read This Next
+## Read this next
 
 | If you need... | Open this next |
 |---|---|
@@ -19,7 +19,7 @@
 
 Orchestration and wrapper layer for launching projects with suckers and a 721 hook already wired in.
 
-## Working Rules
+## Working rules
 
 - Start in [`src/JBOmnichainDeployer.sol`](./src/JBOmnichainDeployer.sol).
 - Treat ruleset ID prediction as a real implementation dependency.
