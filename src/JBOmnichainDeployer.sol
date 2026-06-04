@@ -511,8 +511,7 @@ contract JBOmnichainDeployer is
 
     /// @notice Called by the terminal before recording a payment. Coordinates the 721 hook (which handles tier-based
     /// NFT minting and split deductions) with the extra hook (e.g. buyback, which may swap for a better token price).
-    /// Merges
-    /// their weight adjustments and hook specifications into a single response for the terminal.
+    /// Merges their weight adjustments and hook specifications into a single response for the terminal.
     /// @dev Part of `IJBRulesetDataHook`. The 721 hook's weight already accounts for tier-split deductions. The extra
     /// hook receives the post-split amount so it only routes funds actually entering the project. If both return
     /// specifications, the 721 spec comes first.
