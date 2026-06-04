@@ -180,8 +180,7 @@ contract CrossChainDeployerHandler is Test {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(actor),
-            metadata: "",
-            referralProjectId: 0
+            metadata: ""
         }) returns (
             uint256 reclaimed
         ) {
@@ -251,8 +250,7 @@ contract CrossChainDeployerHandler is Test {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(suckerAddr),
-            metadata: "",
-            referralProjectId: 0
+            metadata: ""
         }) returns (
             uint256 reclaimed
         ) {
