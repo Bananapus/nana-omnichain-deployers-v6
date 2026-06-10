@@ -557,7 +557,8 @@ contract JBOmnichainDeployer is
                 // When issueTokensForSplits is true and splits exist, this holds the weight portion
                 // attributable to tier splits — used to prevent split credit erasure if the extra
                 // hook (e.g. buyback) returns weight=0.
-                if (tiered721HookSpec.metadata.length >= 128) {
+                // The tuple's minimum ABI encoding is 160 bytes: 4 head words plus an empty `bytes` tail.
+                if (tiered721HookSpec.metadata.length >= 160) {
                     (,,, splitCreditWeight) = abi.decode(tiered721HookSpec.metadata, (address, address, bytes, uint256));
                 }
             }
@@ -709,12 +710,9 @@ contract JBOmnichainDeployer is
         (bool success, bytes memory data) = address(extraHook.dataHook)
             .staticcall(abi.encodeCall(IJBPeerChainAdjustedAccounts.peerChainAdjustedAccountsOf, (projectId)));
 
-        // A well-formed `(uint256, JBSourceContext[])` return is at least three words: the supply, the array offset,
-        // and the array length. Anything shorter (an empty return, a hook with no code, or a mismatched ABI) is
-        // treated as no contribution rather than letting the decode revert.
-        if (!success || data.length < 96) return (0, new JBSourceContext[](0));
+        if (!success) return (0, new JBSourceContext[](0));
 
-        return abi.decode(data, (uint256, JBSourceContext[]));
+        return _peerChainAdjustedAccountsFrom(data);
     }
 
     //*********************************************************************//
@@ -1056,6 +1054,66 @@ contract JBOmnichainDeployer is
     /// @return sender The address which sent this call.
     function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
         return ERC2771Context._msgSender();
+    }
+
+    /// @notice Decodes a peer-chain adjusted accounting return, falling back to no contribution if malformed.
+    /// @param data The raw return data from an extra hook's `peerChainAdjustedAccountsOf` call.
+    /// @return supply The extra supply to include in `sourceTotalSupply`.
+    /// @return contexts The extra per-context surplus and balance to include in the snapshot, un-valued.
+    function _peerChainAdjustedAccountsFrom(bytes memory data)
+        internal
+        pure
+        returns (uint256 supply, JBSourceContext[] memory contexts)
+    {
+        // A well-formed `(uint256, JBSourceContext[])` return is at least three words: the supply, the array offset,
+        // and the array length.
+        if (data.length < 96) return (0, new JBSourceContext[](0));
+
+        uint256 contextsOffset;
+        assembly ("memory-safe") {
+            supply := mload(add(data, 32))
+            contextsOffset := mload(add(data, 64))
+        }
+
+        // The dynamic array must start after the tuple's two head words, on a word boundary, with room for its length.
+        if (contextsOffset < 64 || contextsOffset % 32 != 0 || contextsOffset > data.length - 32) {
+            return (0, new JBSourceContext[](0));
+        }
+
+        uint256 contextCount;
+        assembly ("memory-safe") {
+            contextCount := mload(add(add(data, 32), contextsOffset))
+        }
+
+        uint256 contextsStart = contextsOffset + 32;
+        // Each `JBSourceContext` has four static ABI words: token, decimals, surplus, and balance.
+        if (contextCount > (data.length - contextsStart) / 128) return (0, new JBSourceContext[](0));
+
+        contexts = new JBSourceContext[](contextCount);
+
+        for (uint256 i; i < contextCount; i++) {
+            uint256 contextOffset = contextsStart + i * 128;
+            bytes32 token;
+            uint256 decimals;
+            uint256 surplus;
+            uint256 contextBalance;
+
+            assembly ("memory-safe") {
+                let contextPointer := add(add(data, 32), contextOffset)
+                token := mload(contextPointer)
+                decimals := mload(add(contextPointer, 32))
+                surplus := mload(add(contextPointer, 64))
+                contextBalance := mload(add(contextPointer, 96))
+            }
+
+            if (decimals > type(uint8).max || surplus > type(uint128).max || contextBalance > type(uint128).max) {
+                return (0, new JBSourceContext[](0));
+            }
+
+            contexts[i] = JBSourceContext({
+                token: token, decimals: uint8(decimals), surplus: uint128(surplus), balance: uint128(contextBalance)
+            });
+        }
     }
 
     /// @notice Revert unless the trusted directory records `CONTROLLER` for `projectId`.

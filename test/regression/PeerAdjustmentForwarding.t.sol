@@ -88,6 +88,29 @@ contract PeerAdjustmentForwardingTest is Test {
         assertEq(supply, 0);
         assertEq(contexts.length, 0);
     }
+
+    function test_malformedPeerChainAdjustedAccountsReturn_returnsZero() external {
+        MockDirectory directory = new MockDirectory();
+        MockController controller =
+            new MockController({rulesetId: RULESET_ID, directory: IJBDirectory(address(directory))});
+        directory.setControllerOf(PROJECT_ID, address(controller));
+
+        Harness deployer =
+            new Harness(IJBPermissions(address(new MockPermissions())), IJBController(address(controller)));
+        MalformedPeerAccountingHook extraHook = new MalformedPeerAccountingHook();
+
+        deployer.setExtraDataHookOf({
+            projectId: PROJECT_ID,
+            rulesetId: RULESET_ID,
+            config: JBDeployerHookConfig({
+                dataHook: IJBRulesetDataHook(address(extraHook)), useDataHookForPay: true, useDataHookForCashOut: true
+            })
+        });
+
+        (uint256 supply, JBSourceContext[] memory contexts) = deployer.peerChainAdjustedAccountsOf(PROJECT_ID);
+        assertEq(supply, 0, "malformed peer-accounting supply should be ignored");
+        assertEq(contexts.length, 0, "malformed peer-accounting contexts should be ignored");
+    }
 }
 
 contract Harness is JBOmnichainDeployer {
@@ -139,6 +162,49 @@ contract MockController {
     {
         ruleset.id = _rulesetId;
         metadata.reservedPercent = 0;
+    }
+}
+
+contract MalformedPeerAccountingHook is IJBRulesetDataHook {
+    fallback() external {
+        assembly ("memory-safe") {
+            mstore(0, 1)
+            mstore(32, 64)
+            mstore(64, not(0))
+            return(0, 96)
+        }
+    }
+
+    function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
+        external
+        pure
+        returns (
+            uint256 cashOutTaxRate,
+            uint256 cashOutCount,
+            uint256 totalSupply,
+            uint256 effectiveSurplusValue,
+            JBCashOutHookSpecification[] memory hookSpecifications
+        )
+    {
+        return (
+            context.cashOutTaxRate, context.cashOutCount, context.totalSupply, context.surplus.value, hookSpecifications
+        );
+    }
+
+    function beforePayRecordedWith(JBBeforePayRecordedContext calldata context)
+        external
+        pure
+        returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
+    {
+        return (context.weight, hookSpecifications);
+    }
+
+    function hasMintPermissionFor(uint256, JBRuleset memory, address) external pure returns (bool) {
+        return false;
+    }
+
+    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+        return interfaceId == type(IERC165).interfaceId || interfaceId == type(IJBRulesetDataHook).interfaceId;
     }
 }
 

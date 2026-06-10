@@ -92,7 +92,10 @@ Documented risks that were reviewed and accepted.
 ### Configuration risks
 
 **Unvalidated extra data hooks can brick live flows.** *(Minor)*
-Extra data hooks provided by the project owner in `_setup721` configuration can fail and brick live pay/cash-out flows. Accepted because this is self-inflicted misconfiguration — only the project owner can set these hooks.
+Extra data hooks provided by the project owner in `_setup721` configuration can fail and brick live pay/cash-out
+flows. Accepted because this is self-inflicted misconfiguration — only the project owner can set these hooks.
+Peer-chain accounting forwarding is narrower: missing, reverting, or malformed extra-hook peer-accounting returns are
+ignored as no contribution so optional snapshot extensions do not brick sucker snapshots.
 
 **Missing hook721 alias check enables double invocation.** *(Minor)*
 If the project owner configures the 721 hook as both the primary hook and as an extra data hook, it could be invoked twice. Accepted because this is self-inflicted misconfiguration — the deployer correctly processes each hook independently.

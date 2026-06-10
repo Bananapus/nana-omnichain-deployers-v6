@@ -11,11 +11,14 @@
 3. On pay, it calls the 721 hook first, then the optional extra hook with the adjusted amount context.
 4. On cash out, it can short-circuit for suckers, otherwise it forwards into the configured hook stack in order.
 5. Mint permission queries can be granted by suckers or by the configured extra hook.
+6. Peer-chain adjusted account queries forward to the configured extra hook, but missing or malformed returns are
+   treated as no contribution.
 
 ## High-risk areas
 
 - Ruleset ID prediction: if the predicted ID is wrong, hook config can be stored under the wrong key.
 - Hook composition order: 721 logic runs before any extra hook, which affects both specs and accounting.
+- Hook metadata decoding: split-credit metadata must satisfy the full ABI tuple minimum before it is decoded.
 - Sucker exemptions: early-return cash-out behavior is intentional and should not be removed casually.
 - Carry-forward logic: queueing rulesets without new tiers intentionally reuses the latest 721 hook.
 - Meta-transaction sender handling: salt derivation uses `_msgSender()`, not raw `msg.sender`.

@@ -56,12 +56,13 @@ This file documents the invariants enforced by the **runtime contract in this re
 - The extra hook (e.g. buyback) is then called with `amount.value` reduced to `projectAmount = context.amount.value - totalSplitAmount` — it only sees funds actually entering the project (`JBOmnichainDeployer.sol:566, 576`). The extra hook is passed the **original** `context.weight`, not the 721's split-adjusted weight, so it does not double-discount (`JBOmnichainDeployer.sol:577-580`).
 - After the extra hook returns its weight, the deployer rescales it by the 721 hook's split ratio: `weight = mulDiv(weight, tiered721Weight, context.weight)` (`JBOmnichainDeployer.sol:587-589`). The terminal therefore mints at most as many tokens as the funds actually entering the project warrant.
 - **Split-credit guard** (`JBOmnichainDeployer.sol:595-597`): if the extra hook returns `weight == 0` (buyback found no profitable swap) but `splitCreditWeight > 0`, weight is restored to `splitCreditWeight` so the split share still mints. Without this, an unprofitable buyback would erase the issuance for tier splits even though those funds were forwarded to split beneficiaries.
+- The deployer only ABI-decodes the 721 hook's split-credit metadata once it is at least 160 bytes, the minimum valid `(address, address, bytes, uint256)` tuple encoding. Head-only or shorter metadata is treated as no split credit instead of reverting the pay path.
 
 ## A.7 Peer-chain account forwarding
 
 - `peerChainAdjustedAccountsOf` (`JBOmnichainDeployer.sol:696-723`) staticcalls the extra data hook's `peerChainAdjustedAccountsOf` (if it implements `IJBPeerChainAdjustedAccounts`) and returns its `(supply, surplus, balance)`.
 - Without this forwarding, an extra hook (e.g. REVLoans-aware data hook) that contributes off-balance-sheet supply/surplus would be silently masked once this deployer wraps the ruleset — the sucker's cross-chain snapshot would only see the bonded curve's local view and over-reclaim on peer chains.
-- The call is `staticcall` + length-check — extra hooks that do not implement the interface return `(0,0,0)` cleanly.
+- The call is `staticcall` + defensive ABI decoding — extra hooks that do not implement the interface, revert, return too little data, or return malformed array bounds / out-of-range `JBSourceContext` fields are treated as no peer-chain contribution.
 
 ---
 
@@ -159,9 +160,9 @@ All file:line references are to `src/JBOmnichainDeployer.sol` unless otherwise n
   - **Caller:** controller / project terminal during mint authorization.
   - **Invariant:** suckers always granted; otherwise delegates to extra hook's `hasMintPermissionFor` (the 721 hook never grants mint authority); never grants to arbitrary addresses.
 
-- **`peerChainAdjustedAccountsOf(projectId, decimals, currency) view → (supply, surplus, balance)`** — `:696-723`.
+- **`peerChainAdjustedAccountsOf(projectId) view → (supply, contexts[])`** — `:696-723`.
   - **Caller:** suckers during peer-chain snapshot computation.
-  - **Invariant:** staticcall to the project's extra hook for the *current* ruleset; returns `(0,0,0)` if no extra hook or the hook does not implement `IJBPeerChainAdjustedAccounts`.
+  - **Invariant:** staticcall to the project's extra hook for the *current* ruleset; returns `(0, [])` if no extra hook, the hook does not implement `IJBPeerChainAdjustedAccounts`, or the hook returns malformed peer-accounting data.
 
 ## C.5 Lookups (views)
 
