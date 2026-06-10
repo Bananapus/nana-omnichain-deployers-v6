@@ -22,6 +22,7 @@ import {JBOwnable} from "@bananapus/ownable-v6/src/JBOwnable.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {IJBPeerChainAdjustedAccounts} from "@bananapus/suckers-v6/src/interfaces/IJBPeerChainAdjustedAccounts.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
+import {JBPeerChainAdjustedAccountsLib} from "@bananapus/suckers-v6/src/libraries/JBPeerChainAdjustedAccountsLib.sol";
 import {JBSourceContext} from "@bananapus/suckers-v6/src/structs/JBSourceContext.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -712,7 +713,7 @@ contract JBOmnichainDeployer is
 
         if (!success) return (0, new JBSourceContext[](0));
 
-        return _peerChainAdjustedAccountsFrom(data);
+        return JBPeerChainAdjustedAccountsLib.decode(data);
     }
 
     //*********************************************************************//
@@ -1054,98 +1055,6 @@ contract JBOmnichainDeployer is
     /// @return sender The address which sent this call.
     function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
         return ERC2771Context._msgSender();
-    }
-
-    /// @notice Decodes a peer-chain adjusted accounting return, falling back to no contribution if malformed.
-    /// @param data The raw return data from an extra hook's `peerChainAdjustedAccountsOf` call.
-    /// @return supply The extra supply to include in `sourceTotalSupply`.
-    /// @return contexts The extra per-context surplus and balance to include in the snapshot, un-valued.
-    function _peerChainAdjustedAccountsFrom(bytes memory data)
-        internal
-        pure
-        returns (uint256 supply, JBSourceContext[] memory contexts)
-    {
-        // `data` is a Solidity `bytes` value. Its first memory word is the byte length, and the ABI return payload
-        // starts at `data + 32`.
-        //
-        // The payload for `(uint256, JBSourceContext[])` is:
-        //   word 0: supply
-        //   word 1: offset to the dynamic `contexts` array tail, relative to the payload start
-        //   tail word 0: contexts.length
-        //   tail words: each `JBSourceContext`, encoded as 4 ABI words.
-        //
-        // Anything shorter than the two tuple head words plus the array-length word cannot be decoded safely.
-        if (data.length < 96) return (0, new JBSourceContext[](0));
-
-        uint256 contextsOffset;
-        assembly ("memory-safe") {
-            // Skip the `bytes` length word, then read the first two ABI words from the payload head.
-            supply := mload(add(data, 32))
-            contextsOffset := mload(add(data, 64))
-        }
-
-        // The array tail must begin after the two-word tuple head, remain ABI-word aligned, and leave room for its own
-        // length word. If the offset points into the head, into the middle of a word, or past the buffer, a normal
-        // `abi.decode` would revert. This wrapper instead treats the optional hook contribution as absent.
-        if (contextsOffset < 64 || contextsOffset % 32 != 0 || contextsOffset > data.length - 32) {
-            return (0, new JBSourceContext[](0));
-        }
-
-        uint256 contextCount;
-        assembly ("memory-safe") {
-            // The offset is relative to the payload start (`data + 32`), not the start of the `bytes` object.
-            contextCount := mload(add(add(data, 32), contextsOffset))
-        }
-
-        // Skip the array-length word to reach the first encoded `JBSourceContext`.
-        uint256 contextsStart = contextsOffset + 32;
-        // Each `JBSourceContext` has four static ABI words: token, decimals, surplus, and balance. Check the count
-        // against the remaining bytes before allocating the array so a hostile length cannot force a large allocation
-        // or make the loop read past the returned buffer.
-        if (contextCount > (data.length - contextsStart) / 128) return (0, new JBSourceContext[](0));
-
-        contexts = new JBSourceContext[](contextCount);
-
-        for (uint256 i; i < contextCount; i++) {
-            // Move to the encoded struct for this index. The offset is still payload-relative.
-            uint256 contextOffset = contextsStart + i * 128;
-            bytes32 token;
-            uint256 decimals;
-            uint256 surplus;
-            uint256 contextBalance;
-
-            assembly ("memory-safe") {
-                // Point at the first word of this encoded struct and read its four ABI words directly.
-                let contextPointer := add(add(data, 32), contextOffset)
-                token := mload(contextPointer)
-                decimals := mload(add(contextPointer, 32))
-                surplus := mload(add(contextPointer, 64))
-                contextBalance := mload(add(contextPointer, 96))
-            }
-
-            // The ABI decoder would reject values that do not fit their declared Solidity types. Because this function
-            // decodes manually, it must enforce the same bounds before casting so malformed data cannot silently
-            // truncate into `uint8` or `uint128`.
-            if (decimals > type(uint8).max || surplus > type(uint128).max || contextBalance > type(uint128).max) {
-                return (0, new JBSourceContext[](0));
-            }
-
-            // Store the checked values using the struct's real types. At this point every read was inside the buffer
-            // and every narrowed cast has been proven safe.
-            // Casting to `uint8` is safe because the guard above rejected larger values.
-            // forge-lint: disable-next-line(unsafe-typecast)
-            uint8 checkedDecimals = uint8(decimals);
-            // Casting to `uint128` is safe because the guard above rejected larger values.
-            // forge-lint: disable-next-line(unsafe-typecast)
-            uint128 checkedSurplus = uint128(surplus);
-            // Casting to `uint128` is safe because the guard above rejected larger values.
-            // forge-lint: disable-next-line(unsafe-typecast)
-            uint128 checkedBalance = uint128(contextBalance);
-
-            contexts[i] = JBSourceContext({
-                token: token, decimals: checkedDecimals, surplus: checkedSurplus, balance: checkedBalance
-            });
-        }
     }
 
     /// @notice Revert unless the trusted directory records `CONTROLLER` for `projectId`.
