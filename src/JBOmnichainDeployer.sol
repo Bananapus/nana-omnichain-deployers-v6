@@ -1132,8 +1132,18 @@ contract JBOmnichainDeployer is
 
             // Store the checked values using the struct's real types. At this point every read was inside the buffer
             // and every narrowed cast has been proven safe.
+            // Casting to `uint8` is safe because the guard above rejected larger values.
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint8 checkedDecimals = uint8(decimals);
+            // Casting to `uint128` is safe because the guard above rejected larger values.
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint128 checkedSurplus = uint128(surplus);
+            // Casting to `uint128` is safe because the guard above rejected larger values.
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint128 checkedBalance = uint128(contextBalance);
+
             contexts[i] = JBSourceContext({
-                token: token, decimals: uint8(decimals), surplus: uint128(surplus), balance: uint128(contextBalance)
+                token: token, decimals: checkedDecimals, surplus: checkedSurplus, balance: checkedBalance
             });
         }
     }
