@@ -1065,33 +1065,49 @@ contract JBOmnichainDeployer is
         pure
         returns (uint256 supply, JBSourceContext[] memory contexts)
     {
-        // A well-formed `(uint256, JBSourceContext[])` return is at least three words: the supply, the array offset,
-        // and the array length.
+        // `data` is a Solidity `bytes` value. Its first memory word is the byte length, and the ABI return payload
+        // starts at `data + 32`.
+        //
+        // The payload for `(uint256, JBSourceContext[])` is:
+        //   word 0: supply
+        //   word 1: offset to the dynamic `contexts` array tail, relative to the payload start
+        //   tail word 0: contexts.length
+        //   tail words: each `JBSourceContext`, encoded as 4 ABI words.
+        //
+        // Anything shorter than the two tuple head words plus the array-length word cannot be decoded safely.
         if (data.length < 96) return (0, new JBSourceContext[](0));
 
         uint256 contextsOffset;
         assembly ("memory-safe") {
+            // Skip the `bytes` length word, then read the first two ABI words from the payload head.
             supply := mload(add(data, 32))
             contextsOffset := mload(add(data, 64))
         }
 
-        // The dynamic array must start after the tuple's two head words, on a word boundary, with room for its length.
+        // The array tail must begin after the two-word tuple head, remain ABI-word aligned, and leave room for its own
+        // length word. If the offset points into the head, into the middle of a word, or past the buffer, a normal
+        // `abi.decode` would revert. This wrapper instead treats the optional hook contribution as absent.
         if (contextsOffset < 64 || contextsOffset % 32 != 0 || contextsOffset > data.length - 32) {
             return (0, new JBSourceContext[](0));
         }
 
         uint256 contextCount;
         assembly ("memory-safe") {
+            // The offset is relative to the payload start (`data + 32`), not the start of the `bytes` object.
             contextCount := mload(add(add(data, 32), contextsOffset))
         }
 
+        // Skip the array-length word to reach the first encoded `JBSourceContext`.
         uint256 contextsStart = contextsOffset + 32;
-        // Each `JBSourceContext` has four static ABI words: token, decimals, surplus, and balance.
+        // Each `JBSourceContext` has four static ABI words: token, decimals, surplus, and balance. Check the count
+        // against the remaining bytes before allocating the array so a hostile length cannot force a large allocation
+        // or make the loop read past the returned buffer.
         if (contextCount > (data.length - contextsStart) / 128) return (0, new JBSourceContext[](0));
 
         contexts = new JBSourceContext[](contextCount);
 
         for (uint256 i; i < contextCount; i++) {
+            // Move to the encoded struct for this index. The offset is still payload-relative.
             uint256 contextOffset = contextsStart + i * 128;
             bytes32 token;
             uint256 decimals;
@@ -1099,6 +1115,7 @@ contract JBOmnichainDeployer is
             uint256 contextBalance;
 
             assembly ("memory-safe") {
+                // Point at the first word of this encoded struct and read its four ABI words directly.
                 let contextPointer := add(add(data, 32), contextOffset)
                 token := mload(contextPointer)
                 decimals := mload(add(contextPointer, 32))
@@ -1106,10 +1123,15 @@ contract JBOmnichainDeployer is
                 contextBalance := mload(add(contextPointer, 96))
             }
 
+            // The ABI decoder would reject values that do not fit their declared Solidity types. Because this function
+            // decodes manually, it must enforce the same bounds before casting so malformed data cannot silently
+            // truncate into `uint8` or `uint128`.
             if (decimals > type(uint8).max || surplus > type(uint128).max || contextBalance > type(uint128).max) {
                 return (0, new JBSourceContext[](0));
             }
 
+            // Store the checked values using the struct's real types. At this point every read was inside the buffer
+            // and every narrowed cast has been proven safe.
             contexts[i] = JBSourceContext({
                 token: token, decimals: uint8(decimals), surplus: uint128(surplus), balance: uint128(contextBalance)
             });
