@@ -238,8 +238,8 @@ contract SplitCreditWeightTest is Test {
     // =========================================================================
     // Test 4: Short metadata → decode skipped, splitCreditWeight stays 0
     // =========================================================================
-    /// @notice When the 721 hook's spec metadata is shorter than 128 bytes, the splitCreditWeight
-    ///         decode is skipped (line 545 guard). If buyback returns 0, weight stays 0.
+    /// @notice When the 721 hook's spec metadata is shorter than the encoded tuple minimum, the splitCreditWeight
+    ///         decode is skipped. If buyback returns 0, weight stays 0.
     function test_shortMetadata_decodeSkipped() public {
         address mock721 = makeAddr("mock721_shortMeta");
         address buyback = makeAddr("buybackHook");
@@ -248,7 +248,7 @@ contract SplitCreditWeightTest is Test {
 
         uint256 contextWeight = 700;
         JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](1);
-        // Short metadata (32 bytes < 128): splitCreditWeight decode will be skipped.
+        // Short metadata (32 bytes < tuple minimum): splitCreditWeight decode will be skipped.
         specs[0] = JBPayHookSpecification({
             hook: IJBPayHook(mock721), noop: false, amount: 0.3 ether, metadata: abi.encode(uint256(42))
         });
@@ -274,6 +274,41 @@ contract SplitCreditWeightTest is Test {
 
         // splitCreditWeight = 0 (decode skipped), buyback returned 0 → no fallback → weight = 0.
         assertEq(weight, 0, "Weight should be 0 when metadata too short for splitCreditWeight decode");
+    }
+
+    /// @notice 128-byte metadata is long enough to hold the tuple head but not the dynamic bytes tail, so it must not
+    ///         enter `abi.decode`.
+    function test_metadataHeadOnly_decodeSkipped() public {
+        address mock721 = makeAddr("mock721_headOnlyMeta");
+        address buyback = makeAddr("buybackHook");
+
+        _storeTiered721Hook(mock721);
+
+        uint256 contextWeight = 700;
+        JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](1);
+        specs[0] = JBPayHookSpecification({
+            hook: IJBPayHook(mock721), noop: false, amount: 0.3 ether, metadata: new bytes(128)
+        });
+
+        vm.mockCall(
+            mock721,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(contextWeight, specs)
+        );
+
+        vm.mockCall(
+            buyback,
+            abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
+            abi.encode(uint256(0), new JBPayHookSpecification[](0))
+        );
+
+        JBBeforePayRecordedContext memory ctx = _makePayContext();
+        ctx.weight = contextWeight;
+        ctx.amount.value = 1 ether;
+
+        (uint256 weight,) = deployer.beforePayRecordedWith(ctx);
+
+        assertEq(weight, 0, "Weight should be 0 when metadata only contains the tuple head");
     }
 
     // =========================================================================
