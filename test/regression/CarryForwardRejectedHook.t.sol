@@ -20,6 +20,7 @@ import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB
 import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBDeploy721TiersHookConfig.sol";
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
+import {JBChainAccounting} from "@bananapus/suckers-v6/src/structs/JBChainAccounting.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckersPair} from "@bananapus/suckers-v6/src/structs/JBSuckersPair.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
@@ -102,6 +103,10 @@ contract MockSuckerRegistryCarryForward is IJBSuckerRegistry {
 
     function allSuckersOf(uint256) external pure override returns (address[] memory) {
         return new address[](0);
+    }
+
+    function peerChainAccountsOf(uint256, uint256) external pure override returns (JBChainAccounting[] memory) {
+        return new JBChainAccounting[](0);
     }
 
     // forge-lint: disable-next-line(mixed-case-function)
