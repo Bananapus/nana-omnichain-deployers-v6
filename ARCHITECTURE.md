@@ -14,6 +14,7 @@
 - hook composition must stay consistent with the created ruleset IDs
 - sucker-specific privileged paths must remain limited to trusted suckers
 - project NFT ownership and hook ownership must end in the intended place
+- the forwarded `JBProjects.createFor` creation fee must be attributed to the launching user, not this deployer (`IJBPayerTracker`)
 
 ## Trust boundaries
 

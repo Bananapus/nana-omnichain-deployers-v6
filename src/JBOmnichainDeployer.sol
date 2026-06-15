@@ -7,9 +7,11 @@ import {JBApprovalStatus} from "@bananapus/core-v6/src/enums/JBApprovalStatus.so
 import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
+import {IJBPayerTracker} from "@bananapus/core-v6/src/interfaces/IJBPayerTracker.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
+import {JBPayerTrackerLib} from "@bananapus/core-v6/src/libraries/JBPayerTrackerLib.sol";
 import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
@@ -50,6 +52,7 @@ contract JBOmnichainDeployer is
     IJBOmnichainDeployer,
     IJBRulesetDataHook,
     IJBPeerChainAdjustedAccounts,
+    IJBPayerTracker,
     IERC721Receiver
 {
     //*********************************************************************//
@@ -96,6 +99,16 @@ contract JBOmnichainDeployer is
 
     /// @notice Deploys and tracks suckers for projects.
     IJBSuckerRegistry public immutable SUCKER_REGISTRY;
+
+    //*********************************************************************//
+    // ------------------- public transient properties ------------------- //
+    //*********************************************************************//
+
+    /// @notice The account that paid the creation fee for the project currently being launched.
+    /// @dev Set to the resolved fee payer (this contract's caller, or that caller's upstream payer when the caller is
+    /// itself an `IJBPayerTracker`) while `JBProjects.createFor` runs, so `JBProjects` attributes the fee to the true
+    /// payer instead of this deployer. Cleared back to `address(0)` once the call returns.
+    address public transient override originalPayer;
 
     //*********************************************************************//
     // -------------------- internal stored properties ------------------- //
@@ -728,7 +741,8 @@ contract JBOmnichainDeployer is
         return interfaceId == type(IJBOmnichainDeployer).interfaceId
             || interfaceId == type(IJBRulesetDataHook).interfaceId
             || interfaceId == type(IJBPeerChainAdjustedAccounts).interfaceId
-            || interfaceId == type(IERC721Receiver).interfaceId || interfaceId == type(IERC165).interfaceId;
+            || interfaceId == type(IJBPayerTracker).interfaceId || interfaceId == type(IERC721Receiver).interfaceId
+            || interfaceId == type(IERC165).interfaceId;
     }
 
     //*********************************************************************//
@@ -775,7 +789,11 @@ contract JBOmnichainDeployer is
         returns (uint256 projectId, IJB721TiersHook hook, address[] memory suckers)
     {
         // Reserve the project ID up front so permissionless project creations cannot invalidate hook deployment.
+        // Expose the resolved fee payer so `JBProjects` attributes the creation fee to the true payer, not this
+        // deployer (the project's launch-time owner). Cleared immediately after.
+        originalPayer = JBPayerTrackerLib.resolve(_msgSender());
         projectId = PROJECTS.createFor{value: msg.value}(address(this));
+        originalPayer = address(0);
 
         // A fresh project can start without a controller, but it must not already be assigned elsewhere.
         _requireController({projectId: projectId, allowUnset: true});

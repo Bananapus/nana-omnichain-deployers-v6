@@ -35,6 +35,7 @@ This is a V5-to-V6 migration changelog, not a package release log or commit hist
   - `launchRulesetsFor(...)` overloads using `JBOmnichain721Config`
   - `queueRulesetsOf(...)` overloads using `JBOmnichain721Config`
   - `peerChainAdjustedAccountsOf(uint256)`
+  - `originalPayer()` — `JBOmnichainDeployer` implements `IJBPayerTracker`, advertising the resolved fee payer while forwarding `JBProjects.createFor`, so a `pay`-routing creation-fee receiver credits the launching user instead of the deployer.
 - Changed structs:
   - `JBOmnichain721Config` is new and carries the 721 hook setup through the normal launch/queue flow.
   - `JBTiered721HookConfig` is new.
