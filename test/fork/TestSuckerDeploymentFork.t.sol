@@ -62,6 +62,17 @@ contract TestSuckerDeploymentFork is OmnichainForkTestBase {
         // Allowlist the deployer in the sucker registry.
         vm.prank(multisig());
         suckerRegistry.allowSuckerDeployer(address(opSuckerDeployer));
+
+        // Allowlist the NATIVE token mapping (suckers-v6 1.0.2 token-mapping gate #180): _mapToken now
+        // reverts JBSuckerRegistry_TokenMappingNotAllowed unless the registry owner pre-approved the
+        // mapping. Mirrors deploy-all-v6's _allowDefaultSuckerTokenMappings.
+        // Read peerChainId() BEFORE the prank — it's an external call that would otherwise consume the
+        // prank, leaving allowTokenMapping to run as the default sender (OwnableUnauthorizedAccount).
+        uint256 peerChainId = singleton.peerChainId();
+        vm.prank(multisig());
+        suckerRegistry.allowTokenMapping(
+            JBConstants.NATIVE_TOKEN, peerChainId, bytes32(uint256(uint160(JBConstants.NATIVE_TOKEN)))
+        );
     }
 
     // ── Helpers ──

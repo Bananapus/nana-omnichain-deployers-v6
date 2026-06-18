@@ -78,6 +78,16 @@ contract MockSuckerRegistry is IJBSuckerRegistry {
     function allowSuckerDeployer(address) external override {}
     function allowSuckerDeployers(address[] calldata) external override {}
 
+    function tokenMappingIsAllowed(address, uint256, bytes32) external pure override returns (bool) {
+        return true;
+    }
+
+    function requireTokenMappingAllowed(address, uint256, bytes32) external pure override {}
+    function allowTokenMapping(address, uint256, bytes32) external override {}
+    function allowTokenMappings(address[] calldata, uint256[] calldata, bytes32[] calldata) external override {}
+    function removeTokenMapping(address, uint256, bytes32) external override {}
+    function removeTokenMappings(address[] calldata, uint256[] calldata, bytes32[] calldata) external override {}
+
     function deploySuckersFor(
         uint256,
         bytes32,
