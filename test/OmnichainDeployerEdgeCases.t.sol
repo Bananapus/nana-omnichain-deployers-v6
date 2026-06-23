@@ -367,12 +367,10 @@ contract OmnichainDeployerEdgeCases is Test {
         (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 2000, "Should return custom hook tax rate");
         assertEq(cashOutCount, 500, "Should return custom hook cashOutCount");
-        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
-        // With no suckers, this equals context.totalSupply.
-        assertEq(totalSupply, ctx.totalSupply, "Should return cross-chain totalSupply (context value with no suckers)");
+        assertEq(totalSupply, 8000, "Should return custom hook totalSupply");
     }
 
-    function test_beforeCashOut_customHookDenominatorAdjustmentsAreDiscarded() public {
+    function test_beforeCashOut_customHookDenominatorAdjustmentsArePreserved() public {
         customHook.setReturns(2000, 500, 8000);
         customHook.setDenominatorReturns(12_345, 99 ether);
 
@@ -383,8 +381,8 @@ contract OmnichainDeployerEdgeCases is Test {
 
         (,, uint256 totalSupply, uint256 effectiveSurplusValue,) = deployer.beforeCashOutRecordedWith(ctx);
 
-        assertEq(totalSupply, ctx.totalSupply, "extra hook supply adjustment is discarded");
-        assertEq(effectiveSurplusValue, ctx.surplus.value, "extra hook surplus adjustment is discarded");
+        assertEq(totalSupply, 12_345, "extra hook supply adjustment is preserved");
+        assertEq(effectiveSurplusValue, 99 ether, "extra hook surplus adjustment is preserved");
     }
 
     // =========================================================================
@@ -460,9 +458,7 @@ contract OmnichainDeployerEdgeCases is Test {
         (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 9999, "Should return custom hook's tax rate");
         assertEq(cashOutCount, 1, "Should return custom hook's cashOutCount");
-        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
-        // With no suckers, this equals context.totalSupply.
-        assertEq(totalSupply, ctx.totalSupply, "Should return cross-chain totalSupply (context value with no suckers)");
+        assertEq(totalSupply, 1, "Should return custom hook's totalSupply");
     }
 
     function test_beforeCashOut_721CashOutSkipsCustomHookSpecifications() public {
