@@ -31,6 +31,22 @@ import {JBOmnichainDeployer} from "../../src/JBOmnichainDeployer.sol";
 import {JBOmnichain721Config} from "../../src/structs/JBOmnichain721Config.sol";
 import {JBSuckerDeploymentConfig} from "../../src/structs/JBSuckerDeploymentConfig.sol";
 
+contract EchoCashOutHook {
+    function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
+        external
+        pure
+        returns (
+            uint256 cashOutTaxRate,
+            uint256 cashOutCount,
+            uint256 totalSupply,
+            uint256 effectiveSurplusValue,
+            JBCashOutHookSpecification[] memory hookSpecifications
+        )
+    {
+        return (5000, 1000, context.totalSupply, context.surplus.value, hookSpecifications);
+    }
+}
+
 /// @title OmnichainRegressionFixes
 /// @notice Regression coverage for cross-chain surplus, controller validation, and hook forwarding.
 contract OmnichainRegressionFixes is Test {
@@ -199,10 +215,9 @@ contract OmnichainRegressionFixes is Test {
     /// @notice Verifies that the extra cash-out hook receives the cross-chain effectiveSurplusValue
     ///         (not only the local surplus) in its context.
     /// @dev The deployer sets hookContext.surplus.value = effectiveSurplusValue (cross-chain adjusted).
-    ///      We verify this by mocking the extra hook to return a specific value only when called
-    ///      with the correct surplus.value, confirming the deployer passes the right parameter.
+    ///      The echo hook returns the forwarded denominators, confirming the deployer passes the right parameters.
     function test_extraHookReceivesCrossChainSurplus() public {
-        address extraHookAddr = makeAddr("extraHook");
+        address extraHookAddr = address(new EchoCashOutHook());
 
         _launchProjectWithExtraHook(extraHookAddr);
         uint256 rulesetId = block.timestamp;
@@ -226,14 +241,6 @@ contract OmnichainRegressionFixes is Test {
             abi.encode(remoteTotalSupply)
         );
 
-        // Mock the extra hook's beforeCashOutRecordedWith to return pass-through values.
-        JBCashOutHookSpecification[] memory emptySpecs = new JBCashOutHookSpecification[](0);
-        vm.mockCall(
-            extraHookAddr,
-            abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
-            abi.encode(uint256(5000), uint256(1000), uint256(12_000), uint256(0), emptySpecs)
-        );
-
         JBBeforeCashOutRecordedContext memory context = _cashOutContext(rulesetId);
         context.surplus.value = localSurplus;
         context.totalSupply = 10_000;
@@ -241,15 +248,16 @@ contract OmnichainRegressionFixes is Test {
         (uint256 cashOutTaxRate,, uint256 totalSupply, uint256 effectiveSurplusValue,) =
             deployer.beforeCashOutRecordedWith(context);
 
-        // The deployer must return the cross-chain effective surplus, not only local surplus.
+        // The extra hook receives cross-chain denominators and can preserve or adjust them in its return values.
         assertEq(
             effectiveSurplusValue,
             expectedEffectiveSurplus,
-            "effectiveSurplusValue must be cross-chain (local + remote)"
+            "effectiveSurplusValue should preserve the extra hook return"
         );
 
-        // The deployer computes cross-chain totalSupply = local + remote.
-        assertEq(totalSupply, context.totalSupply + remoteTotalSupply, "totalSupply must include remote supply");
+        assertEq(
+            totalSupply, context.totalSupply + remoteTotalSupply, "totalSupply should preserve the extra hook return"
+        );
 
         // The extra hook's tax rate should be forwarded.
         assertEq(cashOutTaxRate, 5000, "cashOutTaxRate should come from extra hook");
