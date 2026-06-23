@@ -85,8 +85,8 @@ contract JBOmnichainDeployerMergeFuzz is Test {
         assertEq(address(specs[0].hook), address(_hook721));
     }
 
-    /// @notice Fuzz: only extra hook handles cash-out => extra's specs returned, extra's denominators discarded.
-    function testFuzz_cashOutExtraOnlyDiscardsExtraDenominators(
+    /// @notice Fuzz: only extra hook handles cash-out => extra's specs and denominator adjustments are returned.
+    function testFuzz_cashOutExtraOnlyPreservesExtraDenominators(
         uint8 extraSpecCount,
         uint96 localSupply,
         uint96 localSurplus
@@ -96,15 +96,17 @@ contract JBOmnichainDeployerMergeFuzz is Test {
         extraSpecCount = uint8(bound(extraSpecCount, 0, 4));
         _deployer.seedTiered721Hook(PROJECT_ID, RULESET_ID, IJB721TiersHook(address(_hook721)), false);
         _deployer.seedExtraHook(PROJECT_ID, RULESET_ID, IJBRulesetDataHook(address(_extraHook)), false, true);
+        uint96 extraSupply = uint96(bound(localSupply, 1, type(uint96).max));
+        uint96 extraSurplus = uint96(bound(localSurplus, 1, type(uint96).max));
         _extraHook.setCashOut({
-            taxRate: 9999, count: 12_345, supply: type(uint96).max, surplus: type(uint96).max, specCount: extraSpecCount
+            taxRate: 9999, count: 12_345, supply: extraSupply, surplus: extraSurplus, specCount: extraSpecCount
         });
 
         (,, uint256 outSupply, uint256 outSurplus, JBCashOutHookSpecification[] memory specs) =
             _deployer.beforeCashOutRecordedWith(_cashOutContext(address(2), false, 0, localSupply, localSurplus));
 
-        assertEq(outSupply, localSupply, "deployer denominators must win");
-        assertEq(outSurplus, localSurplus, "deployer denominators must win");
+        assertEq(outSupply, extraSupply, "extra hook supply adjustment must be preserved");
+        assertEq(outSurplus, extraSurplus, "extra hook surplus adjustment must be preserved");
         assertEq(specs.length, extraSpecCount);
         for (uint256 i; i < specs.length; i++) {
             assertEq(address(specs[i].hook), address(_extraHook));
