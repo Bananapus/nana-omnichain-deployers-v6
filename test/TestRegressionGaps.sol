@@ -466,9 +466,7 @@ contract TestRegressionGaps is Test {
         (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, type(uint256).max, "Should pass through max tax rate from hook");
         assertEq(cashOutCount, 0, "Should pass through 0 count from hook");
-        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
-        // With no suckers, this equals context.totalSupply.
-        assertEq(totalSupply, ctx.totalSupply, "Should return cross-chain totalSupply (context value with no suckers)");
+        assertEq(totalSupply, type(uint256).max, "Should pass through max totalSupply from hook");
     }
 
     // -------------------------------------------------------------------------
