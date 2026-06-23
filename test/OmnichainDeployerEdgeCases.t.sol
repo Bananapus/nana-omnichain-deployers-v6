@@ -42,6 +42,7 @@ contract CustomCashOutHook is IJBRulesetDataHook {
     uint256 public cashOutTaxRateReturn;
     uint256 public cashOutCountReturn;
     uint256 public totalSupplyReturn;
+    uint256 public effectiveSurplusValueReturn;
     bool public mintPermission;
     bool public shouldReturnCashOutHookSpecification;
     uint256 public cashOutHookAmountReturn;
@@ -51,6 +52,11 @@ contract CustomCashOutHook is IJBRulesetDataHook {
         cashOutTaxRateReturn = taxRate;
         cashOutCountReturn = count;
         totalSupplyReturn = supply;
+    }
+
+    function setDenominatorReturns(uint256 supply, uint256 surplus) external {
+        totalSupplyReturn = supply;
+        effectiveSurplusValueReturn = surplus;
     }
 
     function setMintPermission(bool granted) external {
@@ -96,7 +102,14 @@ contract CustomCashOutHook is IJBRulesetDataHook {
             });
         }
 
-        return (cashOutTaxRateReturn, cashOutCountReturn, totalSupplyReturn, 0, hookSpecifications);
+        return
+            (
+                cashOutTaxRateReturn,
+                cashOutCountReturn,
+                totalSupplyReturn,
+                effectiveSurplusValueReturn,
+                hookSpecifications
+            );
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external view override returns (bool) {
@@ -354,9 +367,22 @@ contract OmnichainDeployerEdgeCases is Test {
         (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 2000, "Should return custom hook tax rate");
         assertEq(cashOutCount, 500, "Should return custom hook cashOutCount");
-        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
-        // With no suckers, this equals context.totalSupply.
-        assertEq(totalSupply, ctx.totalSupply, "Should return cross-chain totalSupply (context value with no suckers)");
+        assertEq(totalSupply, 8000, "Should return custom hook totalSupply");
+    }
+
+    function test_beforeCashOut_customHookDenominatorAdjustmentsArePreserved() public {
+        customHook.setReturns(2000, 500, 8000);
+        customHook.setDenominatorReturns(12_345, 99 ether);
+
+        _launchProjectWithCustomCashOutHook(address(customHook));
+        rulesetId = block.timestamp;
+
+        JBBeforeCashOutRecordedContext memory ctx = _makeCashOutContext(projectId, rulesetId, attacker);
+
+        (,, uint256 totalSupply, uint256 effectiveSurplusValue,) = deployer.beforeCashOutRecordedWith(ctx);
+
+        assertEq(totalSupply, 12_345, "extra hook supply adjustment is preserved");
+        assertEq(effectiveSurplusValue, 99 ether, "extra hook surplus adjustment is preserved");
     }
 
     // =========================================================================
@@ -432,9 +458,7 @@ contract OmnichainDeployerEdgeCases is Test {
         (uint256 cashOutTaxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(ctx);
         assertEq(cashOutTaxRate, 9999, "Should return custom hook's tax rate");
         assertEq(cashOutCount, 1, "Should return custom hook's cashOutCount");
-        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
-        // With no suckers, this equals context.totalSupply.
-        assertEq(totalSupply, ctx.totalSupply, "Should return cross-chain totalSupply (context value with no suckers)");
+        assertEq(totalSupply, 1, "Should return custom hook's totalSupply");
     }
 
     function test_beforeCashOut_721CashOutSkipsCustomHookSpecifications() public {

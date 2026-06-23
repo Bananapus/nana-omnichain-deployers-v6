@@ -492,10 +492,9 @@ contract JBOmnichainDeployer is
             hookContext.totalSupply = totalSupply;
             hookContext.surplus.value = effectiveSurplusValue;
 
-            // Forward to the extra hook. It may further change the tax rate and return hook specs.
-            // We always discard totalSupply and effectiveSurplusValue — this contract computes cross-chain values
-            // for both.
-            (cashOutTaxRate, cashOutCount,,, extraHookSpecifications) =
+            // Forward to the extra hook. It may further change the cash-out parameters after seeing the wrapper's
+            // local or cross-chain denominators.
+            (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, extraHookSpecifications) =
                 extraHook.dataHook.beforeCashOutRecordedWith(hookContext);
         }
 

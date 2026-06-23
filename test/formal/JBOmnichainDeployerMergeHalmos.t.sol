@@ -115,9 +115,9 @@ contract JBOmnichainDeployerMergeHalmos {
     /// are returned but its totalSupply/surplus are discarded in favor of the deployer's cross-chain values.
     /// @dev The extra hook's spec count is fixed at 2 here: a symbolic dynamic-array length makes halmos abort with a
     /// NotConcreteError on the memory offset, so the wider count sweep lives in the forge fuzz companion.
-    /// @param localSupply The local supply (no remote configured), which must be preserved.
-    /// @param localSurplus The local surplus, which must be preserved.
-    function check_cashOutExtraOnlyReturnsExtraSpecsAndDeployerDenominators(
+    /// @param localSupply The local supply before the extra hook adjustment.
+    /// @param localSurplus The local surplus before the extra hook adjustment.
+    function check_cashOutExtraOnlyReturnsExtraSpecsAndExtraDenominators(
         uint96 localSupply,
         uint96 localSurplus
     )
@@ -129,7 +129,7 @@ contract JBOmnichainDeployerMergeHalmos {
         _deployer.seedTiered721Hook(PROJECT_ID, RULESET_ID, IJB721TiersHook(address(_hook721)), false);
         // Extra hook handles cash-out and returns `extraSpecCount` specs.
         _deployer.seedExtraHook(PROJECT_ID, RULESET_ID, IJBRulesetDataHook(address(_extraHook)), false, true);
-        // The extra hook reports bogus supply/surplus that MUST be discarded.
+        // The extra hook reports adjusted supply/surplus that must be preserved.
         _extraHook.setCashOut({
             taxRate: 9999, count: 12_345, supply: type(uint96).max, surplus: type(uint96).max, specCount: extraSpecCount
         });
@@ -137,9 +137,9 @@ contract JBOmnichainDeployerMergeHalmos {
         (,, uint256 outSupply, uint256 outSurplus, JBCashOutHookSpecification[] memory specs) =
             _deployer.beforeCashOutRecordedWith(_cashOutContext(address(2), false, 0, localSupply, localSurplus));
 
-        // Deployer's cross-chain denominators (here local-only, no remote) win — extra hook values discarded.
-        assert(outSupply == localSupply);
-        assert(outSurplus == localSurplus);
+        // Extra hook denominator adjustments are preserved.
+        assert(outSupply == type(uint96).max);
+        assert(outSurplus == type(uint96).max);
 
         // The returned spec count equals exactly the extra hook's spec count, all pointing at the extra hook.
         assert(specs.length == extraSpecCount);
