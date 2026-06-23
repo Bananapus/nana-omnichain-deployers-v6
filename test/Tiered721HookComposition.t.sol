@@ -420,12 +420,12 @@ contract Tiered721HookComposition is Test {
             abi.encode(uint256(3000), uint256(500), uint256(5000), uint256(0), cashOutSpecs)
         );
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
-        (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(context);
+        (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply, uint256 effectiveSurplus,) =
+            deployer.beforeCashOutRecordedWith(context);
         assertEq(taxRate, 3000, "buyback hook's tax rate");
         assertEq(cashOutCount, 500, "buyback hook's cashOutCount");
-        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
-        // With no suckers, this equals context.totalSupply.
-        assertEq(totalSupply, context.totalSupply, "cross-chain totalSupply (context value with no suckers)");
+        assertEq(totalSupply, 5000, "buyback hook's totalSupply");
+        assertEq(effectiveSurplus, 0, "buyback hook's effectiveSurplus");
     }
 
     function test_beforeCashOut_zeroTiers_forwardsToUserHook() public {
@@ -441,12 +441,12 @@ contract Tiered721HookComposition is Test {
             abi.encode(uint256(2000), uint256(100), uint256(1000), uint256(0), cashOutSpecs)
         );
         JBBeforeCashOutRecordedContext memory context = _makeCashOutContext(projectId, block.timestamp, randomAddr);
-        (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply,,) = deployer.beforeCashOutRecordedWith(context);
+        (uint256 taxRate, uint256 cashOutCount, uint256 totalSupply, uint256 effectiveSurplus,) =
+            deployer.beforeCashOutRecordedWith(context);
         assertEq(taxRate, 2000, "user hook's tax rate");
         assertEq(cashOutCount, 100, "user hook's cashOutCount");
-        // The deployer discards the inner hook's totalSupply and computes cross-chain supply instead.
-        // With no suckers, this equals context.totalSupply.
-        assertEq(totalSupply, context.totalSupply, "cross-chain totalSupply (context value with no suckers)");
+        assertEq(totalSupply, 1000, "user hook's totalSupply");
+        assertEq(effectiveSurplus, 0, "user hook's effectiveSurplus");
     }
 
     function test_beforeCashOut_zeroTiers_noUserHook_returnsOriginal() public {
